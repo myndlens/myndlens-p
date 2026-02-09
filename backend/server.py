@@ -74,7 +74,9 @@ api_router = APIRouter(prefix="/api")
 async def health():
     settings = get_settings()
     stt = get_stt_provider()
+    tts = get_tts()
     stt_healthy = await stt.is_healthy()
+    tts_healthy = await tts.is_healthy()
     return {
         "status": "ok",
         "env": settings.ENV,
@@ -83,6 +85,9 @@ async def health():
         "stt_provider": type(stt).__name__,
         "stt_healthy": stt_healthy,
         "mock_stt": settings.MOCK_STT,
+        "tts_provider": type(tts).__name__,
+        "tts_healthy": tts_healthy,
+        "mock_tts": settings.MOCK_TTS,
     }
 
 
