@@ -20,6 +20,7 @@ from typing import Dict
 from fastapi import WebSocket, WebSocketDisconnect
 
 from auth.tokens import validate_token, TokenClaims
+from auth.sso_validator import get_sso_validator, SSOClaims
 from auth.device_binding import create_session, get_session, terminate_session
 from core.exceptions import AuthError, PresenceError, MyndLensError
 from observability.audit_log import log_audit_event
