@@ -53,6 +53,11 @@ async def init_indexes() -> None:
     await db.prompt_snapshots.create_index("purpose")
     await db.prompt_snapshots.create_index("created_at")
 
+    # Tenants: unique tenant_id, obegee_user_id
+    await db.tenants.create_index("tenant_id", unique=True)
+    await db.tenants.create_index("obegee_user_id", unique=True)
+    await db.tenants.create_index("status")
+
     logger.info("MongoDB indexes initialized")
 
 
