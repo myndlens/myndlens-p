@@ -383,16 +383,11 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Mock STT Provider"
-    - "Transcript Assembler with Evidence Spans"
-    - "Audio chunk WS handler"
-    - "Text input handler (STT fallback)"
-    - "Mock TTS response generator"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
