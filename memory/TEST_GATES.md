@@ -22,61 +22,295 @@ Plus:
 
 ---
 
+## MODULE-TO-TEST TRACEABILITY MATRIX
+
+### Mobile Modules (M1-M7)
+| Module | Name | Test Coverage | Batch |
+|--------|------|---------------|-------|
+| M1 | Audio Capture + VAD | B2-U01 to B2-U15 | Batch 2 |
+| M2 | WebSocket Client | B1-U01 to B1-U15, B3-I07 | Batch 1, 3 |
+| M3 | TTS Playback | B2-U05, B2-U06, B2-U13 | Batch 2 |
+| M4 | Draft Card UI | M4-U01 to M4-U12 | Batch 6 |
+| M5 | Execute Button | B8-U01 to B8-U06, B8-U12, B8-U13 | Batch 8 |
+| M6 | Heartbeat Sender | B1-U06 to B1-U08, B1-U14, B1-U15 | Batch 1 |
+| M7 | Offline Behavior | M7-U01 to M7-U10 | Batch 2 |
+
+### Backend Modules (B1-B22)
+| Module | Name | Test Coverage | Batch |
+|--------|------|---------------|-------|
+| B1 | Gateway | B1-U*, B2-I01 to B2-I06 | Batch 1, 2 |
+| B2 | Identity/Auth | B1-U01 to B1-U15 | Batch 1 |
+| B3 | STT Orchestrator | B3-U01 to B3-U15 | Batch 3 |
+| B4 | Transcript Assembler | B2-U07, B2-U08, B3-U04 | Batch 2, 3 |
+| B5 | L1 Scout | B4-U01 to B4-U15 | Batch 4 |
+| B6 | Digital Self | B5-U01 to B5-U15 | Batch 5 |
+| B7 | Dimension Engine | B4-U06 to B4-U15 | Batch 4 |
+| B8 | Guardrails Engine | B6-U01 to B6-U04, B6-U10 to B6-U12 | Batch 6 |
+| B9 | L2 Sentry | B7-U01 to B7-U06, B7-U11 to B7-U15 | Batch 7 |
+| B10 | QC Sentry | B7-U07 to B7-U10 | Batch 7 |
+| B11 | Commit Manager | B6-U05 to B6-U09, B6-U13 to B6-U15 | Batch 6 |
+| B12 | Presence Verifier | B8-U01 to B8-U04, B8-U14, B8-U15 | Batch 8 |
+| B13 | MIO Signer | B8-U07 to B8-U11, B8-U15 | Batch 8 |
+| B14 | Dispatcher | B9-U01 to B9-U15 | Batch 9 |
+| B15 | Tenant Registry | B9-U04 to B9-U06, B9-U10, B9-U11 | Batch 9 |
+| B16 | Observability/Audit | B11-U01 to B11-U04, B11-U09, B11-U10 | Batch 11 |
+| B17 | Rate Limiting | B11-U05, B11-U06 | Batch 11 |
+| B18 | Environment Separation | B11-U07, B11-U08 | Batch 11 |
+| B19 | Backup/Restore/DR | B12-U01 to B12-U08 | Batch 12 |
+| B20 | Prompting "Soul" | B13-U01 to B13-U10 | Batch 13 |
+| B21 | Subscription Provisioner | B95-U01 to B95-U10 | Batch 9.5 |
+| B22 | Tenant Lifecycle | B96-U01 to B96-U10 | Batch 9.6 |
+
+### Channel/Integration Modules (C1-C4)
+| Module | Name | Test Coverage | Batch |
+|--------|------|---------------|-------|
+| C1 | ObeGee Tenancy Boundary | C1-U01 to C1-U08 | Batch 10 |
+| C2 | MyndLens Channel | C2-U01 to C2-U08 | Batch 9 |
+| C3 | OpenClaw Multi-Tenant | C3-U01 to C3-U08 | Batch 10 |
+| C4 | Docker Bootstrap | C4-U01 to C4-U08 | Batch 9.5 |
+
+### Infrastructure Modules (I1-I5)
+| Module | Name | Test Coverage | Batch |
+|--------|------|---------------|-------|
+| I1 | Repo Separation | I1-U01 to I1-U06 | Batch 0 |
+| I2 | Two IP Topology | I2-U01 to I2-U06 | Batch 0 |
+| I3 | DNS Migration | I3-U01 to I3-U08 | Batch 0 |
+| I4 | TLS DNS-01 | I4-U01 to I4-U08 | Batch 0 |
+| I5 | Docker Networks | I5-U01 to I5-U06 | Batch 0 |
+
+---
+
+## LOGGING REQUIREMENTS (MANDATORY)
+
+### Log Levels for Testing
+| Level | Use Case | Example |
+|-------|----------|---------|
+| **DEBUG** | Detailed execution trace | Function entry/exit, variable values |
+| **INFO** | Test progress markers | "Starting test B1-U01", "Step 3 of 5" |
+| **WARN** | Non-fatal issues | Retry attempted, slow response |
+| **ERROR** | Test failures | Assertion failed, exception caught |
+| **CRITICAL** | System failures | Service down, connection lost |
+
+### Required Log Points Per Test
+
+```python
+# TEMPLATE: Every test must include these log points
+
+import logging
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
+def test_example():
+    test_id = "B1-U01"
+    
+    # 1. TEST START
+    logger.info(f"[{test_id}] START - {datetime.utcnow().isoformat()}")
+    logger.debug(f"[{test_id}] Test: Token generation")
+    logger.debug(f"[{test_id}] Module: B2 (Identity/Auth)")
+    
+    # 2. SETUP PHASE
+    logger.info(f"[{test_id}] SETUP - Initializing test fixtures")
+    logger.debug(f"[{test_id}] Setup params: {{user_id: 'test_user', device_id: 'test_device'}}")
+    
+    # 3. EXECUTION PHASE
+    logger.info(f"[{test_id}] EXEC - Running test logic")
+    try:
+        result = function_under_test()
+        logger.debug(f"[{test_id}] Result: {result}")
+    except Exception as e:
+        logger.error(f"[{test_id}] EXCEPTION: {type(e).__name__}: {str(e)}")
+        logger.debug(f"[{test_id}] Stack trace:", exc_info=True)
+        raise
+    
+    # 4. ASSERTION PHASE
+    logger.info(f"[{test_id}] ASSERT - Validating results")
+    try:
+        assert result.is_valid, f"Expected valid result, got: {result}"
+        logger.debug(f"[{test_id}] Assertion passed: result.is_valid = True")
+    except AssertionError as e:
+        logger.error(f"[{test_id}] ASSERTION FAILED: {str(e)}")
+        logger.debug(f"[{test_id}] Expected: valid=True, Got: valid={result.is_valid}")
+        raise
+    
+    # 5. CLEANUP PHASE
+    logger.info(f"[{test_id}] CLEANUP - Tearing down fixtures")
+    
+    # 6. TEST END
+    logger.info(f"[{test_id}] PASS - {datetime.utcnow().isoformat()}")
+```
+
+### Log Output Format
+
+```
+[TIMESTAMP] [LEVEL] [TEST_ID] [PHASE] - Message
+[TIMESTAMP] [LEVEL] [TEST_ID] Context: {key: value, ...}
+```
+
+Example:
+```
+2025-07-15T10:30:45.123Z INFO  [B1-U01] START - Test: Token generation
+2025-07-15T10:30:45.124Z DEBUG [B1-U01] Module: B2 (Identity/Auth)
+2025-07-15T10:30:45.125Z INFO  [B1-U01] SETUP - Initializing test fixtures
+2025-07-15T10:30:45.130Z DEBUG [B1-U01] Setup params: {user_id: 'test_user'}
+2025-07-15T10:30:45.150Z INFO  [B1-U01] EXEC - Running test logic
+2025-07-15T10:30:45.200Z DEBUG [B1-U01] Result: Token(valid=True, exp=3600)
+2025-07-15T10:30:45.201Z INFO  [B1-U01] ASSERT - Validating results
+2025-07-15T10:30:45.202Z DEBUG [B1-U01] Assertion passed: token.valid = True
+2025-07-15T10:30:45.210Z INFO  [B1-U01] CLEANUP - Tearing down fixtures
+2025-07-15T10:30:45.215Z INFO  [B1-U01] PASS - Duration: 92ms
+```
+
+### Failure Log Requirements
+
+On test failure, logs MUST include:
+1. **Test ID and name**
+2. **Module being tested**
+3. **Input values used**
+4. **Expected vs actual values**
+5. **Full stack trace**
+6. **Relevant system state** (memory, connections, etc.)
+7. **Timestamp of failure**
+
+```python
+# Failure log example
+logger.error(f"[{test_id}] FAILED - Token validation")
+logger.error(f"[{test_id}] Module: B2 (Identity/Auth)")
+logger.error(f"[{test_id}] Input: token='eyJ...'")
+logger.error(f"[{test_id}] Expected: valid=True")
+logger.error(f"[{test_id}] Actual: valid=False, error='Signature mismatch'")
+logger.error(f"[{test_id}] System state: connections=5, memory=128MB")
+logger.debug(f"[{test_id}] Stack trace:", exc_info=True)
+```
+
+### Log Storage & Retention
+
+| Environment | Retention | Storage |
+|-------------|-----------|---------|
+| CI/CD | 30 days | Artifact storage |
+| Dev | 7 days | Local + S3 |
+| Staging | 90 days | CloudWatch/ELK |
+| Prod | 1 year | Encrypted S3 |
+
+---
+
 ## BATCH 0 — Foundations
 
-### Modules: I1, I2, I5, B16↓, B18↓
+### Modules: I1, I2, I3, I4, I5, B16↓, B18↓
 
-### L1 Unit Tests
-| Test ID | Test Name | Assertion | Pass Criteria |
-|---------|-----------|-----------|---------------|
-| B0-U01 | Docker compose parse | `docker-compose config` succeeds | Exit code 0 |
-| B0-U02 | Network definition | `myndlens_net` exists in compose | Network present |
-| B0-U03 | Secrets file format | Secrets template validates | Valid YAML/JSON |
-| B0-U04 | Log redaction function | PII patterns redacted | No PII in output |
-| B0-U05 | Env guard function | Dev/prod detection works | Correct env returned |
-| B0-U06 | Secret key format | Secret keys match expected format | Format valid |
-| B0-U07 | Config validation | All required config keys present | No missing keys |
-| B0-U08 | Log level config | Log levels configurable | Levels applied |
-| B0-U09 | Redaction patterns | Email/phone/SSN patterns | All patterns work |
-| B0-U10 | Env variable loading | Env vars loaded correctly | Values match |
+### Infrastructure Module Unit Tests (NEW)
+
+#### I1: Repo Separation
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| I1-U01 | Repo exists | MyndLens repo created | Repo accessible | Repo URL, clone status |
+| I1-U02 | Separate from ObeGee | No shared files | Zero overlap | File comparison |
+| I1-U03 | CI/CD config | Pipeline config valid | Config parses | Pipeline stages |
+| I1-U04 | Branch protection | Main branch protected | Rules enforced | Protection rules |
+| I1-U05 | Git hooks | Pre-commit hooks work | Hooks execute | Hook output |
+| I1-U06 | .gitignore | Sensitive files excluded | No secrets | Excluded patterns |
+
+#### I2: Two IP Topology
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| I2-U01 | IP1 assigned | ObeGee has IP1 | IP bound | IP address |
+| I2-U02 | IP2 assigned | MyndLens has IP2 | IP bound | IP address |
+| I2-U03 | IP isolation | IPs are different | IP1 ≠ IP2 | Both IPs |
+| I2-U04 | Binding check | Services bind correctly | No 0.0.0.0 | Bind addresses |
+| I2-U05 | External access | External clients reach IP2 | Connection OK | Source IP, dest IP |
+| I2-U06 | IP persistence | IPs survive reboot | Same IPs | Before/after IPs |
+
+#### I3: DNS Migration
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| I3-U01 | A record | api.myndlens.obegee.co.uk → IP2 | Resolves correctly | DNS query result |
+| I3-U02 | CNAME record | CNAME records valid | Resolves correctly | CNAME chain |
+| I3-U03 | MX record | MX records preserved | Email works | MX priority, host |
+| I3-U04 | SPF record | SPF TXT record valid | SPF passes | SPF record content |
+| I3-U05 | DKIM record | DKIM TXT record valid | DKIM passes | DKIM selector, key |
+| I3-U06 | DMARC record | DMARC TXT record valid | DMARC passes | DMARC policy |
+| I3-U07 | TTL values | TTLs appropriate | 300-3600s | TTL per record |
+| I3-U08 | Propagation | DNS propagated globally | All regions resolve | Multi-region check |
+
+#### I4: TLS DNS-01
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| I4-U01 | acme.sh installed | acme.sh available | Command exists | Version |
+| I4-U02 | DO API token | Token configured | Token valid | Token prefix (redacted) |
+| I4-U03 | DNS-01 challenge | Challenge succeeds | Cert issued | Challenge domain |
+| I4-U04 | Cert validity | Certificate valid | Not expired | Expiry date |
+| I4-U05 | Cert chain | Full chain present | Chain validates | Chain length |
+| I4-U06 | Auto-renewal | Renewal cron exists | Cron scheduled | Cron expression |
+| I4-U07 | Reload hook | Nginx reload hook | Hook configured | Hook script path |
+| I4-U08 | Token security | Token not in logs | No exposure | Grep result |
+
+#### I5: Docker Networks
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| I5-U01 | myndlens_net exists | Network created | Network listed | Network ID |
+| I5-U02 | obegee_net separate | Networks different | IDs differ | Both network IDs |
+| I5-U03 | No shared networks | No overlap | Zero shared | Network comparison |
+| I5-U04 | Internal DNS | Container DNS works | Names resolve | DNS query |
+| I5-U05 | Network isolation | Cannot cross networks | Connection refused | Attempted connection |
+| I5-U06 | Network persistence | Survives restart | Network exists | Before/after check |
+
+### L1 Unit Tests (Original + Enhanced)
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| B0-U01 | Docker compose parse | `docker-compose config` succeeds | Exit code 0 | Command output |
+| B0-U02 | Network definition | `myndlens_net` exists in compose | Network present | Network config |
+| B0-U03 | Secrets file format | Secrets template validates | Valid YAML/JSON | Parse result |
+| B0-U04 | Log redaction function | PII patterns redacted | No PII in output | Before/after |
+| B0-U05 | Env guard function | Dev/prod detection works | Correct env returned | Detected env |
+| B0-U06 | Secret key format | Secret keys match expected format | Format valid | Key pattern |
+| B0-U07 | Config validation | All required config keys present | No missing keys | Missing keys list |
+| B0-U08 | Log level config | Log levels configurable | Levels applied | Current level |
+| B0-U09 | Redaction patterns | Email/phone/SSN patterns | All patterns work | Pattern matches |
+| B0-U10 | Env variable loading | Env vars loaded correctly | Values match | Var names/values |
 
 ### L2 Integration Tests
-| Test ID | Test Name | Assertion | Pass Criteria |
-|---------|-----------|-----------|---------------|
-| B0-I01 | Container boot | All containers start | All healthy |
-| B0-I02 | Network isolation | Containers on `myndlens_net` only | No external net |
-| B0-I03 | Nginx config load | Nginx accepts config | Config valid |
-| B0-I04 | Secrets mount | Secrets accessible in container | File readable |
-| B0-I05 | Container communication | Containers can reach each other | Ping succeeds |
-| B0-I06 | Volume persistence | Data survives container restart | Data intact |
-| B0-I07 | Log aggregation | Logs collected centrally | Logs queryable |
-| B0-I08 | Health endpoint | /health returns 200 | Endpoint works |
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| B0-I01 | Container boot | All containers start | All healthy | Container statuses |
+| B0-I02 | Network isolation | Containers on `myndlens_net` only | No external net | Network attachments |
+| B0-I03 | Nginx config load | Nginx accepts config | Config valid | Nginx test output |
+| B0-I04 | Secrets mount | Secrets accessible in container | File readable | Mount path, permissions |
+| B0-I05 | Container communication | Containers can reach each other | Ping succeeds | RTT values |
+| B0-I06 | Volume persistence | Data survives container restart | Data intact | Checksum before/after |
+| B0-I07 | Log aggregation | Logs collected centrally | Logs queryable | Log count |
+| B0-I08 | Health endpoint | /health returns 200 | Endpoint works | Response body |
 
 ### L3 E2E Tests
-| Test ID | Test Name | Assertion | Pass Criteria |
-|---------|-----------|-----------|---------------|
-| B0-E01 | Port exposure | Only 443 exposed externally | `netstat` shows 443 only |
-| B0-E02 | IP binding | Nginx binds to IP2 only | No 0.0.0.0 binding |
-| B0-E03 | Network isolation | Cannot reach `obegee_net` | Connection refused |
-| B0-E04 | HTTPS only | Port 80 connection refused | Connection refused |
-| B0-E05 | TLS handshake | Valid TLS certificate | Cert validates |
-| B0-E06 | External HTTPS | External client connects via HTTPS | Connection works |
-| B0-E07 | Graceful shutdown | SIGTERM → clean shutdown | No data loss |
-| B0-E08 | Container restart | Restart → services recover | All healthy |
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| B0-E01 | Port exposure | Only 443 exposed externally | `netstat` shows 443 only | Port list |
+| B0-E02 | IP binding | Nginx binds to IP2 only | No 0.0.0.0 binding | Bind addresses |
+| B0-E03 | Network isolation | Cannot reach `obegee_net` | Connection refused | Connection attempt |
+| B0-E04 | HTTPS only | Port 80 connection refused | Connection refused | Port 80 attempt |
+| B0-E05 | TLS handshake | Valid TLS certificate | Cert validates | Cert details |
+| B0-E06 | External HTTPS | External client connects via HTTPS | Connection works | Client IP, response |
+| B0-E07 | Graceful shutdown | SIGTERM → clean shutdown | No data loss | Shutdown sequence |
+| B0-E08 | Container restart | Restart → services recover | All healthy | Recovery time |
 
 ### L4 Adversarial Tests
-| Test ID | Test Name | Attack Vector | Pass Criteria |
-|---------|-----------|---------------|---------------|
-| B0-A01 | Port scan | Scan all ports | Only 443 open |
-| B0-A02 | Network escape | Container tries external net | Blocked |
-| B0-A03 | Secret exposure | Grep logs for secrets | No secrets found |
-| B0-A04 | Config injection | Malformed config file | Graceful error |
+| Test ID | Test Name | Attack Vector | Pass Criteria | Log Points |
+|---------|-----------|---------------|---------------|------------|
+| B0-A01 | Port scan | Scan all ports | Only 443 open | Scan results |
+| B0-A02 | Network escape | Container tries external net | Blocked | Escape attempt |
+| B0-A03 | Secret exposure | Grep logs for secrets | No secrets found | Grep output |
+| B0-A04 | Config injection | Malformed config file | Graceful error | Error message |
 
 ### Gate Checklist
+- [ ] All I1-U* tests pass (6 tests)
+- [ ] All I2-U* tests pass (6 tests)
+- [ ] All I3-U* tests pass (8 tests)
+- [ ] All I4-U* tests pass (8 tests)
+- [ ] All I5-U* tests pass (6 tests)
 - [ ] All B0-U* tests pass (10 tests)
 - [ ] All B0-I* tests pass (8 tests)
 - [ ] All B0-E* tests pass (8 tests)
 - [ ] All B0-A* tests pass (4 tests)
+- [ ] All logs captured and stored
 - [ ] No security warnings in logs
 - [ ] Documentation updated
 
