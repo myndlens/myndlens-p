@@ -897,10 +897,11 @@ class BackendTester:
     async def run_all_tests(self):
         """Run all backend tests in sequence."""
         logger.info("=" * 60)
-        logger.info("STARTING MYNDLENS BACKEND TESTS")
+        logger.info("STARTING MYNDLENS BACKEND TESTS - BATCH 0+1+2")
         logger.info("=" * 60)
         
-        # Critical tests in order
+        # BATCH 0+1: Critical regression tests
+        logger.info("RUNNING BATCH 0+1 REGRESSION TESTS...")
         await self.test_health_endpoint()
         await self.test_auth_pair_endpoint()
         await self.test_websocket_full_flow()
@@ -908,6 +909,15 @@ class BackendTester:
         await self.test_auth_rejection()
         await self.test_session_status_endpoint()
         await self.test_redaction()
+        
+        # BATCH 2: Audio Pipeline + TTS Tests
+        logger.info("RUNNING BATCH 2 AUDIO PIPELINE TESTS...")
+        await self.test_audio_chunk_flow()
+        await self.test_text_input_flow()
+        await self.test_chunk_validation_empty()
+        await self.test_chunk_validation_invalid_base64()
+        await self.test_stream_end_cancel()
+        await self.test_mock_tts_response_content()
         
         # Summary
         logger.info("=" * 60)
@@ -917,9 +927,21 @@ class BackendTester:
         passed = sum(1 for result in self.test_results.values() if result)
         total = len(self.test_results)
         
-        for test_name, passed in self.test_results.items():
-            status = "✅ PASS" if passed else "❌ FAIL"
-            logger.info(f"{status} {test_name}")
+        # Group results by batch
+        batch_0_1_tests = ["health_endpoint", "auth_pair_endpoint", "websocket_full_flow", 
+                          "presence_gate_test", "auth_rejection_test", "session_status_endpoint", "redaction_test"]
+        batch_2_tests = ["audio_chunk_flow", "text_input_flow", "chunk_validation_empty", 
+                        "chunk_validation_invalid_base64", "stream_end_cancel", "mock_tts_response_content"]
+        
+        logger.info("BATCH 0+1 REGRESSION TESTS:")
+        for test_name in batch_0_1_tests:
+            status = "✅ PASS" if self.test_results[test_name] else "❌ FAIL"
+            logger.info(f"  {status} {test_name}")
+        
+        logger.info("BATCH 2 AUDIO PIPELINE TESTS:")
+        for test_name in batch_2_tests:
+            status = "✅ PASS" if self.test_results[test_name] else "❌ FAIL"
+            logger.info(f"  {status} {test_name}")
         
         logger.info("-" * 40)
         logger.info(f"TOTAL: {passed}/{total} tests passed")
