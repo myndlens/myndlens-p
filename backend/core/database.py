@@ -48,6 +48,11 @@ async def init_indexes() -> None:
     )
     await db.replay_cache.create_index("token_hash", unique=True)
 
+    # Prompt snapshots: prompt_id unique, purpose index
+    await db.prompt_snapshots.create_index("prompt_id", unique=True)
+    await db.prompt_snapshots.create_index("purpose")
+    await db.prompt_snapshots.create_index("created_at")
+
     logger.info("MongoDB indexes initialized")
 
 
