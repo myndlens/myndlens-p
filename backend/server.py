@@ -44,6 +44,9 @@ from l2.sentry import run_l2_sentry, check_l1_l2_agreement
 from qc.sentry import run_qc_sentry
 from mio.signer import sign_mio, verify_mio, get_public_key_hex
 from mio.verify import verify_mio_for_execution
+from abuse.rate_limit import check_rate_limit, get_rate_status
+from abuse.circuit_breakers import get_breaker, get_all_breaker_statuses
+from observability.metrics import get_system_metrics
 
 # ---- Setup logging ----
 setup_logging()
