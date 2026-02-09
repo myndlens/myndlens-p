@@ -561,6 +561,28 @@ Persist per-call:
 - model/provider
 - tool calls executed
 
+### 14.14 Testing Requirements (5 Types)
+1. **Golden prompt tests**: Per purpose/mode (section list + hashes)
+2. **Token budget tests**: Deterministic truncation
+3. **Tool gating tests**: EXECUTE never sees forbidden tools
+4. **Safety regression tests**: Known risky prompts get blocked
+5. **Cache stability tests**: Stable segments unchanged unless config changes
+
+### 14.15 Rollout Plan (6 Steps)
+1. Build orchestrator + registry + report (no behavior change)
+2. Convert DIMENSIONS_EXTRACT first (tight schema + no tools)
+3. Add EXECUTE purpose with strict tool gating
+4. Add dimension gating + conflict summary
+5. Add skills index + on-demand loading
+6. Add subagent minimal mode
+
+### 14.16 Acceptance Criteria (5 Requirements)
+- A) Prompt output differs by purpose in measurable way (sections/tools)
+- B) DIMENSIONS_EXTRACT never produces plans or tool calls
+- C) EXECUTE never sees tools it cannot use
+- D) PromptReport explains every included/excluded section
+- E) Stable hashes remain stable across calls when config unchanged
+
 ---
 
 ## 15. INFRASTRUCTURE (PRODUCTION)
