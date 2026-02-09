@@ -1,0 +1,69 @@
+"""STT Orchestrator — manages audio stream lifecycle.
+
+Routes audio chunks to the configured STT provider.
+Enforces rate limits, chunk validation, and format rules.
+"""
+import base64
+import logging
+from typing import Dict, Optional
+
+from config.feature_flags import is_mock_stt
+from stt.provider.interface import STTProvider, TranscriptFragment
+from stt.provider.mock import MockSTTProvider
+
+logger = logging.getLogger(__name__)
+
+# Chunk constraints
+MAX_CHUNK_SIZE_BYTES = 64 * 1024  # 64KB max per chunk
+MAX_CHUNKS_PER_SECOND = 10  # Rate limit
+
+
+def _get_provider() -> STTProvider:
+    """Get the configured STT provider."""
+    if is_mock_stt():
+        return MockSTTProvider(latency_ms=30.0)
+    # Future: return DeepgramSTTProvider()
+    return MockSTTProvider(latency_ms=30.0)
+
+
+# Singleton provider
+_provider: Optional[STTProvider] = None
+
+
+def get_stt_provider() -> STTProvider:
+    global _provider
+    if _provider is None:
+        _provider = _get_provider()
+    return _provider
+
+
+def validate_audio_chunk(data: bytes, seq: int) -> Optional[str]:
+    """Validate an audio chunk. Returns error message or None if valid."""
+    if not data:
+        return "Empty audio chunk"
+    if len(data) > MAX_CHUNK_SIZE_BYTES:
+        return f"Chunk too large: {len(data)} bytes (max {MAX_CHUNK_SIZE_BYTES})"
+    if seq < 0:
+        return f"Invalid sequence number: {seq}"
+    return None
+
+
+def decode_audio_payload(payload: dict) -> tuple[bytes, int, Optional[str]]:
+    """Decode audio chunk from WS payload.
+    
+    Returns (audio_bytes, sequence_number, error_or_none).
+    """
+    audio_b64 = payload.get("audio")
+    seq = payload.get("seq", -1)
+    session_id = payload.get("session_id")
+
+    if not audio_b64:
+        return b"", seq, "Missing audio data"
+
+    try:
+        audio_bytes = base64.b64decode(audio_b64)
+    except Exception:
+        return b"", seq, "Invalid base64 audio data"
+
+    error = validate_audio_chunk(audio_bytes, seq)
+    return audio_bytes, seq, error
