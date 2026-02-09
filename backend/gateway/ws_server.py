@@ -80,6 +80,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
     user_id_resolved: str | None = None
     subscription_status: str = "ACTIVE"
     sso_claims: SSOClaims | None = None
+    legacy_claims: TokenClaims | None = None
 
     try:
         # ---- Phase 1: Authentication ----
