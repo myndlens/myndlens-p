@@ -283,16 +283,22 @@ async def _handle_audio_chunk(ws: WebSocket, session_id: str, payload: dict) -> 
             state, span = transcript_assembler.add_fragment(session_id, fragment)
 
             # Send transcript partial to client
-            await _send(ws, WSMessageType.TRANSCRIPT_PARTIAL, ErrorPayload(
-                message=state.get_current_text(),
-                code="OK",
+            await _send(ws, WSMessageType.TRANSCRIPT_PARTIAL, TranscriptPayload(
+                text=state.get_current_text(),
+                is_final=False,
+                fragment_count=len(state.fragments),
+                confidence=fragment.confidence,
+                span_ids=[span.span_id],
             ))
 
             # If STT declares final (end of utterance), send transcript_final
             if fragment.is_final:
-                await _send(ws, WSMessageType.TRANSCRIPT_FINAL, ErrorPayload(
-                    message=state.get_current_text(),
-                    code="OK",
+                await _send(ws, WSMessageType.TRANSCRIPT_FINAL, TranscriptPayload(
+                    text=state.get_current_text(),
+                    is_final=True,
+                    fragment_count=len(state.fragments),
+                    confidence=fragment.confidence,
+                    span_ids=[s.span_id for s in state.get_spans()],
                 ))
                 # Save transcript to DB
                 await save_transcript(state)
