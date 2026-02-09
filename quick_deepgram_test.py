@@ -121,8 +121,15 @@ def test_websocket_basic():
         
         def on_open(ws):
             print("  🔌 WebSocket connected")
-            # Send auth
-            auth_msg = {"type": "auth", "payload": {"token": token}}
+            # Send auth with required device_id
+            auth_msg = {
+                "type": "auth", 
+                "payload": {
+                    "token": token,
+                    "device_id": "dg_dev_001",
+                    "client_version": "1.0.0"
+                }
+            }
             ws.send(json.dumps(auth_msg))
         
         ws_url = "wss://voice-assistant-dev.preview.emergentagent.com/api/ws"
