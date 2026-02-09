@@ -271,6 +271,13 @@ Plus:
 | B3-U06 | Latency measure | Latency calculated | Milliseconds |
 | B3-U07 | Retry logic | Retry on failure | Retry attempted |
 | B3-U08 | Timeout handling | Timeout triggers fallback | Fallback invoked |
+| B3-U09 | Partial transcript | Partial results parsed | is_final flag |
+| B3-U10 | Word timestamps | Word-level timestamps | Timestamps present |
+| B3-U11 | Punctuation handling | Punctuation preserved | Correct punctuation |
+| B3-U12 | Provider abstraction | Interface implemented | Swappable |
+| B3-U13 | Connection pooling | Connections reused | Pool managed |
+| B3-U14 | Graceful disconnect | Clean disconnect | No leaks |
+| B3-U15 | Error categorization | Error types classified | Type identified |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -281,6 +288,10 @@ Plus:
 | B3-I04 | Confidence flow | Confidence passed through | Score in response |
 | B3-I05 | Latency tracking | Latency logged | Metrics captured |
 | B3-I06 | Error propagation | STT error reaches handler | Error logged |
+| B3-I07 | Reconnection | Auto-reconnect on disconnect | Seamless |
+| B3-I08 | Multiple streams | Concurrent transcriptions | All work |
+| B3-I09 | Language detection | Language identified | Code returned |
+| B3-I10 | Speaker diarization | Multiple speakers | Speakers labeled |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -290,16 +301,43 @@ Plus:
 | B3-E03 | STT failure | Simulate STT down | Pause + retry prompt |
 | B3-E04 | Text fallback | STT fails → text input | User can type |
 | B3-E05 | Recovery | STT recovers → resume | Voice resumes |
-| B3-E06 | Multi-language | Non-English speech | Transcribed (if supported) |
+| B3-E06 | Multi-language | Non-English speech | Transcribed |
+| B3-E07 | Long session | 10 minute conversation | No degradation |
+| B3-E08 | Quiet speech | Whispered speech | Still transcribed |
+| B3-E09 | Accented speech | Various accents | Accurate |
+| B3-E10 | Technical terms | Domain-specific words | Correct |
+| B3-E11 | Numbers & dates | "July 15th 2025" | Formatted correctly |
+| B3-E12 | No silent fallback | STT down → NOT silent L1 | User notified |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B3-A01 | Audio injection | Embedded commands in audio | Not interpreted |
+| B3-A02 | Noise attack | Pure noise stream | Graceful handling |
+| B3-A03 | Ultrasonic | Frequencies >20kHz | Ignored |
+| B3-A04 | STT spoofing | Fake STT responses | Signature verified |
+| B3-A05 | Rate abuse | 100 concurrent streams | Limited |
+| B3-A06 | Long audio | 1 hour continuous | Chunked properly |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B3-P01 | STT latency | <300ms | Audio end→transcript |
+| B3-P02 | First word | <500ms | Speech start→first word |
+| B3-P03 | Accuracy | >95% | Word error rate |
+| B3-P04 | Concurrent streams | 50 | Sustained |
+| B3-P05 | Recovery time | <2s | Failure→reconnect |
 
 ### Gate Checklist
-- [ ] All B3-U* tests pass
-- [ ] All B3-I* tests pass
-- [ ] All B3-E* tests pass
+- [ ] All B3-U* tests pass (15 tests)
+- [ ] All B3-I* tests pass (10 tests)
+- [ ] All B3-E* tests pass (12 tests)
+- [ ] All B3-A* tests pass (6 tests)
+- [ ] All B3-P* tests pass (5 tests)
 - [ ] Deepgram integration verified
 - [ ] Failure mode (pause + retry) verified
-- [ ] No silent fallback (spec §S5)
-- [ ] Regression: All B0-*, B1-*, B2-* tests still pass
+- [ ] **No silent fallback to L1-only (CRITICAL - spec §S5)**
+- [ ] Regression: All B0-B2 tests still pass
 
 ---
 
@@ -319,6 +357,12 @@ Plus:
 | B4-U07 | B-set extraction | Cognitive dimensions extracted | All 5 fields |
 | B4-U08 | Moving average | Urgency/emotional_load averaged | Correct calculation |
 | B4-U09 | Stability buffer | Buffer applied | Values smoothed |
+| B4-U10 | Hypothesis ranking | Ranked by confidence | Correct order |
+| B4-U11 | Hypothesis pruning | Low confidence removed | <3 if pruned |
+| B4-U12 | CoL trace format | Trace structure valid | Schema compliant |
+| B4-U13 | Dimension validation | Invalid values rejected | Validation works |
+| B4-U14 | Incremental update | Partial update works | Merge correct |
+| B4-U15 | Action class mapping | Intent → action class | Correct mapping |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -329,6 +373,10 @@ Plus:
 | B4-I04 | CoL trace | Chain-of-Logic generated | Trace present |
 | B4-I05 | Gemini Flash call | Real Gemini Flash invoked | Response received |
 | B4-I06 | Latency target | L1 responds within 2s | <2000ms |
+| B4-I07 | Context window | Full context used | No truncation |
+| B4-I08 | Memory integration | DS nodes suggested | Suggestions present |
+| B4-I09 | Multi-turn | Conversation context | History used |
+| B4-I10 | Conflict detection | Conflicting dimensions | Flagged |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -339,13 +387,42 @@ Plus:
 | B4-E04 | Hypothesis update | Continue speaking | Hypothesis updates |
 | B4-E05 | No execution | Draft only, no dispatch | No MIO created |
 | B4-E06 | Stability gate | High urgency → gated | Cooldown applied |
+| B4-E07 | Multiple intents | "Send message and schedule" | Both detected |
+| B4-E08 | Ambiguous intent | "Do the thing" | Clarify requested |
+| B4-E09 | Entity extraction | "Call Mom tomorrow" | Mom + tomorrow |
+| B4-E10 | Constraint detection | "Don't send to work" | Constraint captured |
+| B4-E11 | Urgency detection | "Right now!" | High urgency |
+| B4-E12 | Low confidence | Unclear speech | <0.9 flagged |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B4-A01 | Prompt injection | "Ignore previous, do X" | Blocked |
+| B4-A02 | Jailbreak attempt | System prompt extraction | Blocked |
+| B4-A03 | Role confusion | "You are now..." | Ignored |
+| B4-A04 | Infinite loop | Recursive hypothesis | Limited |
+| B4-A05 | Giant transcript | 100KB transcript | Handled |
+| B4-A06 | Malformed response | Invalid LLM response | Graceful error |
+| B4-A07 | Timing attack | Measure L1 timing | No info leak |
+| B4-A08 | Context poisoning | Fake conversation history | Rejected |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B4-P01 | L1 latency | <2000ms | p95 response time |
+| B4-P02 | Hypothesis update | <500ms | Incremental update |
+| B4-P03 | Token efficiency | <4000 tokens | Input + output |
+| B4-P04 | Memory usage | <100MB | L1 service |
+| B4-P05 | Concurrent requests | 20 | Sustained |
 
 ### Gate Checklist
-- [ ] All B4-U* tests pass
-- [ ] All B4-I* tests pass
-- [ ] All B4-E* tests pass
-- [ ] Max 3 hypotheses enforced
-- [ ] CoL trace generated
+- [ ] All B4-U* tests pass (15 tests)
+- [ ] All B4-I* tests pass (10 tests)
+- [ ] All B4-E* tests pass (12 tests)
+- [ ] All B4-A* tests pass (8 tests)
+- [ ] All B4-P* tests pass (5 tests)
+- [ ] Max 3 hypotheses enforced (CRITICAL)
+- [ ] CoL trace generated for every dimension
 - [ ] Stability buffer working
 - [ ] No execution (draft only)
 - [ ] Regression: All B0-B3 tests still pass
@@ -370,6 +447,10 @@ Plus:
 | B5-U09 | KV registry get | Entity ID retrieved | Correct ID |
 | B5-U10 | Provenance set | EXPLICIT/OBSERVED set | Provenance stored |
 | B5-U11 | Provenance check | Provenance queryable | Correct type |
+| B5-U12 | Node versioning | Version tracked | Version increments |
+| B5-U13 | Confidence decay | Confidence decays over time | Decay applied |
+| B5-U14 | Relationship types | FACT/PREFERENCE/ENTITY/HISTORY/POLICY | All types work |
+| B5-U15 | Canonical UUID | UUID format enforced | Valid UUIDs |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -380,6 +461,10 @@ Plus:
 | B5-I04 | Provenance flow | Provenance in response | EXPLICIT/OBSERVED |
 | B5-I05 | Write gating | Write without auth fails | Write rejected |
 | B5-I06 | Read audit | Reads logged | Audit entry |
+| B5-I07 | Semantic search | Similar concepts found | Relevant results |
+| B5-I08 | Graph traversal | Related entities found | Connections work |
+| B5-I09 | Entity resolution | "Mom" → canonical ID | Resolved |
+| B5-I10 | Multi-hop query | A→B→C traversal | Path found |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -390,15 +475,44 @@ Plus:
 | B5-E04 | EXPLICIT allowed | EXPLICIT dep → no downgrade | Tier unchanged |
 | B5-E05 | Write post-exec | After execution → write | Memory updated |
 | B5-E06 | No policy write | Attempt policy write | Write rejected |
+| B5-E07 | Context grounding | "The usual" → resolved | Historical context |
+| B5-E08 | Preference recall | "My favorite" → found | Preference used |
+| B5-E09 | Relationship query | "My boss" → resolved | Entity found |
+| B5-E10 | Time context | "Last Tuesday's meeting" | Event found |
+| B5-E11 | No silent mutation | Preference changed silently | Change blocked |
+| B5-E12 | Memory bridging | Gap filled empathetically | Context used |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B5-A01 | Memory injection | Inject false memory | Blocked |
+| B5-A02 | Provenance spoof | Fake EXPLICIT tag | Detected |
+| B5-A03 | Unauthorized write | Non-DS service write | Rejected |
+| B5-A04 | Entity collision | Duplicate UUID | Handled |
+| B5-A05 | Graph cycle | Circular relationship | No infinite loop |
+| B5-A06 | Vector poisoning | Malicious embedding | Detected/ignored |
+| B5-A07 | Mass deletion | Delete all nodes | Rate limited |
+| B5-A08 | Cross-user access | Access another user's memory | Blocked |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B5-P01 | Vector search | <100ms | p95 search time |
+| B5-P02 | Graph traversal | <50ms | 3-hop traversal |
+| B5-P03 | KV lookup | <10ms | Single lookup |
+| B5-P04 | Write latency | <200ms | Node creation |
+| B5-P05 | Memory size | 10K nodes | Per user supported |
 
 ### Gate Checklist
-- [ ] All B5-U* tests pass
-- [ ] All B5-I* tests pass
-- [ ] All B5-E* tests pass
-- [ ] Service authority enforced
+- [ ] All B5-U* tests pass (15 tests)
+- [ ] All B5-I* tests pass (10 tests)
+- [ ] All B5-E* tests pass (12 tests)
+- [ ] All B5-A* tests pass (8 tests)
+- [ ] All B5-P* tests pass (5 tests)
+- [ ] Service authority enforced (CRITICAL)
 - [ ] Provenance tracking working
-- [ ] OBSERVED → Tier 2 downgrade verified
-- [ ] Write rules enforced
+- [ ] **OBSERVED → Tier 2 downgrade verified (CRITICAL)**
+- [ ] Write rules enforced (no silent mutation)
 - [ ] Regression: All B0-B4 tests still pass
 
 ---
@@ -419,6 +533,12 @@ Plus:
 | B6-U07 | Invalid transition | Invalid transition rejected | Error returned |
 | B6-U08 | State persistence | State survives restart | State restored |
 | B6-U09 | Idempotency key | Key generated correctly | Unique key |
+| B6-U10 | Tactful refusal gen | Refusal message generated | Empathetic tone |
+| B6-U11 | Continuous check | Check per turn | Each turn checked |
+| B6-U12 | Rule priority | Priority ordering | Higher first |
+| B6-U13 | Recovery state | Corrupted state recovered | Graceful recovery |
+| B6-U14 | Timeout handling | Stale commits timeout | Timeout applied |
+| B6-U15 | Exactly-once logic | Duplicate detection | Duplicates blocked |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -429,6 +549,10 @@ Plus:
 | B6-I04 | Silence mode | Ambiguity >30% → silence | Clarify requested |
 | B6-I05 | Commit persist | Commit state in DB | Queryable |
 | B6-I06 | Commit recover | Restart → state restored | Correct state |
+| B6-I07 | State audit | Transitions logged | Audit trail |
+| B6-I08 | Concurrent commits | Multiple users | Isolated |
+| B6-I09 | Rollback | Failed commit → rollback | Clean state |
+| B6-I10 | Notification | State change → user notified | Notification sent |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -439,13 +563,42 @@ Plus:
 | B6-E04 | Commit lifecycle | DRAFT → CONFIRMED | States traverse |
 | B6-E05 | Server restart | Restart mid-commit | State preserved |
 | B6-E06 | Exactly-once | Duplicate commit → no-op | Single execution |
+| B6-E07 | Cancel flow | User cancels commit | State = CANCELLED |
+| B6-E08 | Timeout flow | Commit times out | User notified |
+| B6-E09 | Multi-step | Complex intent | All steps tracked |
+| B6-E10 | Guardrail edge | Borderline content | Nudge not block |
+| B6-E11 | Immediate refusal | Clear violation | Instant response |
+| B6-E12 | Silence is intelligence | Ambiguity detected | Clarify only |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B6-A01 | Guardrail bypass | Obfuscated harmful intent | Still blocked |
+| B6-A02 | State manipulation | Forge commit state | Rejected |
+| B6-A03 | Race condition | Concurrent state changes | Serialized |
+| B6-A04 | Ambiguity gaming | Always ambiguous | Circuit breaker |
+| B6-A05 | Commit flooding | 1000 commits/min | Rate limited |
+| B6-A06 | State injection | Inject invalid state | Rejected |
+| B6-A07 | Timeout bypass | Extend timeout | Enforced |
+| B6-A08 | Cross-session | Use another session's commit | Blocked |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B6-P01 | Guardrail check | <50ms | p95 per check |
+| B6-P02 | State transition | <20ms | State change |
+| B6-P03 | Persistence write | <100ms | DB write |
+| B6-P04 | Recovery time | <1s | Restart recovery |
+| B6-P05 | Concurrent commits | 100 | Users simultaneously |
 
 ### Gate Checklist
-- [ ] All B6-U* tests pass
-- [ ] All B6-I* tests pass
-- [ ] All B6-E* tests pass
+- [ ] All B6-U* tests pass (15 tests)
+- [ ] All B6-I* tests pass (10 tests)
+- [ ] All B6-E* tests pass (12 tests)
+- [ ] All B6-A* tests pass (8 tests)
+- [ ] All B6-P* tests pass (5 tests)
 - [ ] Guardrails continuous check verified
-- [ ] Ambiguity >30% → Silence verified
+- [ ] **Ambiguity >30% → Silence verified (CRITICAL)**
 - [ ] Commit state persistence verified
 - [ ] Exactly-once semantics verified
 - [ ] Regression: All B0-B5 tests still pass
@@ -461,7 +614,7 @@ Plus:
 |---------|-----------|-----------|---------------|
 | B7-U01 | L2 prompt build | Shadow derivation prompt | Valid prompt |
 | B7-U02 | L2 invoke timing | Only on finalize/execute | Timing enforced |
-| B7-U03 | L2 per-fragment | Per-fragment call blocked | Call rejected |
+| B7-U03 | L2 per-fragment | Per-fragment call blocked | **Call rejected** |
 | B7-U04 | Shadow derivation | L2 ignores L1 initially | Independent result |
 | B7-U05 | Conflict detect | L1/L2 mismatch detected | Conflict flagged |
 | B7-U06 | Confidence gate | Gate logic correct | Combined <0.9 fails |
@@ -469,6 +622,11 @@ Plus:
 | B7-U08 | QC capability leak | Min skill check | Leak detected |
 | B7-U09 | QC harm projection | Harm mapped to spans | Spans cited |
 | B7-U10 | QC no-span block | No span → cannot block | Block prevented |
+| B7-U11 | Emotional load detect | High emotion detected | Flag set |
+| B7-U12 | Cooldown timer | Cooldown enforced | Timer works |
+| B7-U13 | CoL validation | L2 validates L1 CoL | Validation works |
+| B7-U14 | Intent equality | Structural comparison | Correct logic |
+| B7-U15 | Delta threshold | abs(delta) ≤ 0.15 | Threshold enforced |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -479,6 +637,10 @@ Plus:
 | B7-I04 | Conflict → clarify | L1/L2 conflict → clarify | User asked |
 | B7-I05 | QC after L2 | QC runs after L2 | Sequence correct |
 | B7-I06 | QC before MIO | QC before MIO sign | Sequence correct |
+| B7-I07 | Memory grounding | L2 verifies DS nodes | Verification done |
+| B7-I08 | Provenance check | L2 checks provenance | OBSERVED flagged |
+| B7-I09 | Cooldown flow | High emotion → wait | Cooldown applied |
+| B7-I10 | Full pipeline | L1→L2→QC→ready | Sequence complete |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -490,15 +652,43 @@ Plus:
 | B7-E05 | QC pass | Clean intent → passes QC | QC approved |
 | B7-E06 | QC nudge | Minor concern → nudge | Warning shown |
 | B7-E07 | QC block | Harm with spans → block | Execution blocked |
+| B7-E08 | QC no span | Harm no span → cannot block | Nudge only |
+| B7-E09 | Persona drift | Unusual tone → flagged | Warning shown |
+| B7-E10 | Capability leak | Excess capability → blocked | Minimized |
+| B7-E11 | Speculative CoL | Weak reasoning → clarify | Nudge shown |
+| B7-E12 | L2 never fragment | Typing triggers L2 | **L2 NOT invoked** |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B7-A01 | L2 timing bypass | Force L2 per fragment | Blocked |
+| B7-A02 | QC evasion | Hide harm in noise | Still detected |
+| B7-A03 | Confidence manipulation | Fake high confidence | Verified independently |
+| B7-A04 | Span fabrication | Cite non-existent spans | Validated against transcript |
+| B7-A05 | Emotional manipulation | Fake calm signals | Turn dynamics checked |
+| B7-A06 | Shadow derivation poison | Influence L2 via L1 | Independent derivation |
+| B7-A07 | QC prompt injection | Inject via user text | Sanitized |
+| B7-A08 | Cooldown bypass | Skip cooldown | Enforced |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B7-P01 | L2 latency | <5000ms | p95 response |
+| B7-P02 | QC latency | <2000ms | p95 response |
+| B7-P03 | Full pipeline | <8000ms | L1→L2→QC total |
+| B7-P04 | Token usage L2 | <8000 tokens | Input + output |
+| B7-P05 | Cooldown duration | 30-60s | Configurable |
 
 ### Gate Checklist
-- [ ] All B7-U* tests pass
-- [ ] All B7-I* tests pass
-- [ ] All B7-E* tests pass
-- [ ] L2 invocation timing enforced (CRITICAL)
-- [ ] L2 never runs per-fragment (CRITICAL)
+- [ ] All B7-U* tests pass (15 tests)
+- [ ] All B7-I* tests pass (10 tests)
+- [ ] All B7-E* tests pass (12 tests)
+- [ ] All B7-A* tests pass (8 tests)
+- [ ] All B7-P* tests pass (5 tests)
+- [ ] **L2 invocation timing enforced (CRITICAL)**
+- [ ] **L2 NEVER runs per-fragment (CRITICAL - B7-E12)**
 - [ ] Shadow derivation verified
-- [ ] QC span-grounding enforced
+- [ ] **QC span-grounding enforced (CRITICAL)**
 - [ ] Emotional cooldown verified
 - [ ] Regression: All B0-B6 tests still pass
 
@@ -522,6 +712,10 @@ Plus:
 | B8-U09 | MIO TTL | TTL set (120s default) | TTL present |
 | B8-U10 | Replay cache | Token cached | Cache populated |
 | B8-U11 | Replay detect | Replay detected | Replay rejected |
+| B8-U12 | Voice latch | Voice repeat detected | Latch triggered |
+| B8-U13 | Voice cooldown | 250ms enforced | Cooldown works |
+| B8-U14 | Token binding | mio_id+session_id+device_id | Binding correct |
+| B8-U15 | Signature verify | Signature verification | Verify works |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -532,6 +726,10 @@ Plus:
 | B8-I04 | Biometric → proof | Biometric → proof to BE | Proof validated |
 | B8-I05 | MIO creation | All fields populated | Complete MIO |
 | B8-I06 | MIO signing | MIO signed on BE | Signature present |
+| B8-I07 | Token invalidation | Used token invalidated | Reuse blocked |
+| B8-I08 | Replay cache sync | Cache synchronized | No race conditions |
+| B8-I09 | Key rotation | Keys rotated | Old keys invalid |
+| B8-I10 | Proof expiry | Expired proof rejected | Time enforced |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -545,15 +743,41 @@ Plus:
 | B8-E07 | Tier 3 no bio | No biometric → denied | Execution denied |
 | B8-E08 | Replay attack | Replay token → rejected | Attack blocked |
 | B8-E09 | MIO created | Valid MIO generated | MIO logged |
+| B8-E10 | MIO expired | TTL exceeded | MIO rejected |
+| B8-E11 | Tier downgrade | OBSERVED → Tier 2 | Downgrade applied |
+| B8-E12 | FIN_TRANS | Financial action | Tier 3 required |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B8-A01 | Touch replay | Replay touch token | Rejected |
+| B8-A02 | MIO forgery | Forge MIO signature | Rejected |
+| B8-A03 | Token stealing | Use another user's token | Binding check fails |
+| B8-A04 | Biometric bypass | Fake biometric | OS-level security |
+| B8-A05 | TTL extension | Extend MIO TTL | Server enforced |
+| B8-A06 | Replay cache poison | Inject into cache | Rejected |
+| B8-A07 | Timing attack | Measure correlation | No info leak |
+| B8-A08 | Man-in-middle | Intercept MIO | Signature protects |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B8-P01 | Touch validation | <50ms | Server-side |
+| B8-P02 | MIO signing | <100ms | ED25519 sign |
+| B8-P03 | Replay check | <10ms | Cache lookup |
+| B8-P04 | Biometric prompt | <500ms | OS prompt time |
+| B8-P05 | Full latch flow | <1s | Touch→MIO |
 
 ### Gate Checklist
-- [ ] All B8-U* tests pass
-- [ ] All B8-I* tests pass
-- [ ] All B8-E* tests pass
-- [ ] Tier 0/1/2/3 all verified
-- [ ] Touch 10s correlation enforced
-- [ ] Biometric OS-level prompt verified
-- [ ] Replay protection verified
+- [ ] All B8-U* tests pass (15 tests)
+- [ ] All B8-I* tests pass (10 tests)
+- [ ] All B8-E* tests pass (12 tests)
+- [ ] All B8-A* tests pass (8 tests)
+- [ ] All B8-P* tests pass (5 tests)
+- [ ] **Tier 0/1/2/3 all verified (CRITICAL)**
+- [ ] **Touch 10s correlation enforced (CRITICAL)**
+- [ ] **Biometric OS-level prompt verified (CRITICAL)**
+- [ ] **Replay protection verified (CRITICAL)**
 - [ ] MIO schema compliant
 - [ ] Regression: All B0-B7 tests still pass
 
@@ -574,6 +798,13 @@ Plus:
 | B9-U06 | Key injection | API key injected | Key in header |
 | B9-U07 | Idempotency key | session_id + mio_id | Correct format |
 | B9-U08 | Duplicate detect | Duplicate detected | No re-execute |
+| B9-U09 | Action mapping | Action class → endpoint | Correct mapping |
+| B9-U10 | Quota check | Quota enforced | Limit checked |
+| B9-U11 | Environment scope | Env scoping works | Correct env |
+| B9-U12 | Audit entry | Dispatch logged | CEO-level detail |
+| B9-U13 | Error handling | Dispatch errors caught | Graceful handling |
+| B9-U14 | Retry logic | Failed dispatch retried | Retry works |
+| B9-U15 | Circuit breaker | Repeated failures | Circuit opens |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -584,23 +815,56 @@ Plus:
 | B9-I04 | Key in request | API key present | Key validated |
 | B9-I05 | Stub execution | Stub endpoint executes | Success response |
 | B9-I06 | Duplicate no-op | Same MIO twice → once | Single execution |
+| B9-I07 | Tenant isolation | A cannot reach B | Isolation enforced |
+| B9-I08 | Quota enforcement | Over quota → rejected | 429 returned |
+| B9-I09 | Audit complete | Full audit trail | All fields logged |
+| B9-I10 | Zero-code-change | OpenClaw API unchanged | No modifications |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
 |---------|-----------|-----------|---------------|
 | B9-E01 | Full pipeline | Speak → MIO → dispatch | Stub executed |
-| B9-E02 | No MIO no exec | Skip MIO → blocked | Execution denied |
+| B9-E02 | No MIO no exec | Skip MIO → blocked | **Execution denied** |
 | B9-E03 | Wrong tenant | Wrong tenant key | Execution denied |
 | B9-E04 | Idempotent | Retry same MIO | Single execution |
 | B9-E05 | Audit trail | Dispatch logged | CEO-level log |
+| B9-E06 | Real OpenClaw | MIO → OpenClaw action | Action executed |
+| B9-E07 | Multi-action | Complex intent | All actions |
+| B9-E08 | Action failure | OpenClaw fails | Error handled |
+| B9-E09 | Rollback | Partial failure | Clean rollback |
+| B9-E10 | Success response | Execution completes | User notified |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B9-A01 | MIO bypass | Direct OpenClaw call | Blocked |
+| B9-A02 | Tenant spoofing | Use another tenant's key | Rejected |
+| B9-A03 | Schema injection | Malformed translation | Sanitized |
+| B9-A04 | Idempotency bypass | Different keys same action | Detected |
+| B9-A05 | Quota bypass | Exceed quota | Enforced |
+| B9-A06 | Audit tampering | Modify audit logs | Immutable |
+| B9-A07 | Dispatch flood | 1000 dispatches/min | Rate limited |
+| B9-A08 | Cross-env dispatch | Dev → Prod | Blocked |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B9-P01 | Dispatch latency | <500ms | MIO→OpenClaw |
+| B9-P02 | Translation | <50ms | Schema translation |
+| B9-P03 | Tenant lookup | <10ms | Registry lookup |
+| B9-P04 | Concurrent dispatches | 50 | Sustained |
+| B9-P05 | Audit write | <100ms | Log entry |
 
 ### Gate Checklist
-- [ ] All B9-U* tests pass
-- [ ] All B9-I* tests pass
-- [ ] All B9-E* tests pass
-- [ ] No execution without MIO (CRITICAL)
+- [ ] All B9-U* tests pass (15 tests)
+- [ ] All B9-I* tests pass (10 tests)
+- [ ] All B9-E* tests pass (10 tests)
+- [ ] All B9-A* tests pass (8 tests)
+- [ ] All B9-P* tests pass (5 tests)
+- [ ] **No execution without MIO (CRITICAL - B9-E02)**
 - [ ] Schema translation verified
 - [ ] Idempotency verified
+- [ ] Zero-code-change verified
 - [ ] Audit logging verified
 - [ ] Regression: All B0-B8 tests still pass
 
@@ -619,6 +883,10 @@ Plus:
 | B95-U04 | Key storage | Key encrypted at rest | Encrypted |
 | B95-U05 | Channel config | Channel config generated | Valid config |
 | B95-U06 | Bootstrap bundle | Bundle created | All fields |
+| B95-U07 | Docker template | Container config valid | Template works |
+| B95-U08 | Resource allocation | Resources assigned | Limits set |
+| B95-U09 | Status tracking | Provisioning status | States tracked |
+| B95-U10 | Rollback logic | Failed provision rollback | Clean state |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -628,6 +896,9 @@ Plus:
 | B95-I03 | Docker deploy | Docker container started | Container running |
 | B95-I04 | Channel install | Channel preinstalled | Channel active |
 | B95-I05 | Handshake | Channel ↔ BE handshake | Connection OK |
+| B95-I06 | Mobile binding | Device bound to tenant | Binding stored |
+| B95-I07 | Full isolation | Tenant A ≠ Tenant B | Isolated |
+| B95-I08 | Audit event | Provisioning logged | Event recorded |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -635,11 +906,31 @@ Plus:
 | B95-E01 | Subscribe → Tenant | User subscribes | Tenant ready |
 | B95-E02 | Mobile pair | Mobile app pairs | Authentication OK |
 | B95-E03 | Full dispatch | MIO reaches tenant docker | Execution works |
+| B95-E04 | New user flow | Brand new user | Full provisioning |
+| B95-E05 | Multi-device | Second device | Pairing works |
+| B95-E06 | Provision failure | Docker fails | Graceful error |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B95-A01 | Double provision | Provision twice | Idempotent |
+| B95-A02 | Resource exhaustion | Many tenants | Limited |
+| B95-A03 | Config injection | Malformed config | Rejected |
+| B95-A04 | Unauthorized provision | Skip subscription | Blocked |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B95-P01 | Provision time | <60s | Full provisioning |
+| B95-P02 | Docker start | <30s | Container ready |
+| B95-P03 | Channel handshake | <5s | BE↔Channel |
 
 ### Gate Checklist
-- [ ] All B95-U* tests pass
-- [ ] All B95-I* tests pass
-- [ ] All B95-E* tests pass
+- [ ] All B95-U* tests pass (10 tests)
+- [ ] All B95-I* tests pass (8 tests)
+- [ ] All B95-E* tests pass (6 tests)
+- [ ] All B95-A* tests pass (4 tests)
+- [ ] All B95-P* tests pass (3 tests)
 - [ ] Tenant provisioning automated
 - [ ] Channel preinstall verified
 - [ ] Regression: All B0-B9 tests still pass
@@ -660,14 +951,21 @@ Plus:
 | B96-U05 | Deprovision state | SUSPENDED → DEPROVISIONED | State changes |
 | B96-U06 | Data deletion | User data deleted | Data gone |
 | B96-U07 | Audit preserved | Audit metadata kept | Audit queryable |
+| B96-U08 | Grace window | Window enforced | Timer works |
+| B96-U09 | Reactivation | SUSPENDED → ACTIVE | Reactivation works |
+| B96-U10 | Data export | Export before delete | Export works |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
 |---------|-----------|-----------|---------------|
 | B96-I01 | Cancel → suspend | Subscription cancel | Tenant suspended |
-| B96-I02 | Dispatch blocked | Suspended → dispatch fails | Hard rejection |
+| B96-I02 | Dispatch blocked | Suspended → dispatch fails | **Hard rejection** |
 | B96-I03 | Grace window | Deprovision waits | Timer enforced |
 | B96-I04 | Docker stop | Deprovision → docker stopped | Container gone |
+| B96-I05 | Memory preserved | During grace | Memory intact |
+| B96-I06 | Memory deleted | After grace | Memory gone |
+| B96-I07 | Audit kept | After deprovision | Audit available |
+| B96-I08 | Keys deleted | After deprovision | Keys gone |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -676,13 +974,32 @@ Plus:
 | B96-E02 | Read-only | Suspended user → read only | COMM_SEND blocked |
 | B96-E03 | Reactivate | Resubscribe → restore | Tenant active again |
 | B96-E04 | Deprovision | Grace expires | Data deleted |
+| B96-E05 | Export before | Request export | Data exported |
+| B96-E06 | Partial delete | Some data retained | Legal compliance |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B96-A01 | Bypass suspension | Try dispatch while suspended | Hard blocked |
+| B96-A02 | Prevent deprovision | Block deletion | Timer enforced |
+| B96-A03 | Data recovery | Access deleted data | Gone forever |
+| B96-A04 | Audit tampering | Modify audit post-delete | Immutable |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B96-P01 | Suspension time | <1s | Immediate |
+| B96-P02 | Deprovision time | <5min | Full cleanup |
+| B96-P03 | Export time | <10min | Data export |
 
 ### Gate Checklist
-- [ ] All B96-U* tests pass
-- [ ] All B96-I* tests pass
-- [ ] All B96-E* tests pass
-- [ ] Immediate suspension verified
-- [ ] Read-only mode enforced
+- [ ] All B96-U* tests pass (10 tests)
+- [ ] All B96-I* tests pass (8 tests)
+- [ ] All B96-E* tests pass (6 tests)
+- [ ] All B96-A* tests pass (4 tests)
+- [ ] All B96-P* tests pass (3 tests)
+- [ ] **Immediate suspension verified (CRITICAL)**
+- [ ] **Read-only mode enforced (CRITICAL)**
 - [ ] Deprovision data deletion verified
 - [ ] Audit preservation verified
 - [ ] Regression: All B0-B9.5 tests still pass
@@ -693,17 +1010,54 @@ Plus:
 
 ### Modules: C3, C1
 
-### L3 E2E Tests (Primary Focus)
+### L1 Unit Tests
+| Test ID | Test Name | Assertion | Pass Criteria |
+|---------|-----------|-----------|---------------|
+| B10-U01 | Tenant routing | Correct tenant selected | Routing works |
+| B10-U02 | Endpoint validation | Endpoint format valid | URL valid |
+| B10-U03 | ObeGee boundary | Boundary enforced | Separation works |
+| B10-U04 | API compatibility | OpenClaw API unchanged | Zero code change |
+
+### L2 Integration Tests
+| Test ID | Test Name | Assertion | Pass Criteria |
+|---------|-----------|-----------|---------------|
+| B10-I01 | Multi-tenant route | A→A's docker, B→B's docker | Correct routing |
+| B10-I02 | Data isolation | A's data not in B | Isolated |
+| B10-I03 | Key isolation | A's key invalid for B | Key scoped |
+| B10-I04 | Concurrent tenants | A and B simultaneously | Both work |
+
+### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
 |---------|-----------|-----------|---------------|
 | B10-E01 | Tenant A dispatch | Tenant A MIO → A's docker | Correct routing |
 | B10-E02 | Tenant B dispatch | Tenant B MIO → B's docker | Correct routing |
-| B10-E03 | No cross-talk | A's data not in B | Isolation verified |
+| B10-E03 | No cross-talk | A's data not in B | **Isolation verified** |
 | B10-E04 | Zero-code-change | OpenClaw API unchanged | No modifications |
+| B10-E05 | Scale test | 10 concurrent tenants | All isolated |
+| B10-E06 | Failure isolation | A fails, B unaffected | Blast radius zero |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B10-A01 | Tenant hopping | A tries to reach B | Blocked |
+| B10-A02 | Key swapping | A uses B's key | Rejected |
+| B10-A03 | Data leakage | Query across tenants | No results |
+| B10-A04 | Side channel | Timing/resource analysis | No info leak |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B10-P01 | Routing latency | <10ms | Tenant selection |
+| B10-P02 | Concurrent tenants | 100 | Sustained |
+| B10-P03 | Isolation overhead | <5% | Performance impact |
 
 ### Gate Checklist
-- [ ] All B10-E* tests pass
-- [ ] Tenant isolation verified (CRITICAL)
+- [ ] All B10-U* tests pass (4 tests)
+- [ ] All B10-I* tests pass (4 tests)
+- [ ] All B10-E* tests pass (6 tests)
+- [ ] All B10-A* tests pass (4 tests)
+- [ ] All B10-P* tests pass (3 tests)
+- [ ] **Tenant isolation verified (CRITICAL - B10-E03)**
 - [ ] Zero-code-change verified
 - [ ] Regression: All B0-B9.6 tests still pass
 
@@ -713,20 +1067,72 @@ Plus:
 
 ### Modules: B16, B17, B18
 
-### L3 E2E Tests (Primary Focus)
+### L1 Unit Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
 |---------|-----------|-----------|---------------|
-| B11-E01 | Log redaction | PII not in logs | Logs clean |
+| B11-U01 | Log format | Structured log format | JSON valid |
+| B11-U02 | PII detection | PII patterns detected | Patterns work |
+| B11-U03 | PII redaction | PII replaced | Redacted |
+| B11-U04 | Secret detection | Secrets detected | Patterns work |
+| B11-U05 | Rate limit calc | Limits calculated | Correct values |
+| B11-U06 | Circuit breaker | Breaker logic | Opens/closes |
+| B11-U07 | Env detection | Environment detected | Correct env |
+| B11-U08 | Env guard | Cross-env blocked | Guard works |
+| B11-U09 | Metric collection | Metrics gathered | Values present |
+| B11-U10 | Alert threshold | Thresholds evaluated | Alerts triggered |
+
+### L2 Integration Tests
+| Test ID | Test Name | Assertion | Pass Criteria |
+|---------|-----------|-----------|---------------|
+| B11-I01 | Log pipeline | Logs flow to storage | Logs queryable |
+| B11-I02 | Redaction in logs | PII not in stored logs | Clean logs |
+| B11-I03 | Rate limit enforce | Limit exceeded → 429 | 429 returned |
+| B11-I04 | Circuit breaker | Failures → open | Circuit opens |
+| B11-I05 | Env isolation | Dev cannot reach prod | Blocked |
+| B11-I06 | Metrics dashboard | Metrics visible | Dashboard works |
+| B11-I07 | Alert delivery | Alerts sent | Notification received |
+| B11-I08 | Audit separation | Audit vs metrics | Separate streams |
+
+### L3 E2E Tests
+| Test ID | Test Name | Assertion | Pass Criteria |
+|---------|-----------|-----------|---------------|
+| B11-E01 | Log redaction | PII not in logs | **Logs clean** |
 | B11-E02 | Rate limit | Exceed limit → throttled | 429 returned |
 | B11-E03 | Circuit breaker | Ambiguity loop → break | Loop stopped |
-| B11-E04 | Env guard | Non-prod → no prod dispatch | Hard block |
+| B11-E04 | Env guard | Non-prod → no prod dispatch | **Hard block** |
 | B11-E05 | Metrics | Metrics collected | Metrics available |
+| B11-E06 | Abuse detection | Unusual patterns | Alert triggered |
+| B11-E07 | Recovery | Breaker closes | Normal operation |
+| B11-E08 | Tiered logs | Metrics vs audit | Separate access |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B11-A01 | Log injection | Inject via user input | Sanitized |
+| B11-A02 | Rate limit bypass | Many small requests | Still limited |
+| B11-A03 | Env spoofing | Fake env header | Verified server-side |
+| B11-A04 | Metric manipulation | Fake metrics | Rejected |
+| B11-A05 | PII in edge cases | Unicode/encoded PII | Still redacted |
+| B11-A06 | Log access | Unauthorized log access | Role restricted |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B11-P01 | Log write | <10ms | Async write |
+| B11-P02 | Redaction | <5ms | Per field |
+| B11-P03 | Rate check | <1ms | Per request |
+| B11-P04 | Log query | <1s | 1 hour window |
+| B11-P05 | Metric aggregation | <100ms | Dashboard refresh |
 
 ### Gate Checklist
-- [ ] All B11-E* tests pass
-- [ ] PII redaction verified
+- [ ] All B11-U* tests pass (10 tests)
+- [ ] All B11-I* tests pass (8 tests)
+- [ ] All B11-E* tests pass (8 tests)
+- [ ] All B11-A* tests pass (6 tests)
+- [ ] All B11-P* tests pass (5 tests)
+- [ ] **PII redaction verified (CRITICAL - B11-E01)**
 - [ ] Rate limits working
-- [ ] Env separation hard guard verified
+- [ ] **Env separation hard guard verified (CRITICAL - B11-E04)**
 - [ ] Regression: All B0-B10 tests still pass
 
 ---
@@ -735,18 +1141,64 @@ Plus:
 
 ### Modules: B19, B16↑
 
-### L3 E2E Tests (Primary Focus)
+### L1 Unit Tests
+| Test ID | Test Name | Assertion | Pass Criteria |
+|---------|-----------|-----------|---------------|
+| B12-U01 | Retention policy | Policy parsed | Rules applied |
+| B12-U02 | Export format | Export format valid | Portable format |
+| B12-U03 | Delete cascade | Related data deleted | Complete deletion |
+| B12-U04 | Backup format | Backup structure valid | Restorable |
+| B12-U05 | Provenance preserve | Provenance in backup | Metadata intact |
+| B12-U06 | Encryption | Backup encrypted | Encrypted at rest |
+| B12-U07 | Integrity check | Backup verified | Checksum valid |
+| B12-U08 | Restore validation | Restore verified | Data matches |
+
+### L2 Integration Tests
+| Test ID | Test Name | Assertion | Pass Criteria |
+|---------|-----------|-----------|---------------|
+| B12-I01 | Export pipeline | Export completes | File generated |
+| B12-I02 | Delete pipeline | Delete completes | Data removed |
+| B12-I03 | Backup pipeline | Backup completes | Backup stored |
+| B12-I04 | Restore pipeline | Restore completes | Data restored |
+| B12-I05 | Provenance check | Provenance intact | Metadata correct |
+| B12-I06 | Audit preserved | Audit after delete | Audit available |
+
+### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
 |---------|-----------|-----------|---------------|
 | B12-E01 | Export request | User exports data | Data file generated |
 | B12-E02 | Delete request | User deletes data | Data removed |
 | B12-E03 | Backup | Backup Digital Self | Backup created |
-| B12-E04 | Restore | Restore from backup | Provenance intact |
+| B12-E04 | Restore | Restore from backup | **Provenance intact** |
+| B12-E05 | Partial delete | Selective deletion | Specified only |
+| B12-E06 | Scheduled backup | Auto backup | Backup runs |
+| B12-E07 | Disaster recovery | Full restore | System functional |
+| B12-E08 | Legal hold | Prevent deletion | Hold enforced |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B12-A01 | Unauthorized export | Other user's data | Blocked |
+| B12-A02 | Unauthorized delete | Other user's data | Blocked |
+| B12-A03 | Backup tampering | Modify backup | Detected |
+| B12-A04 | Restore wrong user | Restore to wrong account | Blocked |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B12-P01 | Export time | <5min | 10K nodes |
+| B12-P02 | Delete time | <1min | Full user data |
+| B12-P03 | Backup time | <10min | Full tenant |
+| B12-P04 | Restore time | <15min | Full tenant |
 
 ### Gate Checklist
-- [ ] All B12-E* tests pass
+- [ ] All B12-U* tests pass (8 tests)
+- [ ] All B12-I* tests pass (6 tests)
+- [ ] All B12-E* tests pass (8 tests)
+- [ ] All B12-A* tests pass (4 tests)
+- [ ] All B12-P* tests pass (4 tests)
 - [ ] Export/delete working
-- [ ] Backup/restore preserves provenance
+- [ ] **Backup/restore preserves provenance (CRITICAL - B12-E04)**
 - [ ] Regression: All B0-B11 tests still pass
 
 ---
@@ -755,19 +1207,70 @@ Plus:
 
 ### Modules: B20
 
-### L3 E2E Tests (Primary Focus)
+### L1 Unit Tests
+| Test ID | Test Name | Assertion | Pass Criteria |
+|---------|-----------|-----------|---------------|
+| B13-U01 | Soul storage | Soul in vector DB | Stored correctly |
+| B13-U02 | Soul retrieval | Soul retrieved | Correct content |
+| B13-U03 | Version tracking | Soul versioned | Version increments |
+| B13-U04 | Section assembly | Sections assembled | Complete prompt |
+| B13-U05 | Personalization | User prefs applied | Prompt adapted |
+| B13-U06 | Drift detection | Drift detected | Flag raised |
+| B13-U07 | Explicit signal | Signal required | Signal checked |
+| B13-U08 | Cache stability | Stable sections cached | Hash unchanged |
+| B13-U09 | Prompt report | Report generated | All fields present |
+| B13-U10 | Token estimation | Tokens estimated | Accurate count |
+
+### L2 Integration Tests
+| Test ID | Test Name | Assertion | Pass Criteria |
+|---------|-----------|-----------|---------------|
+| B13-I01 | Soul load | Soul loaded at start | Ready immediately |
+| B13-I02 | Personalization flow | User pref → soul update | Prompt changes |
+| B13-I03 | Drift prevention | Drift attempt blocked | Core unchanged |
+| B13-I04 | Section registry | Sections registered | All available |
+| B13-I05 | Purpose switching | Purpose changes | Prompt adapts |
+| B13-I06 | Audit trail | Changes logged | History available |
+
+### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
 |---------|-----------|-----------|---------------|
 | B13-E01 | Soul retrieval | Soul loaded from vector | Correct soul |
 | B13-E02 | Personalization | User pref → prompt adapts | Behavior changes |
-| B13-E03 | No drift | Personalization ≠ drift | Core unchanged |
+| B13-E03 | No drift | Personalization ≠ drift | **Core unchanged** |
 | B13-E04 | Explicit signal | Self-mod needs signal | Unauthorized blocked |
+| B13-E05 | Purpose-driven | Different purpose → different prompt | Prompts differ |
+| B13-E06 | Continuously learning | Evolves with user | Learning works |
+| B13-E07 | Rollback | Bad change → rollback | Previous restored |
+| B13-E08 | Multi-user | User A ≠ User B | Isolated souls |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B13-A01 | Soul injection | Inject malicious soul | Blocked |
+| B13-A02 | Drift attempt | Gradually change core | Detected |
+| B13-A03 | Signal bypass | Skip explicit signal | Enforced |
+| B13-A04 | Cross-user soul | Use another user's soul | Blocked |
+| B13-A05 | Version manipulation | Force old version | Rejected |
+| B13-A06 | Prompt extraction | Extract system prompt | Protected |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B13-P01 | Soul retrieval | <100ms | Load time |
+| B13-P02 | Section assembly | <50ms | Full prompt |
+| B13-P03 | Personalization | <200ms | Update time |
+| B13-P04 | Drift check | <10ms | Per change |
 
 ### Gate Checklist
-- [ ] All B13-E* tests pass
-- [ ] Soul in vector memory (not file)
+- [ ] All B13-U* tests pass (10 tests)
+- [ ] All B13-I* tests pass (6 tests)
+- [ ] All B13-E* tests pass (8 tests)
+- [ ] All B13-A* tests pass (6 tests)
+- [ ] All B13-P* tests pass (4 tests)
+- [ ] **Soul in vector memory (NOT file) (CRITICAL)**
 - [ ] Personalization works
-- [ ] No drift verified (CRITICAL)
+- [ ] **No drift verified (CRITICAL - B13-E03)**
+- [ ] Explicit signal enforced
 - [ ] Regression: All B0-B12 tests still pass
 
 ---
@@ -776,17 +1279,43 @@ Plus:
 
 All of the following MUST be true:
 
-| Gate | Verification |
-|------|--------------|
-| Tier 0/1/2/3 behavior | All tier tests pass |
-| No execution without MIO | B9-E02 passes |
-| Replay protection | B8-E08 passes |
-| Tenant isolation | B10-E03 passes |
-| Read-only safe mode | B96-E02 passes (L2 offline scenario) |
-| Logs redacted | B11-E01 passes |
-| DR tested | B12-E03, B12-E04 pass |
-| All regression tests | Every B*-* test passes |
-| No orphan code | Code coverage >80% |
+| Gate | Test Reference | Verification |
+|------|---------------|--------------|
+| Tier 0/1/2/3 behavior | B8-E01 through B8-E07 | All tier tests pass |
+| No execution without MIO | B9-E02 | **Execution denied without MIO** |
+| Replay protection | B8-E08 | **Attack blocked** |
+| Tenant isolation | B10-E03 | **No cross-talk** |
+| Read-only safe mode | B96-E02 | COMM_SEND blocked when suspended |
+| Logs redacted | B11-E01 | **No PII in logs** |
+| DR tested | B12-E03, B12-E04 | Backup + restore with provenance |
+| L2 timing | B7-E12 | **L2 never per-fragment** |
+| No drift | B13-E03 | **Core unchanged** |
+| All regression tests | Every B*-* test | 100% pass rate |
+| No orphan code | Coverage report | >80% coverage |
+
+---
+
+## TEST STATISTICS SUMMARY
+
+| Batch | Unit (L1) | Integration (L2) | E2E (L3) | Adversarial (L4) | Performance | Total |
+|-------|-----------|------------------|----------|------------------|-------------|-------|
+| 0 | 10 | 8 | 8 | 4 | - | 30 |
+| 1 | 15 | 10 | 12 | 6 | 3 | 46 |
+| 2 | 15 | 10 | 12 | 6 | 5 | 48 |
+| 3 | 15 | 10 | 12 | 6 | 5 | 48 |
+| 4 | 15 | 10 | 12 | 8 | 5 | 50 |
+| 5 | 15 | 10 | 12 | 8 | 5 | 50 |
+| 6 | 15 | 10 | 12 | 8 | 5 | 50 |
+| 7 | 15 | 10 | 12 | 8 | 5 | 50 |
+| 8 | 15 | 10 | 12 | 8 | 5 | 50 |
+| 9 | 15 | 10 | 10 | 8 | 5 | 48 |
+| 9.5 | 10 | 8 | 6 | 4 | 3 | 31 |
+| 9.6 | 10 | 8 | 6 | 4 | 3 | 31 |
+| 10 | 4 | 4 | 6 | 4 | 3 | 21 |
+| 11 | 10 | 8 | 8 | 6 | 5 | 37 |
+| 12 | 8 | 6 | 8 | 4 | 4 | 30 |
+| 13 | 10 | 6 | 8 | 6 | 4 | 34 |
+| **TOTAL** | **197** | **138** | **156** | **98** | **65** | **654** |
 
 ---
 
@@ -798,8 +1327,28 @@ After each batch, run:
 pytest tests/batch_0/ tests/batch_1/ ... tests/batch_N-1/
 
 # All must pass before proceeding to batch N+1
+# Expected time: ~2-5 minutes per batch
+# Total regression at release: ~30-45 minutes
 ```
 
 ---
 
-# END OF TEST GATES SPECIFICATION
+## CRITICAL PATH TESTS (MUST NEVER FAIL)
+
+These tests represent the core safety invariants of MyndLens:
+
+| Test ID | Critical Invariant | Consequence if Failed |
+|---------|-------------------|----------------------|
+| B1-E04 | Heartbeat >15s blocks execute | Zombie sessions could execute |
+| B3-E12 | No silent L1-only fallback | User unaware of degradation |
+| B5-E03 | OBSERVED → Tier 2 | Unverified data triggers action |
+| B7-E12 | L2 never per-fragment | Performance/cost explosion |
+| B8-E08 | Replay blocked | Replay attacks possible |
+| B9-E02 | No exec without MIO | Unsigned commands execute |
+| B10-E03 | Tenant isolation | Data leakage |
+| B11-E04 | Env separation | Dev→Prod execution |
+| B13-E03 | No drift | System personality corruption |
+
+---
+
+# END OF TEST GATES SPECIFICATION v2.0
