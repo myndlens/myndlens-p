@@ -199,6 +199,9 @@ Extract user intent from **brief, natural, interactive conversation** and genera
 ## 7. DIGITAL SELF (VECTOR-GRAPH MEMORY)
 
 ### 7.1 Purpose
+The Digital Self is a **living store of user info** collected by another agent into a Vector-Graph Memory.
+
+It is used to:
 - Bridge fragmented user thoughts
 - Fill conversational gaps empathetically
 - Ground intent extraction in prior facts, preferences, entities
