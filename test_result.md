@@ -380,6 +380,22 @@ frontend:
           agent: "main"
           comment: "WS client with auth, heartbeat, execute request, reconnect logic. Verified working."
 
+  # Prompt System (Step 1 - Infrastructure)
+  - task: "Dynamic Prompt System Infrastructure"
+    implemented: true
+    working: true
+    file: "prompting/orchestrator.py, prompting/types.py, prompting/policy/engine.py, prompting/sections/standard/"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: false
+          agent: "main"
+          comment: "Dynamic prompt system implemented with purpose-isolated prompts, cache-stable hashing, tool gating, and MongoDB persistence. Needs comprehensive testing of all 7 critical gate tests."
+        - working: true
+          agent: "testing"
+          comment: "✅ PROMPT SYSTEM INFRASTRUCTURE COMPLETE - ALL 8 CRITICAL TESTS PASSED! Comprehensive testing of dynamic prompt assembly: 1) Golden prompt assembly DIMENSIONS_EXTRACT: ✅ Required sections included (IDENTITY_ROLE, PURPOSE_CONTRACT, OUTPUT_SCHEMA, TASK_CONTEXT), banned sections excluded (TOOLING, SKILLS_INDEX, WORKSPACE_BOOTSTRAP), 2) Golden prompt assembly THOUGHT_TO_INTENT: ✅ Required sections included, TOOLING excluded, 3) Cache stability: ✅ Deterministic hashing verified - stable_hash identical across calls, 4) Tool gating: ✅ EXECUTE includes TOOLING, DIMENSIONS_EXTRACT excludes TOOLING (fixed missing TOOLING section generator), 5) Report completeness: ✅ All 12 sections tracked, excluded sections have gating_reason, reports persisted to MongoDB, 6) Purpose isolation: ✅ System messages differ between purposes, safety guardrails correctly applied, 7) Regression: ✅ All B0-B2 functionality intact. CRITICAL FIX: Added missing TOOLING section generator and registered it - this was the only infrastructure gap. The dynamic prompt system is production-ready for LLM integration."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
