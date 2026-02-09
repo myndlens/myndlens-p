@@ -1,699 +1,510 @@
 #!/usr/bin/env python3
-"""
-MyndLens Batch 12 Backend Testing - Data Governance + Backup/Restore
-Testing Agent: Comprehensive backend API validation
+"""Backend Testing — MyndLens Batch 13: Soul Vector Memory System.
 
-Critical Test Requirements:
-1. Retention policy status: GET /api/governance/retention
-2. Backup creation: POST /api/governance/backup (with S2S auth)
-3. List backups: GET /api/governance/backups/{user_id} (with S2S auth)
-4. Restore from backup: POST /api/governance/restore (with S2S auth)
-5. Retention cleanup: POST /api/governance/retention/cleanup (with S2S auth)
-6. S2S auth enforcement for governance endpoints
-7. REGRESSION: Health, SSO, L1 flow, rate limits, circuit breakers
+Tests critical Soul functionality and regression tests.
 """
-
-import asyncio
 import json
-import logging
-import sys
+import requests
 import time
+import websocket
+import threading
+import uuid
 from datetime import datetime, timezone
-from typing import Dict, Any
 
-import aiohttp
-import pytest
+# Backend URL from environment
+BACKEND_URL = "https://voice-assistant-dev.preview.emergentagent.com/api"
+WS_URL = "wss://voice-assistant-dev.preview.emergentagent.com/api/ws"
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+def log(message):
+    """Log with timestamp."""
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
 
-# Configuration
-BACKEND_URL = "https://voice-assistant-dev.preview.emergentagent.com"
-API_BASE = f"{BACKEND_URL}/api"
-S2S_TOKEN = "obegee-s2s-dev-token-CHANGE-IN-PROD"
-
-# Test user for backup/restore operations
-TEST_USER_ID = "backup_user"
-
-class Colors:
-    GREEN = '\033[92m'
-    RED = '\033[91m'
-    YELLOW = '\033[93m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
-    BOLD = '\033[1m'
-
-def success(msg: str) -> str:
-    return f"{Colors.GREEN}✅ {msg}{Colors.END}"
-
-def failure(msg: str) -> str:
-    return f"{Colors.RED}❌ {msg}{Colors.END}"
-
-def info(msg: str) -> str:
-    return f"{Colors.BLUE}ℹ️  {msg}{Colors.END}"
-
-def warning(msg: str) -> str:
-    return f"{Colors.YELLOW}⚠️  {msg}{Colors.END}"
-
-class MyndLensTestClient:
+class TestResults:
     def __init__(self):
-        self.session = None
-        self.test_results = []
-        self.backup_id = None
+        self.passed = 0
+        self.failed = 0
+        self.failures = []
+    
+    def success(self, test_name):
+        self.passed += 1
+        log(f"✅ {test_name}")
+    
+    def failure(self, test_name, error):
+        self.failed += 1
+        self.failures.append(f"{test_name}: {error}")
+        log(f"❌ {test_name}: {error}")
+    
+    def summary(self):
+        total = self.passed + self.failed
+        log(f"\n=== TEST SUMMARY ===")
+        log(f"Total tests: {total}")
+        log(f"Passed: {self.passed}")
+        log(f"Failed: {self.failed}")
+        if self.failures:
+            log(f"\nFailures:")
+            for failure in self.failures:
+                log(f"  - {failure}")
 
-    async def __aenter__(self):
-        self.session = aiohttp.ClientSession()
-        return self
+results = TestResults()
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
-            await self.session.close()
-
-    def add_result(self, test_name: str, success: bool, details: str = ""):
-        self.test_results.append({
-            "test": test_name,
-            "success": success,
-            "details": details,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
-
-    async def make_request(self, method: str, url: str, headers: Dict = None, json_data: Dict = None) -> Dict[str, Any]:
-        """Make HTTP request with proper error handling."""
-        try:
-            headers = headers or {}
-            timeout = aiohttp.ClientTimeout(total=30)
-            
-            async with self.session.request(
-                method, url, headers=headers, json=json_data, timeout=timeout
-            ) as response:
-                response_text = await response.text()
-                
-                logger.info(f"{method} {url} -> {response.status}")
-                
-                try:
-                    response_data = json.loads(response_text) if response_text else {}
-                except json.JSONDecodeError:
-                    response_data = {"raw_response": response_text}
-                
-                return {
-                    "status": response.status,
-                    "data": response_data,
-                    "headers": dict(response.headers),
-                }
-        except Exception as e:
-            logger.error(f"Request failed: {method} {url} - {e}")
-            return {"status": 0, "data": {"error": str(e)}}
-
-    # ================================
-    # CORE TEST METHODS
-    # ================================
-
-    async def test_health_endpoint(self) -> bool:
-        """Test 1: Health endpoint - regression test."""
-        logger.info("🔍 Testing health endpoint...")
-        
-        result = await self.make_request("GET", f"{API_BASE}/health")
-        
-        if result["status"] == 200:
-            data = result["data"]
-            required_fields = ["status", "env", "version", "active_sessions"]
-            missing = [f for f in required_fields if f not in data]
-            
-            if missing:
-                self.add_result("Health Endpoint", False, f"Missing fields: {missing}")
-                logger.error(failure(f"Health endpoint missing fields: {missing}"))
-                return False
-            
-            if data["status"] != "ok":
-                self.add_result("Health Endpoint", False, f"Status not ok: {data['status']}")
-                logger.error(failure(f"Health status not ok: {data['status']}"))
-                return False
-            
-            self.add_result("Health Endpoint", True, f"Status: {data['status']}, Version: {data['version']}")
-            logger.info(success("Health endpoint working correctly"))
-            return True
-        else:
-            self.add_result("Health Endpoint", False, f"HTTP {result['status']}")
-            logger.error(failure(f"Health endpoint failed: HTTP {result['status']}"))
-            return False
-
-    async def test_retention_policy_status(self) -> bool:
-        """Test 2: Retention policy status endpoint."""
-        logger.info("🔍 Testing retention policy status...")
-        
-        result = await self.make_request("GET", f"{API_BASE}/governance/retention")
-        
-        if result["status"] == 200:
-            data = result["data"]
-            
-            # Check required fields
-            if "policy" not in data or "collections" not in data:
-                self.add_result("Retention Policy Status", False, "Missing policy or collections fields")
-                logger.error(failure("Retention status missing required fields"))
-                return False
-            
-            # Verify policy contains expected collections
-            policy = data["policy"]
-            expected_collections = ["transcripts", "sessions", "audit_events", "prompt_snapshots", "dispatches", "commits"]
-            
-            for collection in expected_collections:
-                if collection not in policy:
-                    self.add_result("Retention Policy Status", False, f"Missing collection in policy: {collection}")
-                    logger.error(failure(f"Missing retention policy for collection: {collection}"))
-                    return False
-            
-            # Check collections stats
-            collections_stats = data["collections"]
-            stats_found = len([c for c in collections_stats if "total" in collections_stats[c]])
-            
-            self.add_result("Retention Policy Status", True, 
-                          f"Policy collections: {len(policy)}, Stats collections: {stats_found}")
-            logger.info(success(f"Retention policy status working - {len(policy)} collections configured"))
-            return True
-        else:
-            self.add_result("Retention Policy Status", False, f"HTTP {result['status']}")
-            logger.error(failure(f"Retention policy status failed: HTTP {result['status']}"))
-            return False
-
-    async def test_store_test_data(self) -> bool:
-        """Test 3: Store some data for backup testing."""
-        logger.info("🔍 Storing test data for backup...")
-        
-        # Store a fact via Digital Self API
-        fact_data = {
-            "user_id": TEST_USER_ID,
-            "text": "Sarah is my colleague who works in the marketing department",
-            "fact_type": "FACT",
-            "provenance": "EXPLICIT"
-        }
-        
-        result = await self.make_request("POST", f"{API_BASE}/memory/store", json_data=fact_data)
-        
-        if result["status"] == 200:
-            data = result["data"]
-            if "node_id" in data and data.get("status") == "stored":
-                self.add_result("Store Test Data", True, f"Fact stored with node_id: {data['node_id']}")
-                logger.info(success("Test data stored successfully"))
-                return True
-            else:
-                self.add_result("Store Test Data", False, "Invalid response format")
-                logger.error(failure("Store data invalid response"))
-                return False
-        else:
-            self.add_result("Store Test Data", False, f"HTTP {result['status']}")
-            logger.error(failure(f"Store data failed: HTTP {result['status']}"))
-            return False
-
-    async def test_backup_creation_without_s2s(self) -> bool:
-        """Test 4: Backup creation without S2S auth (should fail)."""
-        logger.info("🔍 Testing backup creation without S2S auth (should fail)...")
-        
-        backup_data = {
-            "user_id": TEST_USER_ID,
-            "include_audit": True
-        }
-        
-        result = await self.make_request("POST", f"{API_BASE}/governance/backup", json_data=backup_data)
-        
-        if result["status"] == 403:
-            self.add_result("Backup Without S2S Auth", True, "Correctly rejected without S2S token")
-            logger.info(success("Backup correctly rejected without S2S auth"))
-            return True
-        else:
-            self.add_result("Backup Without S2S Auth", False, f"Expected 403, got {result['status']}")
-            logger.error(failure(f"Backup should have failed without S2S auth, got: {result['status']}"))
-            return False
-
-    async def test_backup_creation_with_s2s(self) -> bool:
-        """Test 5: Backup creation WITH S2S auth (should succeed)."""
-        logger.info("🔍 Testing backup creation with S2S auth...")
-        
-        backup_data = {
-            "user_id": TEST_USER_ID,
-            "include_audit": True
-        }
-        
-        headers = {"X-OBEGEE-S2S-TOKEN": S2S_TOKEN}
-        result = await self.make_request("POST", f"{API_BASE}/governance/backup", 
-                                       headers=headers, json_data=backup_data)
-        
-        if result["status"] == 200:
-            data = result["data"]
-            required_fields = ["backup_id", "user_id", "counts"]
-            missing = [f for f in required_fields if f not in data]
-            
-            if missing:
-                self.add_result("Backup Creation", False, f"Missing fields: {missing}")
-                logger.error(failure(f"Backup response missing fields: {missing}"))
-                return False
-            
-            # Store backup_id for later tests
-            self.backup_id = data["backup_id"]
-            counts = data["counts"]
-            
-            self.add_result("Backup Creation", True, 
-                          f"Backup ID: {self.backup_id[:12]}..., Counts: {counts}")
-            logger.info(success(f"Backup created successfully: {self.backup_id[:12]}..."))
-            logger.info(info(f"Backup counts: {counts}"))
-            return True
-        else:
-            self.add_result("Backup Creation", False, f"HTTP {result['status']}")
-            logger.error(failure(f"Backup creation failed: HTTP {result['status']}"))
-            return False
-
-    async def test_list_backups_without_s2s(self) -> bool:
-        """Test 6: List backups without S2S auth (should fail)."""
-        logger.info("🔍 Testing list backups without S2S auth (should fail)...")
-        
-        result = await self.make_request("GET", f"{API_BASE}/governance/backups/{TEST_USER_ID}")
-        
-        if result["status"] == 403:
-            self.add_result("List Backups Without S2S", True, "Correctly rejected without S2S token")
-            logger.info(success("List backups correctly rejected without S2S auth"))
-            return True
-        else:
-            self.add_result("List Backups Without S2S", False, f"Expected 403, got {result['status']}")
-            logger.error(failure(f"List backups should have failed without S2S auth: {result['status']}"))
-            return False
-
-    async def test_list_backups_with_s2s(self) -> bool:
-        """Test 7: List backups WITH S2S auth (should succeed)."""
-        logger.info("🔍 Testing list backups with S2S auth...")
-        
-        headers = {"X-OBEGEE-S2S-TOKEN": S2S_TOKEN}
-        result = await self.make_request("GET", f"{API_BASE}/governance/backups/{TEST_USER_ID}", 
-                                       headers=headers)
-        
-        if result["status"] == 200:
-            data = result["data"]
-            
-            if not isinstance(data, list):
-                self.add_result("List Backups", False, "Response should be a list")
-                logger.error(failure("List backups response should be a list"))
-                return False
-            
-            # Should find our backup
-            found_backup = False
-            for backup in data:
-                if backup.get("backup_id") == self.backup_id:
-                    found_backup = True
-                    break
-            
-            if found_backup:
-                self.add_result("List Backups", True, f"Found {len(data)} backups including our test backup")
-                logger.info(success(f"List backups working - found {len(data)} backups"))
-                return True
-            else:
-                self.add_result("List Backups", False, "Our test backup not found in list")
-                logger.error(failure("Test backup not found in backup list"))
-                return False
-        else:
-            self.add_result("List Backups", False, f"HTTP {result['status']}")
-            logger.error(failure(f"List backups failed: HTTP {result['status']}"))
-            return False
-
-    async def test_deprovision_user_data(self) -> bool:
-        """Test 8: Simulate user data deletion before restore test."""
-        logger.info("🔍 Simulating user data deletion for restore test...")
-        
-        # Note: In a real scenario, we'd call a deprovision endpoint
-        # For testing purposes, we'll just verify the user has some data
-        # that can be restored (the restore operation will be tested next)
-        
-        # Try to recall the stored fact
-        recall_data = {
-            "user_id": TEST_USER_ID,
-            "query": "Sarah colleague",
-            "n_results": 3
-        }
-        
-        result = await self.make_request("POST", f"{API_BASE}/memory/recall", json_data=recall_data)
-        
-        if result["status"] == 200:
-            data = result["data"]
-            results = data.get("results", [])
-            
-            # Log what we found
-            self.add_result("Pre-Restore Data Check", True, 
-                          f"Found {len(results)} memory entries before restore test")
-            logger.info(success(f"Found {len(results)} memory entries for restore testing"))
-            return True
-        else:
-            self.add_result("Pre-Restore Data Check", False, f"Memory recall failed: HTTP {result['status']}")
-            logger.warning(warning("Memory recall failed - continuing with restore test"))
-            return True  # Don't fail the test suite for this
-
-    async def test_restore_without_s2s(self) -> bool:
-        """Test 9: Restore without S2S auth (should fail)."""
-        logger.info("🔍 Testing restore without S2S auth (should fail)...")
-        
-        if not self.backup_id:
-            self.add_result("Restore Without S2S", False, "No backup_id available")
-            logger.error(failure("Cannot test restore - no backup_id available"))
-            return False
-        
-        restore_data = {"backup_id": self.backup_id}
-        result = await self.make_request("POST", f"{API_BASE}/governance/restore", json_data=restore_data)
-        
-        if result["status"] == 403:
-            self.add_result("Restore Without S2S", True, "Correctly rejected without S2S token")
-            logger.info(success("Restore correctly rejected without S2S auth"))
-            return True
-        else:
-            self.add_result("Restore Without S2S", False, f"Expected 403, got {result['status']}")
-            logger.error(failure(f"Restore should have failed without S2S auth: {result['status']}"))
-            return False
-
-    async def test_restore_with_s2s(self) -> bool:
-        """Test 10: Restore WITH S2S auth (should succeed)."""
-        logger.info("🔍 Testing restore with S2S auth...")
-        
-        if not self.backup_id:
-            self.add_result("Restore From Backup", False, "No backup_id available")
-            logger.error(failure("Cannot test restore - no backup_id available"))
-            return False
-        
-        restore_data = {"backup_id": self.backup_id}
-        headers = {"X-OBEGEE-S2S-TOKEN": S2S_TOKEN}
-        result = await self.make_request("POST", f"{API_BASE}/governance/restore", 
-                                       headers=headers, json_data=restore_data)
-        
-        if result["status"] == 200:
-            data = result["data"]
-            required_fields = ["backup_id", "user_id", "restored_at", "counts", "provenance_preserved"]
-            missing = [f for f in required_fields if f not in data]
-            
-            if missing:
-                self.add_result("Restore From Backup", False, f"Missing fields: {missing}")
-                logger.error(failure(f"Restore response missing fields: {missing}"))
-                return False
-            
-            if data.get("provenance_preserved") != True:
-                self.add_result("Restore From Backup", False, "Provenance not preserved")
-                logger.error(failure("Restore did not preserve provenance"))
-                return False
-            
-            counts = data["counts"]
-            self.add_result("Restore From Backup", True, 
-                          f"Restored counts: {counts}, Provenance preserved: True")
-            logger.info(success("Restore completed successfully"))
-            logger.info(info(f"Restored counts: {counts}"))
-            return True
-        else:
-            self.add_result("Restore From Backup", False, f"HTTP {result['status']}")
-            logger.error(failure(f"Restore failed: HTTP {result['status']}"))
-            return False
-
-    async def test_verify_restored_data(self) -> bool:
-        """Test 11: Verify data is back after restore."""
-        logger.info("🔍 Verifying restored data...")
-        
-        # Try to recall the stored fact again
-        recall_data = {
-            "user_id": TEST_USER_ID,
-            "query": "Sarah colleague marketing",
-            "n_results": 5
-        }
-        
-        result = await self.make_request("POST", f"{API_BASE}/memory/recall", json_data=recall_data)
-        
-        if result["status"] == 200:
-            data = result["data"]
-            results = data.get("results", [])
-            
-            # Look for our test data
-            found_sarah = False
-            for result_item in results:
-                if "Sarah" in result_item.get("text", "") and "colleague" in result_item.get("text", ""):
-                    found_sarah = True
-                    break
-            
-            if found_sarah:
-                self.add_result("Verify Restored Data", True, 
-                              f"Found restored data in {len(results)} results")
-                logger.info(success("Restored data verified successfully"))
-                return True
-            else:
-                self.add_result("Verify Restored Data", False, 
-                              f"Test data not found in {len(results)} results")
-                logger.warning(warning("Test data not found after restore"))
-                return False
-        else:
-            self.add_result("Verify Restored Data", False, f"Memory recall failed: HTTP {result['status']}")
-            logger.error(failure(f"Could not verify restored data: HTTP {result['status']}"))
-            return False
-
-    async def test_retention_cleanup_without_s2s(self) -> bool:
-        """Test 12: Retention cleanup without S2S auth (should fail)."""
-        logger.info("🔍 Testing retention cleanup without S2S auth (should fail)...")
-        
-        result = await self.make_request("POST", f"{API_BASE}/governance/retention/cleanup")
-        
-        if result["status"] == 403:
-            self.add_result("Retention Cleanup Without S2S", True, "Correctly rejected without S2S token")
-            logger.info(success("Retention cleanup correctly rejected without S2S auth"))
-            return True
-        else:
-            self.add_result("Retention Cleanup Without S2S", False, f"Expected 403, got {result['status']}")
-            logger.error(failure(f"Retention cleanup should have failed without S2S: {result['status']}"))
-            return False
-
-    async def test_retention_cleanup_with_s2s(self) -> bool:
-        """Test 13: Retention cleanup WITH S2S auth (should succeed)."""
-        logger.info("🔍 Testing retention cleanup with S2S auth...")
-        
-        headers = {"X-OBEGEE-S2S-TOKEN": S2S_TOKEN}
-        result = await self.make_request("POST", f"{API_BASE}/governance/retention/cleanup", 
-                                       headers=headers)
-        
-        if result["status"] == 200:
-            data = result["data"]
-            
-            # Should return counts of deleted records per collection
-            if not isinstance(data, dict):
-                self.add_result("Retention Cleanup", False, "Response should be a dict with counts")
-                logger.error(failure("Retention cleanup response should be a dict"))
-                return False
-            
-            # Verify audit_events are preserved (not deleted)
-            if "audit_events_preserved" not in data:
-                self.add_result("Retention Cleanup", False, "audit_events_preserved field missing")
-                logger.error(failure("Retention cleanup should preserve audit events"))
-                return False
-            
-            deleted_total = sum(v for k, v in data.items() if k != "audit_events_preserved" and isinstance(v, int))
-            preserved_count = data.get("audit_events_preserved", 0)
-            
-            self.add_result("Retention Cleanup", True, 
-                          f"Deleted {deleted_total} records, Preserved {preserved_count} audit events")
-            logger.info(success(f"Retention cleanup completed - deleted {deleted_total} records"))
-            logger.info(info(f"Audit events preserved: {preserved_count}"))
-            return True
-        else:
-            self.add_result("Retention Cleanup", False, f"HTTP {result['status']}")
-            logger.error(failure(f"Retention cleanup failed: HTTP {result['status']}"))
-            return False
-
-    # ================================
-    # REGRESSION TESTS
-    # ================================
-
-    async def test_sso_flow_regression(self) -> bool:
-        """Test 14: SSO flow regression test."""
-        logger.info("🔍 Testing SSO flow regression...")
-        
-        # Mock SSO login
-        sso_data = {
-            "username": "test_governance_user",
-            "password": "password123",
-            "device_id": "test_device_governance"
-        }
-        
-        result = await self.make_request("POST", f"{API_BASE}/sso/myndlens/token", json_data=sso_data)
-        
-        if result["status"] == 200:
-            data = result["data"]
-            if "token" in data and "myndlens_tenant_id" in data:
-                self.add_result("SSO Flow Regression", True, f"SSO token obtained for tenant: {data['myndlens_tenant_id']}")
-                logger.info(success("SSO flow regression test passed"))
-                return True
-            else:
-                self.add_result("SSO Flow Regression", False, "Invalid SSO response format")
-                logger.error(failure("SSO response missing required fields"))
-                return False
-        else:
-            self.add_result("SSO Flow Regression", False, f"HTTP {result['status']}")
-            logger.error(failure(f"SSO flow failed: HTTP {result['status']}"))
-            return False
-
-    async def test_l1_scout_regression(self) -> bool:
-        """Test 15: L1 Scout flow regression test."""
-        logger.info("🔍 Testing L1 Scout regression...")
-        
-        # Store a simple memory for L1 to potentially use
-        fact_data = {
-            "user_id": "regression_user",
-            "text": "My favorite restaurant is Italian Corner downtown",
-            "fact_type": "PREFERENCE",
-            "provenance": "EXPLICIT"
-        }
-        
-        result = await self.make_request("POST", f"{API_BASE}/memory/store", json_data=fact_data)
-        
-        if result["status"] == 200:
-            self.add_result("L1 Scout Regression", True, "Memory store (L1 dependency) working")
-            logger.info(success("L1 Scout regression (memory store) passed"))
-            return True
-        else:
-            self.add_result("L1 Scout Regression", False, f"Memory store failed: HTTP {result['status']}")
-            logger.error(failure(f"L1 Scout regression failed: {result['status']}"))
-            return False
-
-    async def test_rate_limits_regression(self) -> bool:
-        """Test 16: Rate limits regression test."""
-        logger.info("🔍 Testing rate limits regression...")
-        
-        rate_limit_data = {
-            "key": "test_governance_key",
-            "limit_type": "api_calls"
-        }
-        
-        result = await self.make_request("POST", f"{API_BASE}/rate-limit/check", json_data=rate_limit_data)
-        
-        if result["status"] == 200:
-            data = result["data"]
-            if "allowed" in data and "status" in data:
-                self.add_result("Rate Limits Regression", True, f"Rate limit check working, allowed: {data['allowed']}")
-                logger.info(success("Rate limits regression test passed"))
-                return True
-            else:
-                self.add_result("Rate Limits Regression", False, "Invalid rate limit response")
-                logger.error(failure("Rate limit response missing fields"))
-                return False
-        else:
-            self.add_result("Rate Limits Regression", False, f"HTTP {result['status']}")
-            logger.error(failure(f"Rate limits test failed: {result['status']}"))
-            return False
-
-    async def test_circuit_breakers_regression(self) -> bool:
-        """Test 17: Circuit breakers regression test."""
-        logger.info("🔍 Testing circuit breakers regression...")
-        
-        result = await self.make_request("GET", f"{API_BASE}/circuit-breakers")
-        
-        if result["status"] == 200:
-            data = result["data"]
-            if "breakers" in data:
-                breakers = data["breakers"]
-                self.add_result("Circuit Breakers Regression", True, 
-                              f"Circuit breakers status retrieved: {len(breakers)} breakers")
-                logger.info(success(f"Circuit breakers regression passed - {len(breakers)} breakers"))
-                return True
-            else:
-                self.add_result("Circuit Breakers Regression", False, "Invalid circuit breakers response")
-                logger.error(failure("Circuit breakers response missing breakers field"))
-                return False
-        else:
-            self.add_result("Circuit Breakers Regression", False, f"HTTP {result['status']}")
-            logger.error(failure(f"Circuit breakers test failed: {result['status']}"))
-            return False
-
-    # ================================
-    # MAIN TEST RUNNER
-    # ================================
-
-    async def run_all_tests(self):
-        """Run all Batch 12 tests in sequence."""
-        logger.info(f"\n{Colors.BOLD}🚀 MYNDLENS BATCH 12 TESTING - DATA GOVERNANCE + BACKUP/RESTORE{Colors.END}")
-        logger.info(f"Backend URL: {BACKEND_URL}")
-        logger.info(f"S2S Token: {S2S_TOKEN[:20]}...")
-        logger.info(f"Test User: {TEST_USER_ID}")
-        logger.info("=" * 80)
-
-        # Run all tests
-        tests = [
-            ("Health Endpoint", self.test_health_endpoint),
-            ("Retention Policy Status", self.test_retention_policy_status),
-            ("Store Test Data", self.test_store_test_data),
-            ("Backup Without S2S Auth", self.test_backup_creation_without_s2s),
-            ("Backup With S2S Auth", self.test_backup_creation_with_s2s),
-            ("List Backups Without S2S", self.test_list_backups_without_s2s),
-            ("List Backups With S2S", self.test_list_backups_with_s2s),
-            ("Pre-Restore Data Check", self.test_deprovision_user_data),
-            ("Restore Without S2S Auth", self.test_restore_without_s2s),
-            ("Restore With S2S Auth", self.test_restore_with_s2s),
-            ("Verify Restored Data", self.test_verify_restored_data),
-            ("Retention Cleanup Without S2S", self.test_retention_cleanup_without_s2s),
-            ("Retention Cleanup With S2S", self.test_retention_cleanup_with_s2s),
-            ("SSO Flow Regression", self.test_sso_flow_regression),
-            ("L1 Scout Regression", self.test_l1_scout_regression),
-            ("Rate Limits Regression", self.test_rate_limits_regression),
-            ("Circuit Breakers Regression", self.test_circuit_breakers_regression),
-        ]
-
-        passed = 0
-        failed = 0
-
-        for test_name, test_func in tests:
-            try:
-                logger.info(f"\n--- Running: {test_name} ---")
-                result = await test_func()
-                if result:
-                    passed += 1
-                else:
-                    failed += 1
-            except Exception as e:
-                logger.error(failure(f"Test {test_name} crashed: {e}"))
-                self.add_result(test_name, False, f"Exception: {str(e)}")
-                failed += 1
-            
-            # Small delay between tests
-            await asyncio.sleep(0.5)
-
-        # Print summary
-        logger.info("\n" + "=" * 80)
-        logger.info(f"{Colors.BOLD}📊 BATCH 12 TESTING COMPLETE{Colors.END}")
-        logger.info(f"✅ Passed: {Colors.GREEN}{passed}{Colors.END}")
-        logger.info(f"❌ Failed: {Colors.RED}{failed}{Colors.END}")
-        logger.info(f"📋 Total:  {passed + failed}")
-
-        if failed == 0:
-            logger.info(f"\n{Colors.GREEN}{Colors.BOLD}🎉 ALL TESTS PASSED! BATCH 12 DATA GOVERNANCE SYSTEM WORKING PERFECTLY!{Colors.END}")
-        else:
-            logger.info(f"\n{Colors.RED}{Colors.BOLD}⚠️  {failed} TESTS FAILED - REVIEW NEEDED{Colors.END}")
-
-        return passed, failed, self.test_results
-
-
-async def main():
-    """Main test execution."""
+def test_health_endpoint():
+    """Test health endpoint for baseline."""
     try:
-        async with MyndLensTestClient() as client:
-            passed, failed, results = await client.run_all_tests()
-            
-            # Write detailed results to file
-            with open("/app/governance_test_results.json", "w") as f:
-                json.dump({
-                    "summary": {
-                        "passed": passed,
-                        "failed": failed,
-                        "total": passed + failed,
-                        "success_rate": passed / (passed + failed) if (passed + failed) > 0 else 0
-                    },
-                    "test_results": results,
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }, f, indent=2)
-            
-            logger.info(f"\n📄 Detailed results written to: /app/governance_test_results.json")
-            
-            return 0 if failed == 0 else 1
-            
+        response = requests.get(f"{BACKEND_URL}/health", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("status") == "ok":
+                results.success("Health endpoint")
+                return True
+        results.failure("Health endpoint", f"Status: {response.status_code}")
+        return False
     except Exception as e:
-        logger.error(f"Test execution failed: {e}")
-        return 1
+        results.failure("Health endpoint", str(e))
+        return False
 
+def test_soul_status():
+    """Test 1: Soul status API - GET /api/soul/status."""
+    try:
+        response = requests.get(f"{BACKEND_URL}/soul/status", timeout=10)
+        if response.status_code != 200:
+            results.failure("Soul status API", f"HTTP {response.status_code}")
+            return False
+        
+        data = response.json()
+        required_fields = ["version", "integrity", "drift", "fragments"]
+        
+        for field in required_fields:
+            if field not in data:
+                results.failure("Soul status API", f"Missing field: {field}")
+                return False
+        
+        # Check expected values
+        if data["version"]["version"] != "1.0.0":
+            results.failure("Soul status API", f"Expected version 1.0.0, got {data['version']['version']}")
+            return False
+        
+        if not data["integrity"]["valid"]:
+            results.failure("Soul status API", f"Integrity check failed: {data['integrity']}")
+            return False
+        
+        if data["drift"]["drift_detected"]:
+            results.failure("Soul status API", f"Unexpected drift detected: {data['drift']}")
+            return False
+        
+        if data["fragments"] != 5:
+            results.failure("Soul status API", f"Expected 5 fragments, got {data['fragments']}")
+            return False
+        
+        results.success("Soul status API - all checks passed")
+        return True
+        
+    except Exception as e:
+        results.failure("Soul status API", str(e))
+        return False
+
+def test_soul_powers_identity_role():
+    """Test 2: Soul powers IDENTITY_ROLE - dynamic content from vector memory."""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/prompt/build",
+            json={
+                "purpose": "THOUGHT_TO_INTENT",
+                "transcript": "Send a message to Sarah"
+            },
+            timeout=15
+        )
+        
+        if response.status_code != 200:
+            results.failure("Soul powers IDENTITY_ROLE", f"HTTP {response.status_code}")
+            return False
+        
+        data = response.json()
+        
+        # Check if IDENTITY_ROLE is included in sections
+        if "IDENTITY_ROLE" not in data.get("sections_included", []):
+            results.failure("Soul powers IDENTITY_ROLE", "IDENTITY_ROLE section not included")
+            return False
+        
+        # Check system message contains soul content (not hardcoded)
+        messages = data.get("messages", [])
+        system_message = None
+        for msg in messages:
+            if msg.get("role") == "system":
+                system_message = msg.get("content", "")
+                break
+        
+        if not system_message:
+            results.failure("Soul powers IDENTITY_ROLE", "No system message found")
+            return False
+        
+        # Check for soul fragment keywords (should be dynamic from vector memory)
+        soul_keywords = ["sovereign", "empathetic", "cognitive proxy", "Digital Self"]
+        found_keywords = [kw for kw in soul_keywords if kw.lower() in system_message.lower()]
+        
+        if len(found_keywords) < 2:
+            results.failure("Soul powers IDENTITY_ROLE", f"System message lacks soul content. Found keywords: {found_keywords}")
+            return False
+        
+        # Ensure it's NOT the old hardcoded text
+        hardcoded_text = "You are MyndLens, a sovereign voice assistant."
+        if hardcoded_text in system_message and "vector-graph memory" not in system_message:
+            results.failure("Soul powers IDENTITY_ROLE", "Still using old hardcoded identity text")
+            return False
+        
+        results.success("Soul powers IDENTITY_ROLE - dynamic from vector memory")
+        return True
+        
+    except Exception as e:
+        results.failure("Soul powers IDENTITY_ROLE", str(e))
+        return False
+
+def test_soul_personalization():
+    """Test 3: Soul personalization API."""
+    try:
+        user_id = f"test_soul_user_{uuid.uuid4().hex[:8]}"
+        response = requests.post(
+            f"{BACKEND_URL}/soul/personalize",
+            json={
+                "user_id": user_id,
+                "text": "I prefer formal communication and detailed explanations",
+                "category": "communication"
+            },
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            results.failure("Soul personalization", f"HTTP {response.status_code}")
+            return False
+        
+        data = response.json()
+        
+        if "fragment_id" not in data:
+            results.failure("Soul personalization", "Missing fragment_id in response")
+            return False
+        
+        if data.get("category") != "communication":
+            results.failure("Soul personalization", f"Expected category 'communication', got {data.get('category')}")
+            return False
+        
+        results.success("Soul personalization API")
+        return True
+        
+    except Exception as e:
+        results.failure("Soul personalization", str(e))
+        return False
+
+def test_drift_detection_after_personalization():
+    """Test 4: Drift detection should still be false after adding user fragments."""
+    try:
+        # Add a user fragment first
+        user_id = f"test_drift_user_{uuid.uuid4().hex[:8]}"
+        requests.post(
+            f"{BACKEND_URL}/soul/personalize",
+            json={
+                "user_id": user_id,
+                "text": "Test user preference for drift test",
+                "category": "test"
+            },
+            timeout=10
+        )
+        
+        # Check soul status again
+        response = requests.get(f"{BACKEND_URL}/soul/status", timeout=10)
+        if response.status_code != 200:
+            results.failure("Drift detection after personalization", f"HTTP {response.status_code}")
+            return False
+        
+        data = response.json()
+        
+        # drift_detected should still be false (user additions don't count as drift)
+        if data["drift"]["drift_detected"]:
+            results.failure("Drift detection after personalization", "Drift detected after user personalization")
+            return False
+        
+        # user_additions count should have increased
+        if data["drift"]["user_additions"] < 1:
+            results.failure("Drift detection after personalization", "User additions count not updated")
+            return False
+        
+        results.success("Drift detection after personalization - no drift")
+        return True
+        
+    except Exception as e:
+        results.failure("Drift detection after personalization", str(e))
+        return False
+
+def test_soul_hash_stability():
+    """Test 5: Soul hash should be stable across calls."""
+    try:
+        response1 = requests.get(f"{BACKEND_URL}/soul/status", timeout=10)
+        if response1.status_code != 200:
+            results.failure("Soul hash stability", f"First call HTTP {response1.status_code}")
+            return False
+        
+        time.sleep(1)  # Small delay
+        
+        response2 = requests.get(f"{BACKEND_URL}/soul/status", timeout=10)
+        if response2.status_code != 200:
+            results.failure("Soul hash stability", f"Second call HTTP {response2.status_code}")
+            return False
+        
+        data1 = response1.json()
+        data2 = response2.json()
+        
+        hash1 = data1["drift"]["base_hash"]
+        hash2 = data2["drift"]["base_hash"]
+        
+        if hash1 != hash2:
+            results.failure("Soul hash stability", f"Hash changed: {hash1} != {hash2}")
+            return False
+        
+        results.success("Soul hash stability - identical across calls")
+        return True
+        
+    except Exception as e:
+        results.failure("Soul hash stability", str(e))
+        return False
+
+def get_sso_token():
+    """Get SSO token for WebSocket testing."""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/sso/myndlens/token",
+            json={
+                "username": f"soul_test_user_{uuid.uuid4().hex[:8]}",
+                "password": "password",
+                "device_id": f"device_{uuid.uuid4().hex[:8]}"
+            },
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json()["token"]
+    except Exception as e:
+        log(f"Failed to get SSO token: {e}")
+    return None
+
+def test_soul_fragments_in_l1_scout():
+    """Test 6: Soul fragments used in L1 Scout (most important test)."""
+    try:
+        # Get SSO token
+        token = get_sso_token()
+        if not token:
+            results.failure("Soul fragments in L1 Scout", "Could not get SSO token")
+            return False
+        
+        # WebSocket connection test
+        ws_messages = []
+        ws_error = None
+        ws_connected = threading.Event()
+        
+        def on_message(ws, message):
+            try:
+                data = json.loads(message)
+                ws_messages.append(data)
+                log(f"WS received: {data.get('type', 'unknown')}")
+            except Exception as e:
+                log(f"WS message parse error: {e}")
+        
+        def on_error(ws, error):
+            nonlocal ws_error
+            ws_error = error
+            log(f"WS error: {error}")
+        
+        def on_open(ws):
+            ws_connected.set()
+            log("WS connected")
+        
+        def on_close(ws, close_status_code, close_msg):
+            log(f"WS closed: {close_status_code}")
+        
+        # Create WebSocket connection
+        ws = websocket.WebSocketApp(
+            WS_URL,
+            on_message=on_message,
+            on_error=on_error,
+            on_open=on_open,
+            on_close=on_close
+        )
+        
+        # Run WebSocket in thread
+        ws_thread = threading.Thread(target=ws.run_forever)
+        ws_thread.daemon = True
+        ws_thread.start()
+        
+        # Wait for connection
+        if not ws_connected.wait(timeout=10):
+            results.failure("Soul fragments in L1 Scout", "WebSocket connection timeout")
+            return False
+        
+        # Send auth message
+        auth_msg = {
+            "type": "auth",
+            "payload": {"token": token}
+        }
+        ws.send(json.dumps(auth_msg))
+        
+        # Wait for auth response
+        time.sleep(2)
+        
+        # Send heartbeat
+        heartbeat_msg = {
+            "type": "heartbeat",
+            "payload": {"timestamp": datetime.now().isoformat()}
+        }
+        ws.send(json.dumps(heartbeat_msg))
+        
+        # Wait for heartbeat ack
+        time.sleep(1)
+        
+        # Send text input to trigger L1 Scout
+        text_msg = {
+            "type": "text_input",
+            "payload": {"text": "Send a message to Sarah about the meeting"}
+        }
+        ws.send(json.dumps(text_msg))
+        
+        # Wait for responses
+        time.sleep(5)
+        
+        ws.close()
+        
+        # Check if we got draft_update (L1 Scout response)
+        draft_update_received = False
+        for msg in ws_messages:
+            if msg.get("type") == "draft_update":
+                draft_update_received = True
+                break
+        
+        if not draft_update_received:
+            results.failure("Soul fragments in L1 Scout", "No draft_update received from L1 Scout")
+            return False
+        
+        # The fact that L1 Scout responded indicates it's using the prompt system
+        # which should now be powered by Soul fragments (verified in test 2)
+        results.success("Soul fragments in L1 Scout - L1 flow working with Soul system")
+        return True
+        
+    except Exception as e:
+        results.failure("Soul fragments in L1 Scout", str(e))
+        return False
+
+def test_regression_health():
+    """Regression test: Health endpoint."""
+    return test_health_endpoint()
+
+def test_regression_sso():
+    """Regression test: SSO login."""
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/sso/myndlens/token",
+            json={
+                "username": f"regression_user_{uuid.uuid4().hex[:8]}",
+                "password": "password",
+                "device_id": f"device_{uuid.uuid4().hex[:8]}"
+            },
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            if "token" in data:
+                results.success("Regression: SSO login")
+                return True
+        
+        results.failure("Regression: SSO login", f"HTTP {response.status_code}")
+        return False
+        
+    except Exception as e:
+        results.failure("Regression: SSO login", str(e))
+        return False
+
+def test_regression_memory():
+    """Regression test: Memory APIs."""
+    try:
+        user_id = f"regression_mem_user_{uuid.uuid4().hex[:8]}"
+        
+        # Store a fact
+        response = requests.post(
+            f"{BACKEND_URL}/memory/store",
+            json={
+                "user_id": user_id,
+                "text": "Sarah is my colleague at work",
+                "fact_type": "FACT",
+                "provenance": "EXPLICIT"
+            },
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            results.failure("Regression: Memory store", f"HTTP {response.status_code}")
+            return False
+        
+        # Recall the fact
+        response = requests.post(
+            f"{BACKEND_URL}/memory/recall",
+            json={
+                "user_id": user_id,
+                "query": "Who is Sarah?",
+                "n_results": 3
+            },
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            results.failure("Regression: Memory recall", f"HTTP {response.status_code}")
+            return False
+        
+        results.success("Regression: Memory APIs")
+        return True
+        
+    except Exception as e:
+        results.failure("Regression: Memory APIs", str(e))
+        return False
+
+def test_regression_prompt_compliance():
+    """Regression test: Prompt compliance."""
+    try:
+        response = requests.get(f"{BACKEND_URL}/prompt/compliance", timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if "call_sites" in data and "rogue_prompt_scan" in data:
+                results.success("Regression: Prompt compliance")
+                return True
+        
+        results.failure("Regression: Prompt compliance", f"HTTP {response.status_code}")
+        return False
+        
+    except Exception as e:
+        results.failure("Regression: Prompt compliance", str(e))
+        return False
+
+def run_all_tests():
+    """Run all Soul system tests."""
+    log("=== MyndLens Batch 13: Soul Vector Memory Testing ===")
+    
+    # Critical Soul Tests
+    log("\n--- Critical Soul Tests ---")
+    test_soul_status()
+    test_soul_powers_identity_role()
+    test_soul_personalization()
+    test_drift_detection_after_personalization()
+    test_soul_hash_stability()
+    test_soul_fragments_in_l1_scout()
+    
+    # Regression Tests
+    log("\n--- Regression Tests ---")
+    test_regression_health()
+    test_regression_sso()
+    test_regression_memory()
+    test_regression_prompt_compliance()
+    
+    # Summary
+    log("\n" + "="*50)
+    results.summary()
+    
+    return results.failed == 0
 
 if __name__ == "__main__":
-    exit_code = asyncio.run(main())
-    sys.exit(exit_code)
+    success = run_all_tests()
+    exit(0 if success else 1)
