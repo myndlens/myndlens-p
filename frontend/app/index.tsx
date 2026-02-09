@@ -26,11 +26,11 @@ export default function IndexScreen() {
         setAuth(userId, '');
         router.replace('/talk');
       } else {
-        router.replace('/pairing');
+        router.replace('/login');
       }
     } catch (err) {
       console.error('Auth check failed:', err);
-      router.replace('/pairing');
+      router.replace('/login');
     }
   }
 
