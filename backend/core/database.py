@@ -58,6 +58,12 @@ async def init_indexes() -> None:
     await db.tenants.create_index("obegee_user_id", unique=True)
     await db.tenants.create_index("status")
 
+    # Commits: unique commit_id, idempotency_key, session lookup
+    await db.commits.create_index("commit_id", unique=True)
+    await db.commits.create_index("idempotency_key", unique=True)
+    await db.commits.create_index("session_id")
+    await db.commits.create_index("state")
+
     logger.info("MongoDB indexes initialized")
 
 
