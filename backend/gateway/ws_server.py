@@ -211,7 +211,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             await log_audit_event(
                 AuditEventType.SESSION_TERMINATED,
                 session_id=session_id,
-                user_id=claims.user_id if claims else None,
+                user_id=legacy_claims.user_id if legacy_claims else None,
             )
 
 
