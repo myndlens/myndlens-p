@@ -23,7 +23,7 @@ load_dotenv(ROOT_DIR / ".env")
 from config.settings import get_settings
 from core.logging_config import setup_logging
 from core.database import get_db, init_indexes, close_db
-from core.exceptions import AuthError, MyndLensError
+from core.exceptions import AuthError, MyndLensError, DispatchBlockedError
 from auth.tokens import generate_token
 from auth.sso_validator import get_sso_validator, SSOClaims
 from auth.device_binding import get_session
