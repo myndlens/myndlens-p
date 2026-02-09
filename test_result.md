@@ -907,14 +907,106 @@ agent_communication:
           agent: "testing"
           comment: "✅ TESTED: Tenant registry working perfectly! Tenant creation via SSO mock endpoint, tenant lookup by ID and obegee_user_id, status management (ACTIVE/SUSPENDED/DEPROVISIONED), idempotent activation, and S2S auth protection for lifecycle APIs. Tenants properly stored in MongoDB with UUIDs."
 
+  # Batch 9.5/9.6 Backend Tasks - Tenant Provisioning + Lifecycle Completion
+  - task: "Tenant Activation Pipeline with Provisioning"
+    implemented: true
+    working: "NA"
+    file: "server.py, tenants/lifecycle.py, tenants/provisioner.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Full tenant provisioning pipeline with OpenClaw endpoint generation and API key creation. Needs testing with S2S header authentication."
+
+  - task: "Tenant Key Rotation System"
+    implemented: true
+    working: "NA"
+    file: "server.py, tenants/provisioner.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "API key rotation with immediate invalidation of old keys. POST /api/tenants/rotate-key with S2S auth. Needs testing."
+
+  - task: "Tenant Suspension with Session Invalidation"
+    implemented: true
+    working: "NA"
+    file: "server.py, tenants/lifecycle.py, tenants/data_management.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Suspend tenant, flush execution keys, invalidate active sessions. Returns session count. POST /api/tenants/suspend with S2S auth. Needs testing."
+
+  - task: "Tenant Deprovision with Data Deletion"
+    implemented: true
+    working: "NA"
+    file: "server.py, tenants/lifecycle.py, tenants/data_management.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Complete deprovision: stop Docker, revoke keys, delete user data, preserve audit. POST /api/tenants/deprovision with S2S auth. Needs testing."
+
+  - task: "User Data Export (GDPR Compliance)"
+    implemented: true
+    working: "NA"
+    file: "server.py, tenants/data_management.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Export all user data: sessions, transcripts, entities, graphs. POST /api/tenants/export-data with S2S auth. Needs testing."
+
+  - task: "Tenant Activation Idempotency"
+    implemented: true
+    working: "NA"
+    file: "server.py, tenants/lifecycle.py, tenants/registry.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_health:
+        - working: "NA"
+          agent: "main"
+          comment: "Same user activation returns identical tenant_id. Idempotent activation logic. Needs testing."
+
+  - task: "S2S Authentication for Tenant APIs"
+    implemented: true
+    working: "NA"
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "All tenant lifecycle APIs require X-OBEGEE-S2S-TOKEN header validation. Should return 403 without proper token. Needs testing."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 9
+  test_sequence: 9.5
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Tenant Activation Pipeline with Provisioning"
+    - "Tenant Key Rotation System"
+    - "Tenant Suspension with Session Invalidation"
+    - "Tenant Deprovision with Data Deletion"
+    - "User Data Export (GDPR Compliance)"
+    - "Tenant Activation Idempotency"
+    - "S2S Authentication for Tenant APIs"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
