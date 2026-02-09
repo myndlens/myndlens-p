@@ -1125,10 +1125,95 @@ agent_communication:
           agent: "testing"
           comment: "✅ VERIFIED: Environment guard system already tested in previous batches. Dev environment correctly allows dispatch operations while preventing prod dispatch from non-prod environments. Environment separation working as designed."
 
+  # Batch 12 Backend Tasks - Data Governance + Backup/Restore
+  - task: "Retention Policy Status API /api/governance/retention"
+    implemented: true
+    working: true
+    file: "server.py, governance/retention.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Retention policy status endpoint working perfectly! Returns policy (7 collections: transcripts=90 days, sessions=30 days, audit_events=365 days, prompt_snapshots=90 days, dispatches=180 days, commits=180 days) with collection stats (total/expired counts per collection). All retention policies properly configured."
+
+  - task: "Backup Creation API /api/governance/backup with S2S Auth"
+    implemented: true
+    working: true
+    file: "server.py, governance/backup.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED CRITICAL: Backup creation working perfectly with S2S authentication! Correctly rejects requests without X-OBEGEE-S2S-TOKEN (403 error). With valid S2S token, creates complete backup snapshot with backup_id, counts (graphs=1, entities=0, sessions=0, transcripts=0, commits=0, audit_events=0), and stores complete user data in MongoDB backups collection."
+
+  - task: "List Backups API /api/governance/backups/{user_id} with S2S Auth"
+    implemented: true
+    working: true
+    file: "server.py, governance/backup.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: List backups working correctly with S2S authentication! Properly enforces X-OBEGEE-S2S-TOKEN header (returns 403 without valid token). With valid S2S token, returns array of backups including our test backup with proper metadata (backup_id, user_id, created_at, counts)."
+
+  - task: "Restore from Backup API /api/governance/restore with S2S Auth"
+    implemented: true
+    working: true
+    file: "server.py, governance/restore.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED CRITICAL: Restore from backup working perfectly! S2S authentication enforced (403 without token). Restore operation successfully restores user data with provenance_preserved=true, returns restored counts (graphs=1, entities=0, sessions=0, transcripts=0, commits=0, audit_events=0). Uses upsert strategy to preserve data integrity and avoid duplicates."
+
+  - task: "Retention Cleanup API /api/governance/retention/cleanup with S2S Auth"
+    implemented: true
+    working: true
+    file: "server.py, governance/retention.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Retention cleanup working correctly with S2S authentication! Properly enforces X-OBEGEE-S2S-TOKEN (403 without token). Cleanup operation deletes expired records per collection based on retention policy, returns deletion counts (deleted 0 records - no expired data), and critically preserves 304 audit_events (audit_events_preserved field confirms legal requirement compliance)."
+
+  - task: "Data Governance S2S Authentication Enforcement"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED COMPREHENSIVE: S2S authentication properly enforced across all governance endpoints! All governance APIs (/api/governance/backup, /api/governance/backups/{user_id}, /api/governance/restore, /api/governance/retention/cleanup) correctly reject requests without X-OBEGEE-S2S-TOKEN header with 403 status. Only /api/governance/retention (status endpoint) is public. S2S token validation working with obegee-s2s-dev-token-CHANGE-IN-PROD."
+
+  - task: "Data Governance Complete User Data Snapshot"
+    implemented: true
+    working: true
+    file: "governance/backup.py, governance/restore.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Complete user data snapshot system working perfectly! Backup creates comprehensive snapshot including graphs, entities, sessions, transcripts, commits, and optionally audit_events. Restore uses upsert strategy to preserve provenance integrity and prevent duplicate nodes. Verified data persistence through complete backup → restore → verify cycle with test data (Sarah colleague fact)."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 11
+  test_sequence: 12
   run_ui: false
 
 test_plan:
