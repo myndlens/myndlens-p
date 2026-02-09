@@ -396,6 +396,72 @@ async def api_recover_pending():
     return await recover_pending()
 
 
+# =====================================================
+#  L2 Sentry + QC Sentry Diagnostic APIs (Batch 7)
+# =====================================================
+
+class L2RunRequest(BaseModel):
+    session_id: str = "diagnostic"
+    user_id: str = "diagnostic"
+    transcript: str
+    l1_action_class: str = ""
+    l1_confidence: float = 0.0
+
+
+class QCRunRequest(BaseModel):
+    session_id: str = "diagnostic"
+    user_id: str = "diagnostic"
+    transcript: str
+    action_class: str
+    intent_summary: str
+
+
+@api_router.post("/l2/run")
+async def api_run_l2(req: L2RunRequest):
+    """Diagnostic: run L2 Sentry on a transcript."""
+    verdict = await run_l2_sentry(
+        session_id=req.session_id,
+        user_id=req.user_id,
+        transcript=req.transcript,
+        l1_action_class=req.l1_action_class,
+        l1_confidence=req.l1_confidence,
+    )
+    return {
+        "verdict_id": verdict.verdict_id,
+        "action_class": verdict.action_class,
+        "confidence": verdict.confidence,
+        "risk_tier": verdict.risk_tier,
+        "chain_of_logic": verdict.chain_of_logic,
+        "shadow_agrees_with_l1": verdict.shadow_agrees_with_l1,
+        "conflicts": verdict.conflicts,
+        "latency_ms": verdict.latency_ms,
+        "is_mock": verdict.is_mock,
+    }
+
+
+@api_router.post("/qc/run")
+async def api_run_qc(req: QCRunRequest):
+    """Diagnostic: run QC Sentry on an intent."""
+    verdict = await run_qc_sentry(
+        session_id=req.session_id,
+        user_id=req.user_id,
+        transcript=req.transcript,
+        action_class=req.action_class,
+        intent_summary=req.intent_summary,
+    )
+    return {
+        "verdict_id": verdict.verdict_id,
+        "passes": [
+            {"name": p.pass_name, "passed": p.passed, "severity": p.severity, "reason": p.reason, "spans": p.cited_spans}
+            for p in verdict.passes
+        ],
+        "overall_pass": verdict.overall_pass,
+        "block_reason": verdict.block_reason,
+        "latency_ms": verdict.latency_ms,
+        "is_mock": verdict.is_mock,
+    }
+
+
 # ---- Prompt System Diagnostic (no behavior change) ----
 class PromptBuildRequest(BaseModel):
     purpose: str  # PromptPurpose value
