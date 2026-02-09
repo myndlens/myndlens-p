@@ -1,508 +1,392 @@
 #!/usr/bin/env python3
-"""Backend Test Suite for MyndLens Batch 9 - Dispatcher + Tenant Registry.
-
-CRITICAL TESTS:
-1. **Dispatch endpoint - MIO verification gate**
-2. **Dispatch blocked - inactive tenant**
-3. **Dispatch blocked - env guard**
-4. **Idempotency**
-5. **Stub OpenClaw execution**
-6. **REGRESSION**: Health, SSO, L1 flow, MIO sign/verify, commit, guardrails
-
-Backend URL: https://voice-assistant-dev.preview.emergentagent.com/api
 """
+MyndLens Batch 9.5/9.6 Backend Testing — Tenant Provisioning + Lifecycle Completion
+
+Tests all critical tenant provisioning and lifecycle APIs with S2S authentication.
+Based on review request requirements and tenant implementation analysis.
+"""
+
 import asyncio
 import json
+import logging
 import requests
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Any
+from datetime import datetime, timezone
+from typing import Dict, Any, Optional
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Test Configuration
-BASE_URL = "https://voice-assistant-dev.preview.emergentagent.com/api"
+BASE_URL = "https://voice-assistant-dev.preview.emergentagent.com"
+API_BASE = f"{BASE_URL}/api"
+S2S_TOKEN = "obegee-s2s-dev-token-CHANGE-IN-PROD"
+S2S_HEADERS = {"X-OBEGEE-S2S-TOKEN": S2S_TOKEN}
 
-class TestResults:
+class TenantTestResults:
+    """Track test results for comprehensive reporting."""
+    
     def __init__(self):
-        self.total = 0
         self.passed = 0
         self.failed = 0
-        self.details = []
+        self.results = []
     
-    def add_result(self, test_name: str, success: bool, message: str = "", response_data: Any = None):
-        self.total += 1
-        if success:
+    def add_result(self, test_name: str, passed: bool, details: str = ""):
+        self.results.append({
+            "test": test_name,
+            "passed": passed,
+            "details": details,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        if passed:
             self.passed += 1
-            print(f"✅ {test_name}: PASS")
+            logger.info(f"✅ PASS: {test_name}")
         else:
             self.failed += 1
-            print(f"❌ {test_name}: FAIL - {message}")
-        
-        self.details.append({
-            "test": test_name,
-            "success": success,
-            "message": message,
-            "response_data": response_data
-        })
+            logger.error(f"❌ FAIL: {test_name} - {details}")
     
-    def summary(self):
-        print(f"\n{'='*50}")
-        print(f"TEST SUMMARY: {self.passed}/{self.total} PASSED")
-        if self.failed > 0:
-            print(f"FAILED TESTS: {self.failed}")
-            for detail in self.details:
-                if not detail["success"]:
-                    print(f"  - {detail['test']}: {detail['message']}")
-        print(f"{'='*50}")
-        return self.failed == 0
+    def summary(self) -> str:
+        total = self.passed + self.failed
+        success_rate = (self.passed / total * 100) if total > 0 else 0
+        return f"Results: {self.passed}/{total} passed ({success_rate:.1f}% success rate)"
 
-
-def make_request(method: str, endpoint: str, **kwargs) -> requests.Response:
-    """Make HTTP request with error handling."""
-    url = f"{BASE_URL}{endpoint}"
+def make_request(method: str, endpoint: str, headers: Dict = None, json_data: Dict = None, expect_status: int = 200) -> requests.Response:
+    """Make HTTP request with proper error handling."""
+    url = f"{API_BASE}{endpoint}"
+    all_headers = {"Content-Type": "application/json"}
+    if headers:
+        all_headers.update(headers)
+    
     try:
-        response = requests.request(method, url, timeout=30, **kwargs)
-        print(f"📡 {method} {endpoint} -> {response.status_code}")
+        response = requests.request(method, url, headers=all_headers, json=json_data, timeout=30)
+        logger.info(f"{method} {endpoint} -> {response.status_code}")
+        if response.status_code != expect_status:
+            logger.warning(f"Expected {expect_status}, got {response.status_code}: {response.text[:200]}")
         return response
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Request failed: {method} {endpoint} - {str(e)}")
+    except Exception as e:
+        logger.error(f"Request failed: {method} {endpoint} - {e}")
         raise
 
-
-def create_test_mio(mio_id: str = None, timestamp_override: str = None, ttl_override: int = None) -> Dict[str, Any]:
-    """Create a test MIO for dispatcher tests."""
-    if mio_id is None:
-        # Use time.time_ns() for better uniqueness
-        mio_id = f"dispatch-test-{int(time.time_ns())}"
-    
-    timestamp = timestamp_override or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    ttl = ttl_override if ttl_override is not None else 120
-    
-    return {
-        "header": {
-            "mio_id": mio_id,
-            "timestamp": timestamp,
-            "signer_id": "MYNDLENS_BE_01", 
-            "ttl_seconds": ttl
-        },
-        "intent_envelope": {
-            "action": "openclaw.v1.whatsapp.send",
-            "action_class": "COMM_SEND",
-            "params": {
-                "to": "Sarah",
-                "message": "Hi"
-            },
-            "constraints": {
-                "tier": 0,
-                "physical_latch_required": False,
-                "biometric_required": False
-            },
-            "grounding": {
-                "transcript_hash": "abc",
-                "l1_hash": "def",
-                "l2_audit_hash": "ghi"
-            },
-            "security_proof": {}
-        }
-    }
-
-
-def sign_mio_for_dispatch(mio_dict: Dict[str, Any]) -> Dict[str, str]:
-    """Sign a MIO and return signature + public_key."""
-    response = make_request("POST", "/mio/sign", json={"mio_dict": mio_dict})
-    if response.status_code != 200:
-        raise Exception(f"Failed to sign MIO: {response.status_code}")
-    
-    data = response.json()
-    return {
-        "signature": data["signature"],
-        "public_key": data["public_key"]
-    }
-
-
-def test_health_endpoint(results: TestResults):
-    """Test health endpoint to verify backend is running."""
+def test_health_endpoint(results: TenantTestResults):
+    """Test 1: Health endpoint basic functionality."""
     try:
         response = make_request("GET", "/health")
+        data = response.json()
+        
+        required_fields = ["status", "env", "version", "active_sessions"]
+        missing_fields = [f for f in required_fields if f not in data]
+        
+        if response.status_code == 200 and not missing_fields and data["status"] == "ok":
+            results.add_result("Health Endpoint", True, f"Status: {data['status']}, Env: {data['env']}")
+        else:
+            results.add_result("Health Endpoint", False, f"Missing fields: {missing_fields}")
+    except Exception as e:
+        results.add_result("Health Endpoint", False, f"Exception: {e}")
+
+def test_s2s_auth_protection(results: TenantTestResults):
+    """Test 2: S2S authentication protection for tenant APIs."""
+    
+    # Test without S2S token
+    try:
+        response = make_request("POST", "/tenants/activate", 
+                              json_data={"obegee_user_id": "test_no_token"}, 
+                              expect_status=403)
+        
+        if response.status_code == 403:
+            results.add_result("S2S Auth - No Token Protection", True, "Correctly blocked without S2S token")
+        else:
+            results.add_result("S2S Auth - No Token Protection", False, f"Expected 403, got {response.status_code}")
+    except Exception as e:
+        results.add_result("S2S Auth - No Token Protection", False, f"Exception: {e}")
+    
+    # Test with wrong S2S token
+    try:
+        wrong_headers = {"X-OBEGEE-S2S-TOKEN": "wrong-token"}
+        response = make_request("POST", "/tenants/activate", 
+                              headers=wrong_headers,
+                              json_data={"obegee_user_id": "test_wrong_token"}, 
+                              expect_status=403)
+        
+        if response.status_code == 403:
+            results.add_result("S2S Auth - Wrong Token Protection", True, "Correctly blocked with wrong S2S token")
+        else:
+            results.add_result("S2S Auth - Wrong Token Protection", False, f"Expected 403, got {response.status_code}")
+    except Exception as e:
+        results.add_result("S2S Auth - Wrong Token Protection", False, f"Exception: {e}")
+
+def test_tenant_activation_pipeline(results: TenantTestResults) -> Optional[str]:
+    """Test 3: Full tenant activation pipeline with provisioning."""
+    
+    test_user_id = f"provision_test_user_{int(time.time())}"
+    
+    try:
+        response = make_request("POST", "/tenants/activate", 
+                              headers=S2S_HEADERS,
+                              json_data={"obegee_user_id": test_user_id})
+        
         if response.status_code == 200:
             data = response.json()
-            results.add_result("Health Endpoint", True, f"Status: {data.get('status')}, Env: {data.get('env')}", data)
-        else:
-            results.add_result("Health Endpoint", False, f"HTTP {response.status_code}")
-    except Exception as e:
-        results.add_result("Health Endpoint", False, f"Exception: {str(e)}")
-
-
-def test_dispatch_mio_verification_gate(results: TestResults) -> Dict[str, Any]:
-    """Test 1: Dispatch endpoint - MIO verification gate.
-    
-    Should fail with 'Heartbeat stale' or 'MIO expired' - this is EXPECTED behavior.
-    The key test is that the dispatch endpoint EXISTS and runs the verification pipeline.
-    """
-    try:
-        # Step 1: Create and sign a MIO
-        test_mio = create_test_mio("dispatch-test-1")
-        sign_result = sign_mio_for_dispatch(test_mio)
-        
-        # Step 2: Try to dispatch with unique session ID
-        unique_session = f"test-session-{int(time.time_ns())}"
-        dispatch_request = {
-            "mio_dict": test_mio,
-            "signature": sign_result["signature"],
-            "session_id": unique_session,
-            "device_id": "test-device-67890", 
-            "tenant_id": "test-tenant-123"
-        }
-        
-        response = make_request("POST", "/dispatch", json=dispatch_request)
-        
-        # Expected to fail with 403 due to security gates (heartbeat stale, no active WS session)
-        if response.status_code == 403:
-            data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {"detail": response.text}
-            detail = data.get("detail", "")
+            required_fields = ["tenant_id", "status"]
             
-            # Check if it's failing at the expected security gates
-            if any(expected in detail.lower() for expected in ["heartbeat stale", "mio expired", "presence", "tenant not found"]):
-                results.add_result("Dispatch MIO Verification Gate", True, 
-                                 f"Expected security gate failure: {detail}", data)
-                return dispatch_request
-            elif "replay" in detail.lower():
-                # If we get replay detection, that's also valid as it shows the verification pipeline is working
-                results.add_result("Dispatch MIO Verification Gate", True, 
-                                 f"Verification pipeline working (replay protection): {detail}", data)
-                return dispatch_request
-            else:
-                results.add_result("Dispatch MIO Verification Gate", False, 
-                                 f"Unexpected 403 reason: {detail}")
-        else:
-            results.add_result("Dispatch MIO Verification Gate", False, 
-                             f"Expected 403 but got {response.status_code}")
-    except Exception as e:
-        results.add_result("Dispatch MIO Verification Gate", False, f"Exception: {str(e)}")
-    
-    return {}
-
-
-def setup_test_tenant(results: TestResults) -> str:
-    """Setup a test tenant for dispatch testing."""
-    try:
-        # Create tenant using SSO mock endpoint (which auto-activates tenant)
-        sso_response = make_request("POST", "/sso/myndlens/token", json={
-            "username": "testuser_dispatcher", 
-            "password": "testpass",
-            "device_id": "test-device-dispatch"
-        })
-        
-        if sso_response.status_code == 200:
-            sso_data = sso_response.json()
-            tenant_id = sso_data.get("myndlens_tenant_id")
-            if tenant_id:
-                print(f"   Created test tenant: {tenant_id}")
+            if all(f in data for f in required_fields) and data["status"] == "ACTIVE":
+                tenant_id = data["tenant_id"]
+                results.add_result("Tenant Activation Pipeline", True, 
+                                 f"Tenant created: {tenant_id[:12]}... Status: {data['status']}")
                 return tenant_id
-        
-        results.add_result("Setup Test Tenant", False, f"Failed to create tenant: {sso_response.status_code}")
-        return ""
-    except Exception as e:
-        results.add_result("Setup Test Tenant", False, f"Exception: {str(e)}")
-        return ""
-
-
-def suspend_tenant(tenant_id: str, results: TestResults) -> bool:
-    """Suspend a tenant for testing inactive tenant dispatch blocking."""
-    try:
-        # Note: This requires S2S token, so we'll simulate by checking behavior
-        # In a real test environment, we'd have the S2S token
-        print(f"   Would suspend tenant {tenant_id} (S2S token required)")
-        return True
-    except Exception as e:
-        results.add_result("Suspend Tenant", False, f"Exception: {str(e)}")
-        return False
-
-
-def test_dispatch_blocked_inactive_tenant(results: TestResults, active_tenant_id: str):
-    """Test 2: Dispatch blocked - inactive tenant."""
-    try:
-        # Create MIO for dispatch
-        test_mio = create_test_mio("dispatch-inactive-tenant-test")
-        sign_result = sign_mio_for_dispatch(test_mio)
-        
-        # Try to dispatch with a non-existent tenant ID
-        unique_session = f"test-session-inactive-{int(time.time_ns())}"
-        dispatch_request = {
-            "mio_dict": test_mio,
-            "signature": sign_result["signature"],
-            "session_id": unique_session,
-            "device_id": "test-device-inactive", 
-            "tenant_id": "non-existent-tenant-id"
-        }
-        
-        response = make_request("POST", "/dispatch", json=dispatch_request)
-        
-        if response.status_code == 403:
-            data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {"detail": response.text}
-            detail = data.get("detail", "")
-            
-            if "tenant not found" in detail.lower() or "tenant not active" in detail.lower():
-                results.add_result("Dispatch Blocked - Inactive Tenant", True, 
-                                 f"Correctly blocked inactive tenant: {detail}", data)
             else:
-                # Might fail at earlier gates (heartbeat, etc.) which is also valid
-                results.add_result("Dispatch Blocked - Inactive Tenant", True, 
-                                 f"Failed at security gate (expected): {detail}", data)
+                results.add_result("Tenant Activation Pipeline", False, 
+                                 f"Missing fields or wrong status: {data}")
         else:
-            results.add_result("Dispatch Blocked - Inactive Tenant", False, 
-                             f"Expected 403 but got {response.status_code}")
+            results.add_result("Tenant Activation Pipeline", False, 
+                             f"HTTP {response.status_code}: {response.text[:200]}")
     except Exception as e:
-        results.add_result("Dispatch Blocked - Inactive Tenant", False, f"Exception: {str(e)}")
+        results.add_result("Tenant Activation Pipeline", False, f"Exception: {e}")
+    
+    return None
 
-
-def test_dispatch_env_guard(results: TestResults, tenant_id: str):
-    """Test 3: Dispatch blocked - env guard (should allow dev env)."""
+def test_tenant_activation_idempotency(results: TenantTestResults, test_user_id: str):
+    """Test 4: Tenant activation idempotency."""
+    
     try:
-        # Create MIO for env guard test
-        test_mio = create_test_mio("dispatch-env-guard-test")
-        sign_result = sign_mio_for_dispatch(test_mio)
+        # First activation
+        response1 = make_request("POST", "/tenants/activate", 
+                               headers=S2S_HEADERS,
+                               json_data={"obegee_user_id": test_user_id})
         
-        unique_session = f"test-session-env-{int(time.time_ns())}"
-        dispatch_request = {
-            "mio_dict": test_mio,
-            "signature": sign_result["signature"],
-            "session_id": unique_session,
-            "device_id": "test-device-env", 
-            "tenant_id": tenant_id
-        }
+        # Second activation (should be idempotent)
+        response2 = make_request("POST", "/tenants/activate", 
+                               headers=S2S_HEADERS,
+                               json_data={"obegee_user_id": test_user_id})
         
-        response = make_request("POST", "/dispatch", json=dispatch_request)
-        
-        # In dev environment, env guard should allow dispatch (but will fail at other gates)
-        if response.status_code == 403:
-            data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {"detail": response.text}
-            detail = data.get("detail", "")
+        if (response1.status_code == 200 and response2.status_code == 200):
+            data1 = response1.json()
+            data2 = response2.json()
             
-            # Should NOT fail due to env guard in dev environment
-            if "env" in detail.lower() and "guard" in detail.lower():
-                results.add_result("Dispatch Env Guard", False, 
-                                 f"Env guard incorrectly blocking dev env: {detail}")
+            if data1.get("tenant_id") == data2.get("tenant_id"):
+                results.add_result("Tenant Activation Idempotency", True, 
+                                 f"Same tenant_id returned: {data1['tenant_id'][:12]}...")
             else:
-                results.add_result("Dispatch Env Guard", True, 
-                                 f"Env guard allowed dev env (failed at other gate): {detail}", data)
+                results.add_result("Tenant Activation Idempotency", False, 
+                                 f"Different tenant IDs: {data1.get('tenant_id')} vs {data2.get('tenant_id')}")
         else:
-            results.add_result("Dispatch Env Guard", True, 
-                             f"Env guard working for dev env: {response.status_code}")
+            results.add_result("Tenant Activation Idempotency", False, 
+                             f"HTTP errors: {response1.status_code}, {response2.status_code}")
     except Exception as e:
-        results.add_result("Dispatch Env Guard", False, f"Exception: {str(e)}")
+        results.add_result("Tenant Activation Idempotency", False, f"Exception: {e}")
 
-
-def test_dispatch_idempotency(results: TestResults, tenant_id: str):
-    """Test 4: Idempotency - same MIO (session_id:mio_id) should not re-execute."""
+def test_tenant_key_rotation(results: TenantTestResults, tenant_id: str):
+    """Test 5: Tenant API key rotation."""
+    
     try:
-        # Create MIO with specific ID for idempotency test
-        test_mio = create_test_mio("dispatch-idempotent-test")
-        sign_result = sign_mio_for_dispatch(test_mio)
+        response = make_request("POST", "/tenants/rotate-key", 
+                              headers=S2S_HEADERS,
+                              json_data={"tenant_id": tenant_id})
         
-        unique_session = f"test-session-idem-{int(time.time_ns())}"
-        dispatch_request = {
-            "mio_dict": test_mio,
-            "signature": sign_result["signature"],
-            "session_id": unique_session,
-            "device_id": "test-device-idem", 
-            "tenant_id": tenant_id
-        }
-        
-        # First dispatch attempt
-        response1 = make_request("POST", "/dispatch", json=dispatch_request)
-        print(f"   First dispatch: {response1.status_code}")
-        
-        # Second dispatch attempt (should be idempotent)
-        response2 = make_request("POST", "/dispatch", json=dispatch_request)
-        print(f"   Second dispatch: {response2.status_code}")
-        
-        # Both should fail at security gates, but idempotency should be detected
-        # The exact behavior depends on where in the pipeline idempotency is checked
-        if response1.status_code == response2.status_code:
-            results.add_result("Dispatch Idempotency", True, 
-                             f"Idempotent behavior confirmed (both {response1.status_code})")
+        if response.status_code == 200:
+            data = response.json()
+            required_fields = ["tenant_id", "key_prefix", "rotated"]
+            
+            if all(f in data for f in required_fields) and data["rotated"] is True:
+                results.add_result("Tenant Key Rotation", True, 
+                                 f"Key rotated successfully: {data['key_prefix']}")
+            else:
+                results.add_result("Tenant Key Rotation", False, 
+                                 f"Missing fields or rotation failed: {data}")
         else:
-            results.add_result("Dispatch Idempotency", False, 
-                             f"Non-idempotent: first={response1.status_code}, second={response2.status_code}")
+            results.add_result("Tenant Key Rotation", False, 
+                             f"HTTP {response.status_code}: {response.text[:200]}")
     except Exception as e:
-        results.add_result("Dispatch Idempotency", False, f"Exception: {str(e)}")
+        results.add_result("Tenant Key Rotation", False, f"Exception: {e}")
 
-
-def test_stub_openclaw_execution(results: TestResults, tenant_id: str):
-    """Test 5: Stub OpenClaw execution - when no endpoint configured, should return stub result."""
+def test_tenant_suspension(results: TenantTestResults, tenant_id: str):
+    """Test 6: Tenant suspension with session invalidation."""
+    
     try:
-        # This test validates the stub execution path in the dispatcher
-        # Since our test tenant likely has no openclaw_endpoint configured, 
-        # if we could get past all security gates, we'd get a stub response
+        response = make_request("POST", "/tenants/suspend", 
+                              headers=S2S_HEADERS,
+                              json_data={"tenant_id": tenant_id, "reason": "test_suspension"})
         
-        test_mio = create_test_mio("dispatch-stub-test")
-        sign_result = sign_mio_for_dispatch(test_mio)
-        
-        unique_session = f"test-session-stub-{int(time.time_ns())}"
-        dispatch_request = {
-            "mio_dict": test_mio,
-            "signature": sign_result["signature"],
-            "session_id": unique_session,
-            "device_id": "test-device-stub", 
-            "tenant_id": tenant_id
-        }
-        
-        response = make_request("POST", "/dispatch", json=dispatch_request)
-        
-        # Expected to fail at security gates, but the stub logic is in the code
-        results.add_result("Stub OpenClaw Execution", True, 
-                         f"Stub execution logic verified in code (blocked at security gates as expected)")
+        if response.status_code == 200:
+            data = response.json()
+            required_fields = ["tenant_id", "status", "sessions_invalidated"]
+            
+            if all(f in data for f in required_fields) and data["status"] == "SUSPENDED":
+                sessions_count = data["sessions_invalidated"]
+                results.add_result("Tenant Suspension", True, 
+                                 f"Tenant suspended, {sessions_count} sessions invalidated")
+            else:
+                results.add_result("Tenant Suspension", False, 
+                                 f"Missing fields or wrong status: {data}")
+        else:
+            results.add_result("Tenant Suspension", False, 
+                             f"HTTP {response.status_code}: {response.text[:200]}")
     except Exception as e:
-        results.add_result("Stub OpenClaw Execution", False, f"Exception: {str(e)}")
+        results.add_result("Tenant Suspension", False, f"Exception: {e}")
 
+def test_data_export_gdpr(results: TenantTestResults, user_id: str):
+    """Test 7: User data export for GDPR compliance."""
+    
+    try:
+        response = make_request("POST", "/tenants/export-data", 
+                              headers=S2S_HEADERS,
+                              json_data={"user_id": user_id})
+        
+        if response.status_code == 200:
+            data = response.json()
+            required_fields = ["user_id", "exported_at", "sessions", "transcripts", "entities", "graphs"]
+            
+            if all(f in data for f in required_fields):
+                results.add_result("Data Export (GDPR)", True, 
+                                 f"Data exported for user {user_id}, {len(data['sessions'])} sessions")
+            else:
+                missing_fields = [f for f in required_fields if f not in data]
+                results.add_result("Data Export (GDPR)", False, 
+                                 f"Missing fields: {missing_fields}")
+        else:
+            results.add_result("Data Export (GDPR)", False, 
+                             f"HTTP {response.status_code}: {response.text[:200]}")
+    except Exception as e:
+        results.add_result("Data Export (GDPR)", False, f"Exception: {e}")
 
-def test_regression_health_and_sso(results: TestResults):
-    """Regression test: Health and SSO endpoints."""
+def test_tenant_deprovision(results: TenantTestResults, tenant_id: str):
+    """Test 8: Complete tenant deprovision with data deletion."""
+    
+    try:
+        response = make_request("POST", "/tenants/deprovision", 
+                              headers=S2S_HEADERS,
+                              json_data={"tenant_id": tenant_id, "reason": "test_deprovision"})
+        
+        if response.status_code == 200:
+            data = response.json()
+            required_fields = ["tenant_id", "status", "data_deleted", "audit_preserved"]
+            
+            if all(f in data for f in required_fields) and data["status"] == "DEPROVISIONED":
+                audit_preserved = data["audit_preserved"]
+                data_counts = data["data_deleted"]
+                results.add_result("Tenant Deprovision", True, 
+                                 f"Tenant deprovisioned, audit_preserved={audit_preserved}, data_deleted={data_counts}")
+            else:
+                results.add_result("Tenant Deprovision", False, 
+                                 f"Missing fields or wrong status: {data}")
+        else:
+            results.add_result("Tenant Deprovision", False, 
+                             f"HTTP {response.status_code}: {response.text[:200]}")
+    except Exception as e:
+        results.add_result("Tenant Deprovision", False, f"Exception: {e}")
+
+def test_regression_health_sso(results: TenantTestResults):
+    """Test 9: Regression test - Health and SSO endpoints still working."""
+    
     # Health endpoint
     try:
         response = make_request("GET", "/health")
-        if response.status_code == 200:
-            results.add_result("Regression - Health", True)
+        if response.status_code == 200 and response.json().get("status") == "ok":
+            results.add_result("REGRESSION: Health Endpoint", True, "Still working correctly")
         else:
-            results.add_result("Regression - Health", False, f"HTTP {response.status_code}")
+            results.add_result("REGRESSION: Health Endpoint", False, f"Status: {response.status_code}")
     except Exception as e:
-        results.add_result("Regression - Health", False, f"Exception: {str(e)}")
+        results.add_result("REGRESSION: Health Endpoint", False, f"Exception: {e}")
     
-    # SSO endpoint
+    # SSO endpoint (if available)
     try:
-        response = make_request("POST", "/sso/myndlens/token", json={
-            "username": "regression_test", 
-            "password": "testpass",
-            "device_id": "test-device-regr"
-        })
+        response = make_request("POST", "/sso/myndlens/token", 
+                              json_data={
+                                  "username": "regression_test",
+                                  "password": "test123",
+                                  "device_id": "test-device-regression"
+                              })
         if response.status_code == 200:
-            results.add_result("Regression - SSO", True)
-        else:
-            results.add_result("Regression - SSO", False, f"HTTP {response.status_code}")
-    except Exception as e:
-        results.add_result("Regression - SSO", False, f"Exception: {str(e)}")
-
-
-def test_regression_mio_sign_verify(results: TestResults):
-    """Regression test: MIO sign/verify endpoints."""
-    try:
-        # Test MIO signing
-        test_mio = create_test_mio("regression-mio-test")
-        sign_response = make_request("POST", "/mio/sign", json={"mio_dict": test_mio})
-        
-        if sign_response.status_code == 200:
-            results.add_result("Regression - MIO Sign", True)
-            
-            # Test MIO verification
-            sign_data = sign_response.json()
-            verify_request = {
-                "mio_dict": test_mio,
-                "signature": sign_data["signature"],
-                "session_id": "test-session-regr",
-                "device_id": "test-device-regr",
-                "tier": 0
-            }
-            
-            verify_response = make_request("POST", "/mio/verify", json=verify_request)
-            if verify_response.status_code == 200:
-                results.add_result("Regression - MIO Verify", True, "MIO verify endpoint working")
+            data = response.json()
+            if "token" in data:
+                results.add_result("REGRESSION: SSO Login", True, "Token generated successfully")
             else:
-                results.add_result("Regression - MIO Verify", False, f"HTTP {verify_response.status_code}")
+                results.add_result("REGRESSION: SSO Login", False, "No token in response")
         else:
-            results.add_result("Regression - MIO Sign", False, f"HTTP {sign_response.status_code}")
+            results.add_result("REGRESSION: SSO Login", False, f"HTTP {response.status_code}")
     except Exception as e:
-        results.add_result("Regression - MIO Sign/Verify", False, f"Exception: {str(e)}")
+        results.add_result("REGRESSION: SSO Login", False, f"Exception: {e}")
 
-
-def test_regression_commit_and_guardrails(results: TestResults):
-    """Regression test: Commit state machine and guardrails."""
+def test_l1_scout_regression(results: TenantTestResults):
+    """Test 10: Regression test - L1 Scout diagnostic still working."""
+    
     try:
-        # Test commit creation
-        commit_response = make_request("POST", "/commit/create", json={
-            "session_id": "test-session-commit",
-            "draft_id": "test-draft-regr",
-            "intent_summary": "Test commit for regression",
-            "action_class": "TEST_ACTION"
-        })
+        response = make_request("POST", "/l2/run", 
+                              json_data={
+                                  "transcript": "Send a message to Sarah about tomorrow's meeting",
+                                  "l1_action_class": "COMM_SEND",
+                                  "l1_confidence": 0.95
+                              })
         
-        if commit_response.status_code == 200:
-            results.add_result("Regression - Commit Create", True)
+        if response.status_code == 200:
+            data = response.json()
+            required_fields = ["verdict_id", "action_class", "confidence", "is_mock"]
+            if all(f in data for f in required_fields):
+                results.add_result("REGRESSION: L1 Scout (L2)", True, 
+                                 f"Action: {data['action_class']}, Mock: {data['is_mock']}")
+            else:
+                missing_fields = [f for f in required_fields if f not in data]
+                results.add_result("REGRESSION: L1 Scout (L2)", False, f"Missing: {missing_fields}")
         else:
-            results.add_result("Regression - Commit Create", False, f"HTTP {commit_response.status_code}")
+            results.add_result("REGRESSION: L1 Scout (L2)", False, f"HTTP {response.status_code}")
     except Exception as e:
-        results.add_result("Regression - Commit", False, f"Exception: {str(e)}")
-    
-    # Test L2 Sentry (guardrails component)
-    try:
-        l2_response = make_request("POST", "/l2/run", json={
-            "transcript": "Send a message to Sarah about the meeting",
-            "l1_action_class": "COMM_SEND",
-            "l1_confidence": 0.95
-        })
-        
-        if l2_response.status_code == 200:
-            results.add_result("Regression - L2 Sentry", True)
-        else:
-            results.add_result("Regression - L2 Sentry", False, f"HTTP {l2_response.status_code}")
-    except Exception as e:
-        results.add_result("Regression - L2 Sentry", False, f"Exception: {str(e)}")
+        results.add_result("REGRESSION: L1 Scout (L2)", False, f"Exception: {e}")
 
-
-def main():
-    """Run all Batch 9 Dispatcher + Tenant Registry tests."""
-    print("🚀 MyndLens Batch 9 - Dispatcher + Tenant Registry Testing")
-    print(f"📡 Backend URL: {BASE_URL}")
-    print("="*70)
+def run_all_tenant_tests():
+    """Execute all tenant provisioning and lifecycle tests."""
     
-    results = TestResults()
+    print("🚀 MyndLens Batch 9.5/9.6 Tenant Provisioning + Lifecycle Testing")
+    print("=" * 80)
+    print(f"Backend URL: {BASE_URL}")
+    print(f"S2S Token: {S2S_TOKEN}")
+    print("=" * 80)
     
-    # Health check
-    print("\n🏥 HEALTH CHECK")
+    results = TenantTestResults()
+    
+    # Test sequence following review request requirements
+    print("\n📋 CRITICAL TESTS:")
+    
     test_health_endpoint(results)
+    test_s2s_auth_protection(results)
     
-    # Setup test tenant
-    print("\n🏢 SETUP TEST TENANT")
-    tenant_id = setup_test_tenant(results)
+    # Create test user for full lifecycle
+    test_user_id = f"provision_test_user_{int(time.time())}"
+    print(f"\n🔄 Testing with user: {test_user_id}")
     
-    # Core Batch 9 Tests
-    print("\n🔐 TEST 1: DISPATCH MIO VERIFICATION GATE")
-    dispatch_data = test_dispatch_mio_verification_gate(results)
+    tenant_id = test_tenant_activation_pipeline(results)
     
-    print("\n🚫 TEST 2: DISPATCH BLOCKED - INACTIVE TENANT")
-    test_dispatch_blocked_inactive_tenant(results, tenant_id)
-    
-    print("\n🛡️ TEST 3: DISPATCH ENV GUARD")
-    test_dispatch_env_guard(results, tenant_id)
-    
-    print("\n🔄 TEST 4: DISPATCH IDEMPOTENCY")
-    test_dispatch_idempotency(results, tenant_id)
-    
-    print("\n📦 TEST 5: STUB OPENCLAW EXECUTION")
-    test_stub_openclaw_execution(results, tenant_id)
-    
-    # Regression Tests
-    print("\n🔄 REGRESSION TESTS")
-    print("   Health & SSO...")
-    test_regression_health_and_sso(results)
-    
-    print("   MIO Sign/Verify...")
-    test_regression_mio_sign_verify(results)
-    
-    print("   Commit & Guardrails...")
-    test_regression_commit_and_guardrails(results)
-    
-    # Summary
-    print("\n" + "="*70)
-    success = results.summary()
-    
-    if success:
-        print("🎉 ALL TESTS PASSED - BATCH 9 DISPATCHER + TENANT REGISTRY WORKING!")
+    if tenant_id:
+        test_tenant_activation_idempotency(results, test_user_id)
+        test_tenant_key_rotation(results, tenant_id)
+        
+        # Store some test data before export/deprovision
+        test_data_export_gdpr(results, test_user_id)
+        test_tenant_suspension(results, tenant_id)
+        test_tenant_deprovision(results, tenant_id)
     else:
-        print("⚠️ SOME TESTS FAILED - CHECK DETAILS ABOVE")
+        print("⚠️ Skipping dependent tests due to activation failure")
     
-    return success
-
+    print("\n📋 REGRESSION TESTS:")
+    test_regression_health_sso(results)
+    test_l1_scout_regression(results)
+    
+    # Final results
+    print("\n" + "=" * 80)
+    print("🎯 FINAL RESULTS:")
+    print("=" * 80)
+    
+    for result in results.results:
+        status = "✅" if result["passed"] else "❌"
+        print(f"{status} {result['test']}: {result['details']}")
+    
+    print("\n" + results.summary())
+    
+    if results.failed == 0:
+        print("🎉 ALL TESTS PASSED! MyndLens Tenant Provisioning + Lifecycle is production-ready!")
+    else:
+        print(f"⚠️  {results.failed} test(s) failed. Review implementation.")
+    
+    return results
 
 if __name__ == "__main__":
-    success = main()
-    exit(0 if success else 1)
+    results = run_all_tenant_tests()
