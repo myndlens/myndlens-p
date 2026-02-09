@@ -23,6 +23,7 @@ const STATE_COLORS: Record<AudioState, string> = {
   IDLE: '#333340',
   LISTENING: '#6C5CE7',
   CAPTURING: '#E74C3C',
+  COMMITTING: '#FF8800',
   THINKING: '#FFAA00',
   RESPONDING: '#00D68F',
 };
@@ -31,6 +32,7 @@ const STATE_LABELS: Record<AudioState, string> = {
   IDLE: 'Tap to speak',
   LISTENING: 'Listening...',
   CAPTURING: 'Recording',
+  COMMITTING: 'Committing...',
   THINKING: 'Processing...',
   RESPONDING: 'Speaking...',
 };
