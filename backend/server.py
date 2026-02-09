@@ -1,17 +1,20 @@
 """MyndLens Backend — Command Plane entry point.
 
-Batch 0: Foundations (config, logging, redaction, schemas, health)
-Batch 1: Identity + Presence (WS auth, heartbeat, execute gate)
+Batch 0-3.5: Foundations, Identity, Audio Pipeline, STT, TTS
+SSO: ObeGee SSO consumer + Tenant activation wiring
 """
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import logging
 import uuid
 
+import jwt
 from dotenv import load_dotenv
-from fastapi import FastAPI, APIRouter, WebSocket, HTTPException
+from fastapi import FastAPI, APIRouter, WebSocket, HTTPException, Header, Request
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from typing import Optional
 
 # Load env before anything else
 ROOT_DIR = Path(__file__).parent
@@ -20,7 +23,9 @@ load_dotenv(ROOT_DIR / ".env")
 from config.settings import get_settings
 from core.logging_config import setup_logging
 from core.database import get_db, init_indexes, close_db
+from core.exceptions import AuthError, MyndLensError
 from auth.tokens import generate_token
+from auth.sso_validator import get_sso_validator, SSOClaims
 from auth.device_binding import get_session
 from gateway.ws_server import handle_ws_connection, get_active_session_count
 from presence.heartbeat import check_presence
