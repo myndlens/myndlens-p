@@ -1,16 +1,46 @@
-import { Text, View, StyleSheet, Image } from "react-native";
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSessionStore } from '../src/state/session-store';
+import { getStoredToken, getStoredUserId } from '../src/ws/auth';
 
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+/**
+ * Entry screen — checks auth state and redirects.
+ * If paired → go to /talk
+ * If not paired → go to /pairing
+ */
+export default function IndexScreen() {
+  const router = useRouter();
+  const setAuth = useSessionStore((s) => s.setAuth);
 
-export default function Index() {
-  console.log(EXPO_PUBLIC_BACKEND_URL, "EXPO_PUBLIC_BACKEND_URL");
+  useEffect(() => {
+    checkAuthState();
+  }, []);
+
+  async function checkAuthState() {
+    try {
+      const token = await getStoredToken();
+      const userId = await getStoredUserId();
+
+      if (token && userId) {
+        setAuth(userId, '');
+        router.replace('/talk');
+      } else {
+        router.replace('/pairing');
+      }
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      router.replace('/pairing');
+    }
+  }
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require("../assets/images/app-image.png")}
-        style={styles.image}
-      />
+      <View style={styles.loadingBox}>
+        <Text style={styles.logo}>MyndLens</Text>
+        <Text style={styles.subtitle}>Sovereign Voice Assistant</Text>
+        <ActivityIndicator size="large" color="#6C5CE7" style={styles.spinner} />
+      </View>
     </View>
   );
 }
@@ -18,13 +48,26 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0c0c0c",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: '#0A0A0F',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
+  loadingBox: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  logo: {
+    fontSize: 40,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 2,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#8B8B9E',
+    letterSpacing: 1,
+  },
+  spinner: {
+    marginTop: 24,
   },
 });
