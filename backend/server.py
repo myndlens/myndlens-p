@@ -487,6 +487,21 @@ def _scan_for_rogue_prompts() -> dict:
             try:
                 with open(fpath, "r") as f:
                     content = f.read()
+
+                # Skip scanner function in server.py (self-reference)
+                if rel_path == "server.py":
+                    content_lines = content.split("\n")
+                    in_scanner = False
+                    filtered = []
+                    for line in content_lines:
+                        if "def _scan_for_rogue_prompts" in line:
+                            in_scanner = True
+                        elif in_scanner and (line and not line[0].isspace() and line[0] != "#"):
+                            in_scanner = False
+                        if not in_scanner:
+                            filtered.append(line)
+                    content = "\n".join(filtered)
+
                 for pattern, desc in patterns:
                     matches = pattern.findall(content)
                     if matches:
