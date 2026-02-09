@@ -148,6 +148,52 @@ async def get_session_status(session_id: str):
     )
 
 
+# ---- Prompt System Diagnostic (no behavior change) ----
+class PromptBuildRequest(BaseModel):
+    purpose: str  # PromptPurpose value
+    transcript: str = ""
+    task_description: str = ""
+
+
+@api_router.post("/prompt/build")
+async def build_prompt(req: PromptBuildRequest):
+    """Diagnostic: build a prompt artifact + report without calling LLM.
+    
+    No behavior change. Tests the prompt system infrastructure.
+    """
+    try:
+        purpose = PromptPurpose(req.purpose)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid purpose: {req.purpose}")
+
+    ctx = PromptContext(
+        purpose=purpose,
+        mode=PromptMode.INTERACTIVE,
+        session_id="diagnostic",
+        user_id="diagnostic",
+        transcript=req.transcript or None,
+        task_description=req.task_description or None,
+    )
+
+    orchestrator = PromptOrchestrator()
+    artifact, report = orchestrator.build(ctx)
+
+    # Persist snapshot
+    await save_prompt_snapshot(report)
+
+    return {
+        "prompt_id": artifact.prompt_id,
+        "purpose": artifact.purpose.value,
+        "sections_included": [s.value for s in artifact.sections_included],
+        "sections_excluded": [s.value for s in artifact.sections_excluded],
+        "messages": artifact.messages,
+        "stable_hash": artifact.stable_hash,
+        "volatile_hash": artifact.volatile_hash,
+        "total_tokens_est": artifact.total_tokens_est,
+        "report": report.to_doc(),
+    }
+
+
 # Include REST router
 app.include_router(api_router)
 
