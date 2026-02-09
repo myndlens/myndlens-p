@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend Tests for MyndLens
-Tests all critical backend functionality including WebSocket flows.
+Comprehensive Backend Tests for MyndLens - Batch 0+1+2
+Tests all critical backend functionality including WebSocket flows and Audio Pipeline.
 """
 import asyncio
+import base64
 import json
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from typing import Optional
