@@ -330,6 +330,70 @@ async def api_recall(req: RecallRequest):
     return {"results": results, "stats": stats}
 
 
+# =====================================================
+#  Commit State Machine APIs (Batch 6)
+# =====================================================
+
+class CreateCommitRequest(BaseModel):
+    session_id: str
+    draft_id: str
+    intent_summary: str
+    action_class: str
+    dimensions: Optional[dict] = None
+
+
+class TransitionCommitRequest(BaseModel):
+    commit_id: str
+    to_state: str
+    reason: str = ""
+
+
+@api_router.post("/commit/create")
+async def api_create_commit(req: CreateCommitRequest):
+    """Create a new commit in DRAFT state."""
+    return await create_commit(
+        session_id=req.session_id,
+        draft_id=req.draft_id,
+        intent_summary=req.intent_summary,
+        action_class=req.action_class,
+        dimensions=req.dimensions,
+    )
+
+
+@api_router.post("/commit/transition")
+async def api_transition_commit(req: TransitionCommitRequest):
+    """Transition a commit to a new state."""
+    try:
+        state = CommitState(req.to_state)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid state: {req.to_state}")
+    try:
+        return await commit_transition(req.commit_id, state, req.reason)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api_router.get("/commit/{commit_id}")
+async def api_get_commit(commit_id: str):
+    """Get a commit by ID."""
+    doc = await get_commit(commit_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Commit not found")
+    return doc
+
+
+@api_router.get("/commits/session/{session_id}")
+async def api_get_session_commits(session_id: str):
+    """Get all commits for a session."""
+    return await get_session_commits(session_id)
+
+
+@api_router.get("/commits/recover")
+async def api_recover_pending():
+    """Recovery: list commits in non-terminal states."""
+    return await recover_pending()
+
+
 # ---- Prompt System Diagnostic (no behavior change) ----
 class PromptBuildRequest(BaseModel):
     purpose: str  # PromptPurpose value
