@@ -198,6 +198,7 @@ async def test_sso_full_flow(results: TestResults):
             heartbeat_msg = {
                 "type": "heartbeat",
                 "payload": {
+                    "session_id": session_id,
                     "seq": 1,
                     "client_ts": datetime.now(timezone.utc).timestamp()
                 }
