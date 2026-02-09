@@ -42,7 +42,7 @@ export default function SettingsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Settings</Text>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
-          <Text style={styles.close}>\u2715</Text>
+          <Text style={styles.close}>{'\u2715'}</Text>
         </TouchableOpacity>
       </View>
 
