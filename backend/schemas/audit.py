@@ -25,6 +25,9 @@ class AuditEventType(str, Enum):
     TENANT_ACTIVATED = "tenant_activated"
     TENANT_SUSPENDED = "tenant_suspended"
     TENANT_DEPROVISIONED = "tenant_deprovisioned"
+    # Prompt compliance
+    PROMPT_BYPASS_ATTEMPT = "prompt_bypass_attempt"
+    PROMPT_SNAPSHOT_SAVED = "prompt_snapshot_saved"
 
 
 class AuditEvent(BaseModel):
