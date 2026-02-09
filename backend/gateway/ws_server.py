@@ -47,6 +47,7 @@ from stt.orchestrator import get_stt_provider, decode_audio_payload
 from tts.orchestrator import get_tts_provider
 from l1.scout import run_l1_scout, L1DraftObject
 from dimensions.engine import get_dimension_state, cleanup_dimensions
+from guardrails.engine import check_guardrails, GuardrailResult
 from transcript.assembler import transcript_assembler
 from transcript.storage import save_transcript
 
