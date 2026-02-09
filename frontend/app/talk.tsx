@@ -169,7 +169,7 @@ export default function TalkScreen() {
           <View style={[styles.dot, { backgroundColor: connectionDot }]} />
           <View style={{ flex: 1 }} />
           <TouchableOpacity onPress={() => router.push('/settings')} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
-            <Text style={styles.gear}>\u2699</Text>
+            <Text style={styles.gear}>{'\u2699'}</Text>
           </TouchableOpacity>
         </View>
 
