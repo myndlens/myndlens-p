@@ -372,13 +372,18 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Mock STT Provider"
+    - "Transcript Assembler with Evidence Spans"
+    - "Audio chunk WS handler"
+    - "Text input handler (STT fallback)"
+    - "Mock TTS response generator"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-      message: "Batch 0+1 implementation complete. Backend has: health endpoint, auth/pair endpoint, WebSocket gateway with auth handshake, heartbeat tracking with 15s threshold, execute gate (blocks when presence stale), PII redaction in logs, env guard, audit logging. All Pydantic schemas defined (WS messages, MIO, Session, Audit). Frontend has: pairing screen, talk screen with WS connection + heartbeat + execute button, settings screen. Full flow verified: pair -> connect -> auth -> heartbeat -> execute request. Please test all backend endpoints including WS flow, especially the CRITICAL gate: execute blocked when heartbeat >15s."
+      message: "Batch 2 Audio Pipeline implementation complete. NEW backend modules: stt/ (mock provider + interface + orchestrator), transcript/ (assembler + spans + storage). Gateway extended with audio_chunk handler, text_input handler, stream_end handler, and mock TTS response. PLEASE TEST: 1) Audio chunk flow over WS (base64 encoded chunks sent to mock STT which returns transcript fragments), 2) Text input flow (text_input message to transcript to TTS), 3) Chunk validation (empty chunks, oversized chunks, invalid base64), 4) Stream end (cancel message triggers final transcript), 5) Transcript persistence in MongoDB, 6) Regression: All B0+B1 tests must still pass (health, auth/pair, WS auth, heartbeat, execute gate)."
     - agent: "testing"
       message: "COMPREHENSIVE BACKEND TESTING COMPLETE ✅ ALL CRITICAL SYSTEMS WORKING PERFECTLY! Tested all 9 backend tasks with 7 comprehensive test scenarios. CRITICAL FINDINGS: 1) Health endpoint: ✅ Working correctly, 2) Auth/Pair endpoint: ✅ Creates valid JWT tokens, 3) WebSocket Gateway: ✅ Full auth/heartbeat/execute flow working, 4) MOST CRITICAL - Presence Gate: ✅ CORRECTLY blocks execute requests after 15s stale heartbeat (tested with 16s delay), 5) Auth rejection: ✅ Invalid tokens properly rejected, 6) Session status: ✅ Returns correct presence info, 7) PII Redaction: ✅ No sensitive data in logs, 8) Env Guard: ✅ Properly prevents prod dispatch from dev, 9) Audit logging: ✅ All security events logged. The MyndLens Sovereign Voice Assistant backend is production-ready for Batch 0+1 requirements. All identity, presence, and security gates are functioning correctly."
