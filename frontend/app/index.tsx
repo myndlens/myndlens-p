@@ -1,46 +1,39 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSessionStore } from '../src/state/session-store';
 import { getStoredToken, getStoredUserId } from '../src/ws/auth';
+import { useSessionStore } from '../src/state/session-store';
 
 /**
- * Entry screen — checks auth state and redirects.
- * If paired → go to /talk
- * If not paired → go to /pairing
+ * Splash / Boot — brand + fast bootstrap.
+ * Auto-advances. No buttons. Silent token check.
+ * Failure → Login (no error shown).
  */
-export default function IndexScreen() {
+export default function SplashScreen() {
   const router = useRouter();
   const setAuth = useSessionStore((s) => s.setAuth);
 
   useEffect(() => {
-    checkAuthState();
-  }, []);
-
-  async function checkAuthState() {
-    try {
-      const token = await getStoredToken();
-      const userId = await getStoredUserId();
-
-      if (token && userId) {
-        setAuth(userId, '');
-        router.replace('/talk');
-      } else {
+    const timer = setTimeout(async () => {
+      try {
+        const token = await getStoredToken();
+        const userId = await getStoredUserId();
+        if (token && userId) {
+          setAuth(userId, '');
+          router.replace('/loading');
+        } else {
+          router.replace('/login');
+        }
+      } catch {
         router.replace('/login');
       }
-    } catch (err) {
-      console.error('Auth check failed:', err);
-      router.replace('/login');
-    }
-  }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <View style={styles.container}>
-      <View style={styles.loadingBox}>
-        <Text style={styles.logo}>MyndLens</Text>
-        <Text style={styles.subtitle}>Sovereign Voice Assistant</Text>
-        <ActivityIndicator size="large" color="#6C5CE7" style={styles.spinner} />
-      </View>
+      <Text style={styles.logo}>MyndLens</Text>
     </View>
   );
 }
@@ -52,22 +45,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  loadingBox: {
-    alignItems: 'center',
-    gap: 16,
-  },
   logo: {
-    fontSize: 40,
+    fontSize: 42,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 2,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#8B8B9E',
-    letterSpacing: 1,
-  },
-  spinner: {
-    marginTop: 24,
+    letterSpacing: 3,
   },
 });

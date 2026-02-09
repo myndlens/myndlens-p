@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,172 +6,115 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSessionStore } from '../src/state/session-store';
 import { clearAuth } from '../src/ws/auth';
 import { wsClient } from '../src/ws/client';
-import { ENV } from '../src/config/env';
 
 /**
- * Settings screen — session info, debug, disconnect.
+ * Settings — secondary screen.
+ *
+ * Sections:
+ * 1. Account (read-only)
+ * 2. Privacy & Control
+ * 3. Diagnostics (collapsed, deemphasized)
+ * 4. Sign Out
+ *
+ * Never shows: tokens, IDs, counters.
  */
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const {
-    userId,
-    connectionStatus,
-    sessionId,
-    lastHeartbeatSeq,
-    presenceOk,
-    clearAuth: clearStoreAuth,
-  } = useSessionStore();
+  const { userId, connectionStatus, presenceOk, clearAuth: clearStoreAuth } = useSessionStore();
+  const [diagOpen, setDiagOpen] = useState(false);
 
-  async function handleDisconnect() {
+  async function handleSignOut() {
     wsClient.disconnect();
     await clearAuth();
     clearStoreAuth();
     router.replace('/login');
   }
 
-  function handleClose() {
-    router.back();
-  }
-
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Settings</Text>
-        <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
-          <Text style={styles.closeBtnText}>✕</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
+          <Text style={styles.close}>\u2715</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Session Info */}
-        <Text style={styles.sectionTitle}>Session</Text>
+      <ScrollView style={styles.scroll}>
+        {/* Account */}
+        <Text style={styles.section}>Account</Text>
         <View style={styles.card}>
-          <InfoRow label="User ID" value={userId || '—'} />
-          <InfoRow label="Session ID" value={sessionId || '—'} />
-          <InfoRow label="Status" value={connectionStatus} />
-          <InfoRow label="Heartbeat Seq" value={String(lastHeartbeatSeq)} />
-          <InfoRow label="Presence" value={presenceOk ? 'Fresh' : 'Stale'} />
+          <Row label="Signed in as" value={userId || '\u2014'} />
+          <Row label="Subscription" value="Active" />
         </View>
 
-        {/* Connection Info */}
-        <Text style={styles.sectionTitle}>Connection</Text>
+        {/* Privacy & Control */}
+        <Text style={styles.section}>Privacy & Control</Text>
         <View style={styles.card}>
-          <InfoRow label="API URL" value={ENV.API_URL} />
-          <InfoRow label="WS URL" value={ENV.WS_URL} />
-          <InfoRow label="HB Interval" value={`${ENV.HEARTBEAT_INTERVAL_MS}ms`} />
+          <TouchableOpacity style={styles.actionRow}>
+            <Text style={styles.actionText}>Clear conversation history</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* System */}
-        <Text style={styles.sectionTitle}>System</Text>
-        <View style={styles.card}>
-          <InfoRow label="Version" value="0.1.0 (Batch 1)" />
-          <InfoRow label="Platform" value={Platform.OS} />
-          <InfoRow label="Batches" value="B0 + B1" />
-        </View>
+        {/* Diagnostics (collapsed) */}
+        <TouchableOpacity onPress={() => setDiagOpen(!diagOpen)} style={styles.diagHeader}>
+          <Text style={styles.diagTitle}>Diagnostics</Text>
+          <Text style={styles.diagChevron}>{diagOpen ? '\u25B2' : '\u25BC'}</Text>
+        </TouchableOpacity>
+        {diagOpen ? (
+          <View style={styles.diagCard}>
+            <Row label="Connection" value={connectionStatus === 'authenticated' ? 'Connected' : 'Disconnected'} />
+            <Row label="Presence" value={presenceOk ? 'Active' : 'Inactive'} />
+            <Row label="Version" value="0.2.0" />
+            <Row label="Platform" value={Platform.OS} />
+          </View>
+        ) : null}
 
-        {/* Disconnect */}
-        <TouchableOpacity style={styles.disconnectBtn} onPress={handleDisconnect}>
-          <Text style={styles.disconnectText}>Disconnect & Unpair</Text>
+        {/* Sign Out */}
+        <TouchableOpacity style={styles.signOut} onPress={handleSignOut}>
+          <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue} numberOfLines={1}>
-        {value}
-      </Text>
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0A0A0F',
-    paddingHorizontal: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  closeBtn: {
-    padding: 8,
-  },
-  closeBtnText: {
-    fontSize: 20,
-    color: '#8B8B9E',
-  },
-  content: {
-    flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6C5CE7',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  card: {
-    backgroundColor: '#12121E',
-    borderRadius: 12,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: '#1A1A2E',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A1A2E',
-  },
-  infoLabel: {
-    fontSize: 13,
-    color: '#8B8B9E',
-  },
-  infoValue: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    maxWidth: '60%',
-    textAlign: 'right',
-  },
-  disconnectBtn: {
-    backgroundColor: '#2D1B1B',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 32,
-    borderWidth: 1,
-    borderColor: '#E74C3C44',
-  },
-  disconnectText: {
-    color: '#E74C3C',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: '#0A0A0F', paddingHorizontal: 20 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  title: { fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
+  close: { fontSize: 20, color: '#555568' },
+  scroll: { flex: 1 },
+
+  section: { fontSize: 12, fontWeight: '600', color: '#6C5CE7', textTransform: 'uppercase', letterSpacing: 1, marginTop: 20, marginBottom: 8 },
+  card: { backgroundColor: '#12121E', borderRadius: 12, overflow: 'hidden' },
+  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#1A1A2E' },
+  rowLabel: { fontSize: 14, color: '#8B8B9E' },
+  rowValue: { fontSize: 14, color: '#FFFFFF' },
+
+  actionRow: { paddingVertical: 14, paddingHorizontal: 16 },
+  actionText: { fontSize: 14, color: '#E74C3C' },
+
+  diagHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, marginBottom: 8 },
+  diagTitle: { fontSize: 12, fontWeight: '600', color: '#444455', textTransform: 'uppercase', letterSpacing: 1 },
+  diagChevron: { fontSize: 10, color: '#444455' },
+  diagCard: { backgroundColor: '#0D0D18', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#1A1A2E' },
+
+  signOut: { marginTop: 32, paddingVertical: 16, alignItems: 'center' },
+  signOutText: { fontSize: 15, color: '#E74C3C', fontWeight: '600' },
 });

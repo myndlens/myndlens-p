@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,138 +7,82 @@ import {
   StyleSheet,
   Animated,
   Platform,
-  ScrollView,
   KeyboardAvoidingView,
   Keyboard,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { wsClient, WSEnvelope } from '../src/ws/client';
 import { useSessionStore } from '../src/state/session-store';
 import { useAudioStore, AudioState } from '../src/audio/state-machine';
-import { startRecording, stopRecording, isRecording } from '../src/audio/recorder';
+import { startRecording, stopRecording } from '../src/audio/recorder';
 import * as TTS from '../src/tts/player';
 
-const STATE_COLORS: Record<AudioState, string> = {
-  IDLE: '#333340',
-  LISTENING: '#6C5CE7',
-  CAPTURING: '#E74C3C',
-  COMMITTING: '#FF8800',
-  THINKING: '#FFAA00',
-  RESPONDING: '#00D68F',
-};
-
-const STATE_LABELS: Record<AudioState, string> = {
-  IDLE: 'Tap to speak',
-  LISTENING: 'Listening...',
-  CAPTURING: 'Recording',
-  COMMITTING: 'Committing...',
-  THINKING: 'Processing...',
-  RESPONDING: 'Speaking...',
-};
-
+/**
+ * Talk — THE product screen.
+ *
+ * Rules (non-negotiable):
+ *   - One dominant action at a time
+ *   - Voice first, text second
+ *   - No logs, no debug, no system chatter
+ *   - Execute hidden by default, contextual when needed
+ */
 export default function TalkScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const {
-    connectionStatus,
-    sessionId,
-    lastHeartbeatSeq,
-    presenceOk,
-    lastExecuteBlockReason,
-    setConnectionStatus,
-    setSessionId,
-    setHeartbeatSeq,
-    setPresenceOk,
-    setExecuteBlocked,
-  } = useSessionStore();
+  const { connectionStatus, sessionId, setConnectionStatus, setSessionId, setPresenceOk, setHeartbeatSeq, setExecuteBlocked, lastExecuteBlockReason } = useSessionStore();
+  const { state: audioState, transcript, partialTranscript, ttsText, chunksSent, transition, setTranscript, setPartialTranscript, setTtsText, setIsSpeaking, incrementChunks, reset: resetAudio } = useAudioStore();
 
-  const {
-    state: audioState,
-    transcript,
-    partialTranscript,
-    ttsText,
-    chunksSent,
-    error: audioError,
-    transition,
-    setTranscript,
-    setPartialTranscript,
-    setTtsText,
-    setIsSpeaking,
-    incrementChunks,
-    setError: setAudioError,
-    reset: resetAudio,
-  } = useAudioStore();
+  const [textInput, setTextInput] = React.useState('');
+  const [pendingAction, setPendingAction] = React.useState<string | null>(null);
+  const micAnim = useRef(new Animated.Value(1)).current;
 
-  const [textInput, setTextInput] = useState('');
-  const [statusMessages, setStatusMessages] = useState<string[]>([]);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const micScaleAnim = useRef(new Animated.Value(1)).current;
-
-  // Pulse animation
+  // Mic animation
   useEffect(() => {
-    if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
+    if (audioState === 'CAPTURING') {
       const pulse = Animated.loop(
         Animated.sequence([
-          Animated.timing(micScaleAnim, { toValue: 1.15, duration: 600, useNativeDriver: true }),
-          Animated.timing(micScaleAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(micAnim, { toValue: 1.12, duration: 700, useNativeDriver: true }),
+          Animated.timing(micAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
         ])
       );
       pulse.start();
       return () => pulse.stop();
+    } else if (audioState === 'RESPONDING') {
+      const glow = Animated.loop(
+        Animated.sequence([
+          Animated.timing(micAnim, { toValue: 1.05, duration: 1200, useNativeDriver: true }),
+          Animated.timing(micAnim, { toValue: 0.95, duration: 1200, useNativeDriver: true }),
+        ])
+      );
+      glow.start();
+      return () => glow.stop();
     } else {
-      micScaleAnim.setValue(1);
+      micAnim.setValue(1);
     }
   }, [audioState]);
 
-  // Presence pulse
-  useEffect(() => {
-    if (connectionStatus === 'authenticated') {
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 0.4, duration: 2500, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 2500, useNativeDriver: true }),
-        ])
-      );
-      pulse.start();
-      return () => pulse.stop();
-    }
-  }, [connectionStatus]);
-
-  const addStatus = useCallback((msg: string) => {
-    setStatusMessages((prev) => [...prev.slice(-14), `[${new Date().toLocaleTimeString()}] ${msg}`]);
-  }, []);
-
   // WS handlers
   useEffect(() => {
-    connectWS();
-
     const unsubs = [
       wsClient.on('heartbeat_ack', (env: WSEnvelope) => {
         setHeartbeatSeq(env.payload.seq);
       }),
       wsClient.on('transcript_partial', (env: WSEnvelope) => {
-        const text = env.payload.text || env.payload.message || '';
-        setPartialTranscript(text);
-        addStatus(`Transcript: "${text}"`);
+        setPartialTranscript(env.payload.text || '');
       }),
       wsClient.on('transcript_final', (env: WSEnvelope) => {
-        const text = env.payload.text || env.payload.message || '';
-        setTranscript(text);
+        setTranscript(env.payload.text || '');
         setPartialTranscript('');
-        addStatus(`Final: "${text}"`);
         transition('THINKING');
       }),
       wsClient.on('tts_audio', (env: WSEnvelope) => {
-        const text = env.payload.text || env.payload.message || '';
+        const text = env.payload.text || '';
         setTtsText(text);
-        addStatus(`TTS: "${text}"`);
         transition('RESPONDING');
         setIsSpeaking(true);
-
         TTS.speak(text, {
-          onStart: () => setIsSpeaking(true),
           onComplete: () => {
             setIsSpeaking(false);
             transition('IDLE');
@@ -146,66 +90,35 @@ export default function TalkScreen() {
         });
       }),
       wsClient.on('execute_blocked', (env: WSEnvelope) => {
+        const code = env.payload.code;
+        if (code === 'SUBSCRIPTION_INACTIVE' || code === 'PRESENCE_STALE') {
+          router.push('/softblock');
+        }
         setExecuteBlocked(env.payload.reason);
-        addStatus(`BLOCKED: ${env.payload.code}`);
-      }),
-      wsClient.on('error', (env: WSEnvelope) => {
-        addStatus(`ERROR: ${env.payload.code} - ${env.payload.message}`);
       }),
       wsClient.on('session_terminated', () => {
         setConnectionStatus('disconnected');
-        setSessionId(null);
-        setPresenceOk(false);
-        resetAudio();
-        addStatus('Session terminated');
+        router.replace('/loading');
       }),
     ];
 
     return () => {
       unsubs.forEach((u) => u());
-      wsClient.disconnect();
-      stopRecording();
-      TTS.stop();
     };
   }, []);
 
-  async function connectWS() {
-    setIsConnecting(true);
-    setConnectionStatus('connecting');
-    addStatus('Connecting...');
-    try {
-      await wsClient.connect();
-      setConnectionStatus('authenticated');
-      setSessionId(wsClient.currentSessionId);
-      setPresenceOk(true);
-      addStatus(`Connected: ${wsClient.currentSessionId?.slice(0, 8)}...`);
-    } catch (err: any) {
-      setConnectionStatus('error');
-      addStatus(`Failed: ${err.message}`);
-    } finally {
-      setIsConnecting(false);
-    }
-  }
-
-  // ---- Mic Button Handler ----
-  async function handleMicPress() {
-    if (connectionStatus !== 'authenticated') return;
-
+  // Mic press
+  async function handleMic() {
     if (audioState === 'RESPONDING') {
-      // Interrupt TTS
       await TTS.stop();
       setIsSpeaking(false);
       transition('IDLE');
-      addStatus('TTS interrupted');
       return;
     }
 
     if (audioState === 'IDLE') {
-      // Start listening/recording
       transition('LISTENING');
       transition('CAPTURING');
-      addStatus('Recording started');
-
       await startRecording((chunk) => {
         incrementChunks();
         wsClient.send('audio_chunk', {
@@ -217,106 +130,96 @@ export default function TalkScreen() {
         });
       });
     } else if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
-      // Stop recording → enter COMMITTING state
-      // COMMITTING: stop recorder, send stream_end, freeze utterance
       await stopRecording();
       transition('COMMITTING');
-      addStatus(`Committing (${chunksSent} chunks)`);
-
-      // Signal end of stream to server
       wsClient.send('cancel', { session_id: sessionId, reason: 'user_stop' });
-
-      // Transition to THINKING once committed
       transition('THINKING');
-      addStatus('Processing...');
     }
   }
 
-  // ---- Text Input ----
+  // Text send
   function handleSendText() {
     if (!textInput.trim() || connectionStatus !== 'authenticated') return;
     Keyboard.dismiss();
-
-    wsClient.send('text_input', {
-      session_id: sessionId,
-      text: textInput.trim(),
-    });
-
-    addStatus(`Sent: "${textInput.trim()}"`);
+    wsClient.send('text_input', { session_id: sessionId, text: textInput.trim() });
+    setTranscript(textInput.trim());
     setTextInput('');
     transition('THINKING');
   }
 
-  // ---- Execute ----
+  // Execute (contextual)
   function handleExecute() {
     if (!wsClient.isAuthenticated) return;
-    setExecuteBlocked(null);
-    addStatus('Execute request...');
     wsClient.sendExecuteRequest('draft-' + Date.now());
   }
 
-  const statusColor = connectionStatus === 'authenticated' ? '#00D68F'
-    : connectionStatus === 'connecting' ? '#FFAA00'
-    : connectionStatus === 'error' ? '#E74C3C' : '#555568';
+  const micColor = audioState === 'CAPTURING' ? '#E74C3C'
+    : audioState === 'RESPONDING' ? '#00D68F'
+    : audioState === 'THINKING' ? '#FFAA00'
+    : '#6C5CE7';
 
-  const micColor = STATE_COLORS[audioState];
-  const isActive = audioState !== 'IDLE';
+  const connectionDot = connectionStatus === 'authenticated' ? '#00D68F' : '#E74C3C';
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={[styles.container, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]}>
-        {/* Top Bar */}
+
+        {/* Top bar — minimal */}
         <View style={styles.topBar}>
-          <View style={styles.topBarLeft}>
-            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={styles.statusText}>
-              {connectionStatus === 'authenticated' ? 'Connected' : connectionStatus}
-            </Text>
-            <Text style={styles.hbText}>HB:{lastHeartbeatSeq}</Text>
-          </View>
-          <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsBtn}>
-            <Text style={styles.settingsIcon}>{'\u2699'}</Text>
+          <View style={[styles.dot, { backgroundColor: connectionDot }]} />
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity onPress={() => router.push('/settings')} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
+            <Text style={styles.gear}>\u2699</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Transcript Area */}
-        <View style={styles.transcriptArea}>
-          {(transcript || partialTranscript) ? (
-            <>
-              {partialTranscript ? (
-                <Text style={styles.partialText}>{partialTranscript}</Text>
-              ) : null}
-              {transcript ? (
-                <Text style={styles.transcriptText}>{transcript}</Text>
-              ) : null}
-            </>
-          ) : (
-            <Text style={styles.placeholderText}>
-              {audioState === 'IDLE' ? 'Tap the mic to start speaking' : STATE_LABELS[audioState]}
-            </Text>
-          )}
+        {/* Conversation area */}
+        <ScrollView style={styles.conversation} contentContainerStyle={styles.conversationContent}>
           {ttsText ? (
-            <View style={styles.ttsBox}>
-              <Text style={styles.ttsLabel}>ASSISTANT</Text>
-              <Text style={styles.ttsTextContent}>{ttsText}</Text>
+            <View style={styles.assistantBubble}>
+              <Text style={styles.assistantText}>{ttsText}</Text>
             </View>
           ) : null}
-        </View>
 
-        {/* Mic Button */}
-        <View style={styles.micSection}>
-          <Animated.View style={{ transform: [{ scale: micScaleAnim }] }}>
+          {(transcript || partialTranscript) ? (
+            <View style={styles.userBubble}>
+              <Text style={styles.userText}>
+                {partialTranscript || transcript}
+              </Text>
+            </View>
+          ) : (
+            audioState === 'IDLE' && !ttsText ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>Tap the mic to begin</Text>
+              </View>
+            ) : null
+          )}
+
+          {audioState === 'THINKING' ? (
+            <View style={styles.thinkingDots}>
+              <Text style={styles.thinkingText}>\u2026</Text>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        {/* Execute CTA — contextual, hidden by default */}
+        {pendingAction ? (
+          <TouchableOpacity style={styles.executeCta} onPress={handleExecute} activeOpacity={0.8}>
+            <Text style={styles.executeCtaText}>{pendingAction}</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {/* Mic */}
+        <View style={styles.micRow}>
+          <Animated.View style={{ transform: [{ scale: micAnim }] }}>
             <TouchableOpacity
               style={[
                 styles.micButton,
                 { backgroundColor: micColor },
-                connectionStatus !== 'authenticated' && styles.micDisabled,
+                audioState === 'THINKING' && styles.micThinking,
               ]}
-              onPress={handleMicPress}
-              disabled={connectionStatus !== 'authenticated' || audioState === 'THINKING'}
+              onPress={handleMic}
+              disabled={audioState === 'THINKING'}
               activeOpacity={0.7}
             >
               <Text style={styles.micIcon}>
@@ -324,62 +227,26 @@ export default function TalkScreen() {
               </Text>
             </TouchableOpacity>
           </Animated.View>
-          <Text style={[styles.micLabel, { color: micColor }]}>
-            {STATE_LABELS[audioState]}
-          </Text>
-          {chunksSent > 0 && audioState === 'CAPTURING' && (
-            <Text style={styles.chunkCount}>{chunksSent} chunks</Text>
-          )}
         </View>
 
-        {/* Text Input Fallback */}
-        <View style={styles.textInputRow}>
+        {/* Text fallback — collapsed */}
+        <View style={styles.textRow}>
           <TextInput
             style={styles.textInput}
             value={textInput}
             onChangeText={setTextInput}
-            placeholder="Or type a message..."
-            placeholderTextColor="#555568"
-            editable={connectionStatus === 'authenticated'}
+            placeholder="Type instead\u2026"
+            placeholderTextColor="#444455"
             returnKeyType="send"
             onSubmitEditing={handleSendText}
+            editable={connectionStatus === 'authenticated'}
           />
-          <TouchableOpacity
-            style={[styles.sendBtn, !textInput.trim() && styles.sendBtnDisabled]}
-            onPress={handleSendText}
-            disabled={!textInput.trim()}
-          >
-            <Text style={styles.sendBtnText}>{'\u2191'}</Text>
-          </TouchableOpacity>
+          {textInput.trim() ? (
+            <TouchableOpacity style={styles.sendBtn} onPress={handleSendText}>
+              <Text style={styles.sendIcon}>\u2191</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
-
-        {/* Execute + Block */}
-        <View style={styles.executeRow}>
-          <TouchableOpacity
-            style={[styles.executeBtn, connectionStatus !== 'authenticated' && styles.executeBtnDisabled]}
-            onPress={handleExecute}
-            disabled={connectionStatus !== 'authenticated'}
-          >
-            <Text style={styles.executeBtnText}>{'\u25B6'} Execute</Text>
-          </TouchableOpacity>
-          {lastExecuteBlockReason && (
-            <Text style={styles.blockText} numberOfLines={2}>{lastExecuteBlockReason}</Text>
-          )}
-        </View>
-
-        {/* Log */}
-        <ScrollView style={styles.logBox} nestedScrollEnabled>
-          {statusMessages.map((msg, i) => (
-            <Text key={i} style={styles.logEntry}>{msg}</Text>
-          ))}
-        </ScrollView>
-
-        {/* Reconnect */}
-        {connectionStatus !== 'authenticated' && !isConnecting && (
-          <TouchableOpacity style={styles.reconnectBtn} onPress={connectWS}>
-            <Text style={styles.reconnectText}>Reconnect</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -387,81 +254,81 @@ export default function TalkScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#0A0A0F' },
-  container: { flex: 1, paddingHorizontal: 16, backgroundColor: '#0A0A0F' },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 12, color: '#A0A0B8', fontWeight: '600' },
-  hbText: { fontSize: 10, color: '#555568', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  settingsBtn: { padding: 8 },
-  settingsIcon: { fontSize: 20, color: '#8B8B9E' },
+  container: { flex: 1, paddingHorizontal: 20, backgroundColor: '#0A0A0F' },
 
-  transcriptArea: {
-    backgroundColor: '#12121E',
-    borderRadius: 12,
+  topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  gear: { fontSize: 22, color: '#555568' },
+
+  conversation: { flex: 1 },
+  conversationContent: { flexGrow: 1, justifyContent: 'flex-end', paddingBottom: 16 },
+
+  assistantBubble: {
+    backgroundColor: '#1A1A2E',
+    borderRadius: 16,
+    borderTopLeftRadius: 4,
     padding: 16,
-    minHeight: 100,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#1A1A2E',
+    maxWidth: '85%',
   },
-  placeholderText: { color: '#555568', fontSize: 15, fontStyle: 'italic', textAlign: 'center', marginTop: 24 },
-  partialText: { color: '#8B8B9E', fontSize: 16, lineHeight: 24, fontStyle: 'italic' },
-  transcriptText: { color: '#FFFFFF', fontSize: 16, lineHeight: 24, fontWeight: '500' },
-  ttsBox: { marginTop: 12, padding: 12, backgroundColor: '#1A1A30', borderRadius: 8, borderLeftWidth: 3, borderLeftColor: '#6C5CE7' },
-  ttsLabel: { fontSize: 10, fontWeight: '700', color: '#6C5CE7', letterSpacing: 1, marginBottom: 4 },
-  ttsTextContent: { color: '#C0C0D8', fontSize: 14, lineHeight: 20 },
+  assistantText: { color: '#D0D0E0', fontSize: 16, lineHeight: 24 },
 
-  micSection: { alignItems: 'center', marginBottom: 12 },
+  userBubble: {
+    backgroundColor: '#6C5CE722',
+    borderRadius: 16,
+    borderTopRightRadius: 4,
+    padding: 16,
+    marginBottom: 12,
+    alignSelf: 'flex-end',
+    maxWidth: '85%',
+  },
+  userText: { color: '#FFFFFF', fontSize: 16, lineHeight: 24 },
+
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { color: '#444455', fontSize: 16 },
+
+  thinkingDots: { marginBottom: 12 },
+  thinkingText: { color: '#6C5CE7', fontSize: 32, letterSpacing: 4 },
+
+  executeCta: {
+    backgroundColor: '#6C5CE7',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  executeCtaText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+
+  micRow: { alignItems: 'center', marginBottom: 12 },
   micButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 6,
   },
-  micDisabled: { backgroundColor: '#333340', elevation: 0 },
-  micIcon: { fontSize: 28, color: '#FFFFFF' },
-  micLabel: { fontSize: 12, fontWeight: '600', marginTop: 6 },
-  chunkCount: { fontSize: 10, color: '#555568', marginTop: 2, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  micThinking: { opacity: 0.5 },
+  micIcon: { fontSize: 24, color: '#FFFFFF' },
 
-  textInputRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  textRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   textInput: {
     flex: 1,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#14141E',
     borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 14,
     color: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#2A2A3E',
+    borderColor: '#1E1E2E',
   },
-  sendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#6C5CE7', alignItems: 'center', justifyContent: 'center' },
-  sendBtnDisabled: { backgroundColor: '#333340' },
-  sendBtnText: { fontSize: 18, color: '#FFFFFF', fontWeight: '700' },
-
-  executeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  executeBtn: { backgroundColor: '#6C5CE7', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16 },
-  executeBtnDisabled: { backgroundColor: '#333340' },
-  executeBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
-  blockText: { flex: 1, color: '#E74C3C', fontSize: 11 },
-
-  logBox: {
-    flex: 1,
-    backgroundColor: '#0D0D18',
-    borderRadius: 8,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: '#1A1A2E',
+  sendBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#6C5CE7',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  logEntry: {
-    color: '#666680',
-    fontSize: 10,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    lineHeight: 16,
-  },
-  reconnectBtn: { backgroundColor: '#1A1A2E', borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: '#2A2A3E' },
-  reconnectText: { color: '#6C5CE7', fontSize: 13, fontWeight: '600' },
+  sendIcon: { fontSize: 16, color: '#FFFFFF', fontWeight: '700' },
 });
