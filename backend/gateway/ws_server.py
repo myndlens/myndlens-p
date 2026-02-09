@@ -378,27 +378,44 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict) -> N
 
 
 async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: str) -> None:
-    """Send a mock TTS response based on the transcript.
+    """Send a TTS response based on the transcript.
 
-    In Batch 2, TTS is mocked. Server sends text-based response
-    that the client can render with local speech synthesis.
+    Uses ElevenLabs when MOCK_TTS=false, otherwise falls back to text-only.
+    Audio is sent as base64-encoded MP3 in the payload.
     """
-    # Generate a contextual mock response
+    import base64
+
+    # Generate contextual response text
     response_text = _generate_mock_response(transcript)
 
-    payload = {
-        "text": response_text,
-        "session_id": session_id,
-        "is_mock": True,
-        "format": "text",  # "text" for local TTS, "audio" for streamed audio
-    }
+    # Use TTS provider to synthesize
+    tts = get_tts_provider()
+    result = await tts.synthesize(response_text)
 
-    await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-        text=response_text,
-        session_id=session_id,
-        format="text",
-        is_mock=True,
-    ))
+    if result.audio_bytes and not result.is_mock:
+        # Real audio: send as base64 MP3
+        audio_b64 = base64.b64encode(result.audio_bytes).decode("ascii")
+        payload = TTSAudioPayload(
+            text=response_text,
+            session_id=session_id,
+            format="mp3",
+            is_mock=False,
+        )
+        # Include audio in the raw payload
+        payload_dict = payload.model_dump()
+        payload_dict["audio"] = audio_b64
+        payload_dict["audio_size_bytes"] = len(result.audio_bytes)
+
+        data = _make_envelope(WSMessageType.TTS_AUDIO, payload_dict)
+        await ws.send_text(data)
+    else:
+        # Mock/fallback: send text only (client uses local TTS)
+        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+            text=response_text,
+            session_id=session_id,
+            format="text",
+            is_mock=True,
+        ))
 
     logger.info(
         "TTS response sent: session=%s response='%s'",
