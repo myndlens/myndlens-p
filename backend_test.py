@@ -322,6 +322,7 @@ async def test_suspended_token_flow(results: TestResults):
             execute_msg = {
                 "type": "execute_request",
                 "payload": {
+                    "session_id": session_id,
                     "draft_id": str(uuid.uuid4())
                 }
             }
