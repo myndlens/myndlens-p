@@ -71,7 +71,8 @@ def make_request(method: str, endpoint: str, **kwargs) -> requests.Response:
 def create_test_mio(mio_id: str = None, timestamp_override: str = None, ttl_override: int = None) -> Dict[str, Any]:
     """Create a test MIO for dispatcher tests."""
     if mio_id is None:
-        mio_id = f"dispatch-test-{int(time.time())}"
+        # Use time.time_ns() for better uniqueness
+        mio_id = f"dispatch-test-{int(time.time_ns())}"
     
     timestamp = timestamp_override or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     ttl = ttl_override if ttl_override is not None else 120
