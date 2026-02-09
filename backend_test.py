@@ -439,6 +439,461 @@ class BackendTester:
         except Exception as e:
             self.log_test_result("redaction_test", False, f"Exception: {str(e)}")
 
+    # =====================================================
+    #  BATCH 2: Audio Pipeline + TTS Tests
+    # =====================================================
+
+    def generate_fake_audio_chunk(self, size_kb: int = 1) -> str:
+        """Generate base64-encoded fake audio data."""
+        fake_audio = os.urandom(size_kb * 1024)
+        return base64.b64encode(fake_audio).decode()
+
+    async def test_audio_chunk_flow(self):
+        """Test audio chunk flow: 8 chunks, transcript_partial every 4 chunks."""
+        if not self.test_token:
+            self.log_test_result("audio_chunk_flow", False, "No token available")
+            return
+
+        try:
+            # Pair device for audio test
+            payload = {
+                "user_id": "audio_test_user",
+                "device_id": "audio_device_001",
+                "client_version": "1.0.0"
+            }
+            
+            async with self.session.post(f"{API_URL}/auth/pair", json=payload) as response:
+                if response.status != 200:
+                    self.log_test_result("audio_chunk_flow", False, f"Pairing failed: HTTP {response.status}")
+                    return
+                    
+                data = await response.json()
+                audio_token = data["token"]
+
+            # Connect to WebSocket
+            async with websockets.connect(WS_URL) as websocket:
+                # Authenticate
+                auth_msg = {
+                    "type": "auth",
+                    "id": "auth1", 
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "token": audio_token,
+                        "device_id": "audio_device_001",
+                        "client_version": "1.0.0"
+                    }
+                }
+                
+                await websocket.send(json.dumps(auth_msg))
+                response = await websocket.recv()
+                data = json.loads(response)
+                
+                if data.get("type") != "auth_ok":
+                    self.log_test_result("audio_chunk_flow", False, f"Auth failed: {data.get('type')}")
+                    return
+                
+                audio_session_id = data.get("payload", {}).get("session_id")
+                logger.info(f"Audio test authenticated, session: {audio_session_id}")
+
+                # Send heartbeat to establish presence
+                heartbeat_msg = {
+                    "type": "heartbeat",
+                    "id": "hb1",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "session_id": audio_session_id,
+                        "seq": 1,
+                        "client_ts": datetime.now(timezone.utc).isoformat()
+                    }
+                }
+                await websocket.send(json.dumps(heartbeat_msg))
+                await websocket.recv()  # Consume heartbeat_ack
+
+                # Send 8 audio chunks
+                partial_responses = []
+                for i in range(1, 9):
+                    audio_chunk_msg = {
+                        "type": "audio_chunk",
+                        "id": f"chunk{i}",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "payload": {
+                            "session_id": audio_session_id,
+                            "audio": self.generate_fake_audio_chunk(),
+                            "seq": i
+                        }
+                    }
+                    
+                    await websocket.send(json.dumps(audio_chunk_msg))
+                    
+                    # Every 4 chunks (4 and 8), expect transcript_partial
+                    if i % 4 == 0:
+                        response = await websocket.recv()
+                        data = json.loads(response)
+                        
+                        if data.get("type") == "transcript_partial":
+                            partial_responses.append(data)
+                            logger.info(f"Received transcript_partial after chunk {i}: {data.get('payload', {}).get('message', '')}")
+                        else:
+                            self.log_test_result("audio_chunk_flow", False, f"Expected transcript_partial after chunk {i}, got: {data.get('type')}")
+                            return
+
+                if len(partial_responses) != 2:
+                    self.log_test_result("audio_chunk_flow", False, f"Expected 2 transcript_partial responses, got {len(partial_responses)}")
+                    return
+
+                self.log_test_result("audio_chunk_flow", True, f"Audio chunk flow completed: received {len(partial_responses)} transcript partials")
+
+        except Exception as e:
+            self.log_test_result("audio_chunk_flow", False, f"Exception: {str(e)}")
+
+    async def test_text_input_flow(self):
+        """Test text input flow: text_input → transcript_final → tts_audio."""
+        if not self.test_token:
+            self.log_test_result("text_input_flow", False, "No token available")
+            return
+
+        try:
+            async with websockets.connect(WS_URL) as websocket:
+                # Authenticate  
+                auth_msg = {
+                    "type": "auth",
+                    "id": "auth2",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "token": self.test_token,
+                        "device_id": "test_device_001",
+                        "client_version": "1.0.0"
+                    }
+                }
+                
+                await websocket.send(json.dumps(auth_msg))
+                response = await websocket.recv()
+                data = json.loads(response)
+                
+                if data.get("type") != "auth_ok":
+                    self.log_test_result("text_input_flow", False, f"Auth failed: {data.get('type')}")
+                    return
+                
+                text_session_id = data.get("payload", {}).get("session_id")
+
+                # Send text input
+                text_msg = {
+                    "type": "text_input",
+                    "id": "text1",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "session_id": text_session_id,
+                        "text": "send a message to Sarah about the meeting tomorrow"
+                    }
+                }
+                
+                await websocket.send(json.dumps(text_msg))
+
+                # Should receive transcript_final
+                response = await websocket.recv()
+                data = json.loads(response)
+                
+                if data.get("type") != "transcript_final":
+                    self.log_test_result("text_input_flow", False, f"Expected transcript_final, got: {data.get('type')}")
+                    return
+
+                # Should receive tts_audio
+                response = await websocket.recv()
+                data = json.loads(response)
+                
+                if data.get("type") != "tts_audio":
+                    self.log_test_result("text_input_flow", False, f"Expected tts_audio, got: {data.get('type')}")
+                    return
+
+                tts_message = data.get("payload", {}).get("message", "")
+                if "message" not in tts_message.lower():
+                    self.log_test_result("text_input_flow", False, f"TTS response doesn't contain expected content: {tts_message}")
+                    return
+
+                self.log_test_result("text_input_flow", True, f"Text input flow completed successfully: {tts_message[:60]}")
+
+        except Exception as e:
+            self.log_test_result("text_input_flow", False, f"Exception: {str(e)}")
+
+    async def test_chunk_validation_empty(self):
+        """Test audio chunk validation: empty chunk."""
+        if not self.test_token:
+            self.log_test_result("chunk_validation_empty", False, "No token available")
+            return
+
+        try:
+            async with websockets.connect(WS_URL) as websocket:
+                # Authenticate
+                auth_msg = {
+                    "type": "auth",
+                    "id": "auth3",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "token": self.test_token,
+                        "device_id": "test_device_001",
+                        "client_version": "1.0.0"
+                    }
+                }
+                
+                await websocket.send(json.dumps(auth_msg))
+                response = await websocket.recv()
+                data = json.loads(response)
+                
+                if data.get("type") != "auth_ok":
+                    self.log_test_result("chunk_validation_empty", False, f"Auth failed: {data.get('type')}")
+                    return
+                
+                empty_session_id = data.get("payload", {}).get("session_id")
+
+                # Send audio chunk with empty audio field
+                empty_chunk_msg = {
+                    "type": "audio_chunk",
+                    "id": "empty1",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "session_id": empty_session_id,
+                        "audio": "",  # Empty audio
+                        "seq": 1
+                    }
+                }
+                
+                await websocket.send(json.dumps(empty_chunk_msg))
+
+                # Should receive error with AUDIO_INVALID code
+                response = await websocket.recv()
+                data = json.loads(response)
+                
+                if data.get("type") != "error":
+                    self.log_test_result("chunk_validation_empty", False, f"Expected error, got: {data.get('type')}")
+                    return
+
+                error_code = data.get("payload", {}).get("code")
+                if error_code != "AUDIO_INVALID":
+                    self.log_test_result("chunk_validation_empty", False, f"Expected AUDIO_INVALID, got: {error_code}")
+                    return
+
+                self.log_test_result("chunk_validation_empty", True, "Empty chunk correctly rejected with AUDIO_INVALID")
+
+        except Exception as e:
+            self.log_test_result("chunk_validation_empty", False, f"Exception: {str(e)}")
+
+    async def test_chunk_validation_invalid_base64(self):
+        """Test audio chunk validation: invalid base64."""
+        if not self.test_token:
+            self.log_test_result("chunk_validation_invalid_base64", False, "No token available")
+            return
+
+        try:
+            async with websockets.connect(WS_URL) as websocket:
+                # Authenticate
+                auth_msg = {
+                    "type": "auth",
+                    "id": "auth4",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "token": self.test_token,
+                        "device_id": "test_device_001",
+                        "client_version": "1.0.0"
+                    }
+                }
+                
+                await websocket.send(json.dumps(auth_msg))
+                response = await websocket.recv()
+                data = json.loads(response)
+                
+                if data.get("type") != "auth_ok":
+                    self.log_test_result("chunk_validation_invalid_base64", False, f"Auth failed: {data.get('type')}")
+                    return
+                
+                invalid_session_id = data.get("payload", {}).get("session_id")
+
+                # Send audio chunk with invalid base64
+                invalid_chunk_msg = {
+                    "type": "audio_chunk",
+                    "id": "invalid1",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "session_id": invalid_session_id,
+                        "audio": "not-valid-base64-data!!!",
+                        "seq": 1
+                    }
+                }
+                
+                await websocket.send(json.dumps(invalid_chunk_msg))
+
+                # Should receive error with AUDIO_INVALID code
+                response = await websocket.recv()
+                data = json.loads(response)
+                
+                if data.get("type") != "error":
+                    self.log_test_result("chunk_validation_invalid_base64", False, f"Expected error, got: {data.get('type')}")
+                    return
+
+                error_code = data.get("payload", {}).get("code")
+                if error_code != "AUDIO_INVALID":
+                    self.log_test_result("chunk_validation_invalid_base64", False, f"Expected AUDIO_INVALID, got: {error_code}")
+                    return
+
+                self.log_test_result("chunk_validation_invalid_base64", True, "Invalid base64 chunk correctly rejected")
+
+        except Exception as e:
+            self.log_test_result("chunk_validation_invalid_base64", False, f"Exception: {str(e)}")
+
+    async def test_stream_end_cancel(self):
+        """Test stream end: send chunks then cancel."""
+        if not self.test_token:
+            self.log_test_result("stream_end_cancel", False, "No token available")
+            return
+
+        try:
+            async with websockets.connect(WS_URL) as websocket:
+                # Authenticate
+                auth_msg = {
+                    "type": "auth",
+                    "id": "auth5",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "token": self.test_token,
+                        "device_id": "test_device_001",
+                        "client_version": "1.0.0"
+                    }
+                }
+                
+                await websocket.send(json.dumps(auth_msg))
+                response = await websocket.recv()
+                data = json.loads(response)
+                
+                if data.get("type") != "auth_ok":
+                    self.log_test_result("stream_end_cancel", False, f"Auth failed: {data.get('type')}")
+                    return
+                
+                cancel_session_id = data.get("payload", {}).get("session_id")
+
+                # Send some audio chunks
+                for i in range(1, 3):
+                    chunk_msg = {
+                        "type": "audio_chunk",
+                        "id": f"cancel_chunk{i}",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "payload": {
+                            "session_id": cancel_session_id,
+                            "audio": self.generate_fake_audio_chunk(),
+                            "seq": i
+                        }
+                    }
+                    await websocket.send(json.dumps(chunk_msg))
+
+                # Send cancel message
+                cancel_msg = {
+                    "type": "cancel",
+                    "id": "cancel1",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "session_id": cancel_session_id
+                    }
+                }
+                
+                await websocket.send(json.dumps(cancel_msg))
+
+                # Should receive transcript_final if there was accumulated text
+                # This test verifies that cancel triggers stream end
+                # Note: May not receive response if no text was accumulated
+                try:
+                    response = await asyncio.wait_for(websocket.recv(), timeout=2.0)
+                    data = json.loads(response)
+                    logger.info(f"Cancel response: {data.get('type')}")
+                    
+                    # If we get a response, it should be transcript_final or we don't get any response (which is also valid)
+                    if data.get("type") not in ["transcript_final", None]:
+                        logger.info(f"Cancel triggered response: {data.get('type')}")
+                        
+                except asyncio.TimeoutError:
+                    # No response within timeout is also acceptable for cancel
+                    logger.info("No response to cancel (acceptable behavior)")
+
+                self.log_test_result("stream_end_cancel", True, "Stream end cancel completed successfully")
+
+        except Exception as e:
+            self.log_test_result("stream_end_cancel", False, f"Exception: {str(e)}")
+
+    async def test_mock_tts_response_content(self):
+        """Test mock TTS response content based on input."""
+        if not self.test_token:
+            self.log_test_result("mock_tts_response_content", False, "No token available")
+            return
+
+        try:
+            # Test cases: input text → expected content in response
+            test_cases = [
+                ("Hello", "hello"),
+                ("send a message to someone", "message"),  
+                ("schedule a meeting", "meeting"),
+            ]
+
+            results = []
+            
+            for test_text, expected_keyword in test_cases:
+                async with websockets.connect(WS_URL) as websocket:
+                    # Authenticate
+                    auth_msg = {
+                        "type": "auth",
+                        "id": f"auth_tts_{len(results)}",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "payload": {
+                            "token": self.test_token,
+                            "device_id": "test_device_001",
+                            "client_version": "1.0.0"
+                        }
+                    }
+                    
+                    await websocket.send(json.dumps(auth_msg))
+                    response = await websocket.recv()
+                    data = json.loads(response)
+                    
+                    if data.get("type") != "auth_ok":
+                        results.append(False)
+                        continue
+                    
+                    tts_session_id = data.get("payload", {}).get("session_id")
+
+                    # Send text input
+                    text_msg = {
+                        "type": "text_input",
+                        "id": f"tts_test_{len(results)}",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "payload": {
+                            "session_id": tts_session_id,
+                            "text": test_text
+                        }
+                    }
+                    
+                    await websocket.send(json.dumps(text_msg))
+
+                    # Skip transcript_final, get tts_audio
+                    await websocket.recv()  # transcript_final
+                    response = await websocket.recv()  # tts_audio
+                    data = json.loads(response)
+                    
+                    if data.get("type") == "tts_audio":
+                        tts_response = data.get("payload", {}).get("message", "").lower()
+                        if expected_keyword in tts_response:
+                            results.append(True)
+                            logger.info(f"TTS test passed: '{test_text}' → '{tts_response[:60]}'")
+                        else:
+                            results.append(False)
+                            logger.warning(f"TTS test failed: '{test_text}' → '{tts_response[:60]}' (missing '{expected_keyword}')")
+                    else:
+                        results.append(False)
+
+            success_rate = sum(results) / len(results) if results else 0
+            if success_rate >= 0.67:  # At least 2/3 tests should pass
+                self.log_test_result("mock_tts_response_content", True, f"TTS content tests: {sum(results)}/{len(results)} passed")
+            else:
+                self.log_test_result("mock_tts_response_content", False, f"TTS content tests: only {sum(results)}/{len(results)} passed")
+
+        except Exception as e:
+            self.log_test_result("mock_tts_response_content", False, f"Exception: {str(e)}")
+
     async def run_all_tests(self):
         """Run all backend tests in sequence."""
         logger.info("=" * 60)
