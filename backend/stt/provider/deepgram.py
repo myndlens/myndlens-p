@@ -127,21 +127,20 @@ class DeepgramSTTProvider(STTProvider):
         start_time = time.monotonic()
 
         try:
-            from deepgram import PrerecordedOptions
-
+            # Deepgram SDK v5.x API - options are passed as kwargs
             source = {"buffer": buffer_data}
-            options = PrerecordedOptions(
-                model="nova-3",
-                punctuate=True,
-                smart_format=True,
-                language="en-US",
-            )
-
+            
             # Run in executor to avoid blocking the event loop
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None,
-                lambda: self._client.listen.rest.v("1").transcribe_file(source, options),
+                lambda: self._client.listen.prerecorded.transcribe_file(
+                    source,
+                    model="nova-2",
+                    punctuate=True,
+                    smart_format=True,
+                    language="en-US",
+                ),
             )
 
             latency_ms = (time.monotonic() - start_time) * 1000
