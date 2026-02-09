@@ -56,9 +56,10 @@ Extract user intent from **brief, natural, interactive conversation** and genera
 ### 3.1 Two Planes
 
 **Command Plane (MyndLens BE)** - Authoritative
+- Runs on the **same VPS as ObeGee** but in **isolated containers and networks**
 - Session authority (WebSocket)
 - STT orchestration
-- L1 Scout, L2 Sentry, QC Sentry
+- L1 Scout, L2 Sentry, QC Sentry (Devil's Advocate)
 - Digital Self service (sole memory authority)
 - Guardrails (continuous)
 - Dimension Engine (A + B sets)
@@ -68,7 +69,7 @@ Extract user intent from **brief, natural, interactive conversation** and genera
 - Dispatcher
 - Audit & observability
 
-**Execution Plane (OpenClaw)** - Stateless peripheral
+**Execution Plane (OpenClaw)** - Stateless peripheral / muscle
 - Tenant docker containers
 - Executes only translated, signed MIOs
 - Receives NO transcripts, hypotheses, or memory
