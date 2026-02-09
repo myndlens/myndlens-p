@@ -59,6 +59,9 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info("MyndLens BE starting — env=%s", settings.ENV)
     await init_indexes()
+    # Initialize base soul in vector memory
+    from soul.store import initialize_base_soul
+    await initialize_base_soul()
     logger.info("MyndLens BE ready")
     yield
     await close_db()
