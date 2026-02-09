@@ -216,6 +216,7 @@ async def test_sso_full_flow(results: TestResults):
             text_msg = {
                 "type": "text_input",
                 "payload": {
+                    "session_id": session_id,
                     "text": "Hello, this is a test message"
                 }
             }
