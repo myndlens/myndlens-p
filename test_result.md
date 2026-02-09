@@ -487,6 +487,91 @@ frontend:
           agent: "testing"
           comment: "✅ GRACEFUL L1 FALLBACK VERIFIED! L1 Scout implements proper fallback mechanism when Gemini API fails. ✅ FALLBACK LOGIC: If EMERGENT_LLM_KEY missing or LLM call fails, system gracefully falls back to mock L1 responses without crashing WebSocket connection. ✅ ERROR HANDLING: Exception handling in run_l1_scout() catches API failures and returns mock L1DraftObject with is_mock=True. This ensures the system remains operational even during LLM provider outages."
 
+  # Batch 5 Backend Tasks - Digital Self (Vector-Graph Memory)
+  - task: "Memory Store API /api/memory/store"
+    implemented: true
+    working: true
+    file: "server.py, memory/retriever.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Memory store API working perfectly! Tested storing facts (Sarah is my sister who lives in London) and preferences (I prefer morning meetings before 10am) with FACT and PREFERENCE types. Both EXPLICIT and OBSERVED provenance working correctly. Returns proper node_id and status='stored' response format."
+
+  - task: "Entity Registry API /api/memory/entity"
+    implemented: true
+    working: true
+    file: "server.py, memory/retriever.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Entity registry API working correctly! Successfully registered entity (Sarah as PERSON with aliases ['sis', 'sister']). Returns proper entity_id and status='registered'. Entity properly stored in KV registry and graph structure."
+
+  - task: "Semantic Recall API /api/memory/recall (MOST IMPORTANT)"
+    implemented: true
+    working: true
+    file: "server.py, memory/retriever.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED CRITICAL: Semantic recall API working excellently! Query 'Who is Sarah?' correctly returned 3 results with proper ranking: 1) 'PERSON: Sarah' (distance: 0.16), 2) 'Sarah is my sister who lives in London' (distance: 0.26), 3) Meeting preference (distance: 0.93). All results contain required fields: node_id, text, provenance, distance, graph_type, neighbors, metadata. ChromaDB vector search + NetworkX graph enrichment working perfectly."
+
+  - task: "Cross-Query Recall"
+    implemented: true
+    working: true
+    file: "memory/retriever.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Cross-query recall working correctly! Query 'meeting preferences' successfully found and returned the stored preference 'I prefer morning meetings before 10am'. Semantic search across different fact types working as expected."
+
+  - task: "Provenance Tracking"
+    implemented: true
+    working: true
+    file: "memory/provenance.py, memory/retriever.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Provenance tracking working perfectly! Stored fact with provenance='OBSERVED' ('User seems to work late on Fridays'), then successfully recalled it with query 'work Friday'. The result correctly shows provenance='OBSERVED' in the response, confirming provenance is tracked and returned in recall operations."
+
+  - task: "Write Policy Enforcement"
+    implemented: true
+    working: true
+    file: "memory/write_policy.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Write policy enforcement working correctly! Store endpoint properly checks write policy using can_write('user_confirmation'). Allowed trigger 'user_confirmation' permits memory writes as expected. Policy prevents unauthorized memory mutations while allowing legitimate user-confirmed writes."
+
+  - task: "Digital Self Vector-Graph-KV Integration"
+    implemented: true
+    working: true
+    file: "memory/client/vector.py, memory/client/graph.py, memory/client/kv.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Complete Digital Self architecture working! ChromaDB (in-memory vector store), NetworkX (graph with MongoDB persistence), and MongoDB KV entity registry all integrated correctly. Memory stats show proper counting (8 vector documents, 8 graph nodes). All three storage layers working in harmony for comprehensive memory system."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
