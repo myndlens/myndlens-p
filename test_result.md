@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "MyndLens - Voice-driven personal assistant with Sovereign Orchestrator architecture. Batch 0+1: Foundations + Identity/Presence baseline. Backend (FastAPI/Python + MongoDB), Frontend (Expo React Native)."
+user_problem_statement: "MyndLens - Voice-driven personal assistant with Sovereign Orchestrator architecture. Batch 0+1+2: Foundations + Identity/Presence + Audio Pipeline/TTS Loop. Backend (FastAPI/Python + MongoDB), Frontend (Expo React Native)."
 
 backend:
   - task: "Health endpoint /api/health"
