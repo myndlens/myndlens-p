@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, APIRouter, WebSocket, HTTPException, Header, Request
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 
 # Load env before anything else
 ROOT_DIR = Path(__file__).parent
