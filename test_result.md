@@ -910,87 +910,108 @@ agent_communication:
   # Batch 9.5/9.6 Backend Tasks - Tenant Provisioning + Lifecycle Completion
   - task: "Tenant Activation Pipeline with Provisioning"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py, tenants/lifecycle.py, tenants/provisioner.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Full tenant provisioning pipeline with OpenClaw endpoint generation and API key creation. Needs testing with S2S header authentication."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Tenant activation pipeline working perfectly! Creates tenant with unique UUID, generates stub OpenClaw endpoint (https://stub-openclaw-{tenant_id}.myndlens.internal), creates API key with prefix (mlk_...), sets ACTIVE status. Backend logs show full provisioning: tenant creation -> Docker provision -> channel preinstall -> key generation. Idempotent activation confirmed - same user returns identical tenant_id."
 
   - task: "Tenant Key Rotation System"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py, tenants/provisioner.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "API key rotation with immediate invalidation of old keys. POST /api/tenants/rotate-key with S2S auth. Needs testing."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Key rotation working correctly! POST /api/tenants/rotate-key returns {tenant_id, key_prefix, rotated: true}. Backend logs confirm old key invalidation and new key generation with proper hash update in MongoDB. Immediate key revocation working as designed."
 
   - task: "Tenant Suspension with Session Invalidation"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py, tenants/lifecycle.py, tenants/data_management.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Suspend tenant, flush execution keys, invalidate active sessions. Returns session count. POST /api/tenants/suspend with S2S auth. Needs testing."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Tenant suspension working perfectly! POST /api/tenants/suspend returns {tenant_id, status: 'SUSPENDED', sessions_invalidated: count}. Backend logs show complete process: status updated -> keys flushed -> sessions invalidated -> audit logged. Keys properly revoked during suspension as designed."
 
   - task: "Tenant Deprovision with Data Deletion"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py, tenants/lifecycle.py, tenants/data_management.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Complete deprovision: stop Docker, revoke keys, delete user data, preserve audit. POST /api/tenants/deprovision with S2S auth. Needs testing."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Tenant deprovision working excellently! POST /api/tenants/deprovision returns {tenant_id, status: 'DEPROVISIONED', data_deleted: counts, audit_preserved: true}. Backend logs show complete pipeline: status updated -> Docker stopped -> keys revoked -> sessions invalidated -> data deleted (sessions, transcripts, entities, graphs, commits) -> audit events preserved per legal requirement. Data deletion verified with counts returned."
 
   - task: "User Data Export (GDPR Compliance)"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py, tenants/data_management.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Export all user data: sessions, transcripts, entities, graphs. POST /api/tenants/export-data with S2S auth. Needs testing."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: GDPR data export working perfectly! POST /api/tenants/export-data returns complete user data package: {user_id, exported_at, sessions, transcripts, entities, graphs, session_count, transcript_count}. Tested with real memory data - successfully exported 3 stored facts/preferences with proper graph data. Export includes timestamps and complete data structure for compliance."
 
   - task: "Tenant Activation Idempotency"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py, tenants/lifecycle.py, tenants/registry.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Same user activation returns identical tenant_id. Idempotent activation logic. Needs testing."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Activation idempotency working correctly! Duplicate activation requests for same obegee_user_id return identical tenant_id. Backend logs show 'Tenant already exists' message on subsequent calls. No duplicate tenants created - proper idempotent behavior confirmed."
 
   - task: "S2S Authentication for Tenant APIs"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "All tenant lifecycle APIs require X-OBEGEE-S2S-TOKEN header validation. Should return 403 without proper token. Needs testing."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: S2S authentication working perfectly! All tenant APIs (activate, suspend, deprovision, rotate-key, export-data) correctly enforce X-OBEGEE-S2S-TOKEN header. Returns HTTP 403 without header or with wrong token. Only requests with correct 'obegee-s2s-dev-token-CHANGE-IN-PROD' token are processed. Proper security gate enforcement confirmed."
 
 metadata:
   created_by: "main_agent"
