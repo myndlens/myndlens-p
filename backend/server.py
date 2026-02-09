@@ -254,6 +254,30 @@ async def api_deprovision_tenant(req: TenantActionReq, x_obegee_s2s_token: str =
     return await deprovision_tenant(req.tenant_id, req.reason)
 
 
+class TenantKeyRotateReq(BaseModel):
+    tenant_id: str
+
+
+class DataExportReq(BaseModel):
+    user_id: str
+
+
+@api_router.post("/tenants/rotate-key")
+async def api_rotate_key(req: TenantKeyRotateReq, x_obegee_s2s_token: str = Header(None)):
+    """Rotate a tenant's API key. Requires S2S auth."""
+    _verify_s2s_token(x_obegee_s2s_token)
+    from tenants.provisioner import rotate_tenant_key
+    return await rotate_tenant_key(req.tenant_id)
+
+
+@api_router.post("/tenants/export-data")
+async def api_export_data(req: DataExportReq, x_obegee_s2s_token: str = Header(None)):
+    """Export all user data (GDPR compliance). Requires S2S auth."""
+    _verify_s2s_token(x_obegee_s2s_token)
+    from tenants.data_management import export_user_data
+    return await export_user_data(req.user_id)
+
+
 # ---- Session Status ----
 class SessionStatus(BaseModel):
     session_id: str
