@@ -1348,6 +1348,11 @@ Before closing each batch, verify:
 9. MyndLens signing keys NEVER exist in ObeGee containers
 10. Any deviation requires ADR referencing this spec
 
+### Additional Cross-System Rules (Infrastructure Spec §10)
+- **ObeGee cannot dispatch or execute MyndLens intents**
+- **MyndLens cannot assume availability of ObeGee runtime**
+- No shared runtime, no shared proxy, no shared signing authority
+
 ---
 
 ## 37. OPERATIONAL GUARANTEES
