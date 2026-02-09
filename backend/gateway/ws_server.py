@@ -116,9 +116,9 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                 )
             except AuthError:
                 # Fall back to legacy MyndLens JWT (dev/pair flow)
-                claims = validate_token(auth_payload.token)
-                user_id_resolved = claims.user_id
-                if claims.device_id != auth_payload.device_id:
+                legacy_claims = validate_token(auth_payload.token)
+                user_id_resolved = legacy_claims.user_id
+                if legacy_claims.device_id != auth_payload.device_id:
                     raise AuthError("Device ID mismatch")
 
         except AuthError as e:
