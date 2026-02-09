@@ -7,15 +7,18 @@
 
 ## TEST GATE STRUCTURE
 
-Each batch has **three levels** of test gates:
+Each batch has **four levels** of test gates:
 
 | Level | Name | Purpose | Must Pass |
 |-------|------|---------|-----------|
 | **L1** | Unit Tests | Individual module functions | 100% |
 | **L2** | Integration Tests | Module interactions | 100% |
 | **L3** | E2E Tests | Full flow validation | 100% |
+| **L4** | Adversarial Tests | Security & edge cases | 100% |
 
-Plus **Regression Gate**: All previous batch tests must still pass.
+Plus:
+- **Regression Gate**: All previous batch tests must still pass
+- **Performance Gate**: Latency and throughput targets met (where applicable)
 
 ---
 
@@ -31,6 +34,11 @@ Plus **Regression Gate**: All previous batch tests must still pass.
 | B0-U03 | Secrets file format | Secrets template validates | Valid YAML/JSON |
 | B0-U04 | Log redaction function | PII patterns redacted | No PII in output |
 | B0-U05 | Env guard function | Dev/prod detection works | Correct env returned |
+| B0-U06 | Secret key format | Secret keys match expected format | Format valid |
+| B0-U07 | Config validation | All required config keys present | No missing keys |
+| B0-U08 | Log level config | Log levels configurable | Levels applied |
+| B0-U09 | Redaction patterns | Email/phone/SSN patterns | All patterns work |
+| B0-U10 | Env variable loading | Env vars loaded correctly | Values match |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -39,6 +47,10 @@ Plus **Regression Gate**: All previous batch tests must still pass.
 | B0-I02 | Network isolation | Containers on `myndlens_net` only | No external net |
 | B0-I03 | Nginx config load | Nginx accepts config | Config valid |
 | B0-I04 | Secrets mount | Secrets accessible in container | File readable |
+| B0-I05 | Container communication | Containers can reach each other | Ping succeeds |
+| B0-I06 | Volume persistence | Data survives container restart | Data intact |
+| B0-I07 | Log aggregation | Logs collected centrally | Logs queryable |
+| B0-I08 | Health endpoint | /health returns 200 | Endpoint works |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -47,11 +59,24 @@ Plus **Regression Gate**: All previous batch tests must still pass.
 | B0-E02 | IP binding | Nginx binds to IP2 only | No 0.0.0.0 binding |
 | B0-E03 | Network isolation | Cannot reach `obegee_net` | Connection refused |
 | B0-E04 | HTTPS only | Port 80 connection refused | Connection refused |
+| B0-E05 | TLS handshake | Valid TLS certificate | Cert validates |
+| B0-E06 | External HTTPS | External client connects via HTTPS | Connection works |
+| B0-E07 | Graceful shutdown | SIGTERM → clean shutdown | No data loss |
+| B0-E08 | Container restart | Restart → services recover | All healthy |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B0-A01 | Port scan | Scan all ports | Only 443 open |
+| B0-A02 | Network escape | Container tries external net | Blocked |
+| B0-A03 | Secret exposure | Grep logs for secrets | No secrets found |
+| B0-A04 | Config injection | Malformed config file | Graceful error |
 
 ### Gate Checklist
-- [ ] All B0-U* tests pass
-- [ ] All B0-I* tests pass
-- [ ] All B0-E* tests pass
+- [ ] All B0-U* tests pass (10 tests)
+- [ ] All B0-I* tests pass (8 tests)
+- [ ] All B0-E* tests pass (8 tests)
+- [ ] All B0-A* tests pass (4 tests)
 - [ ] No security warnings in logs
 - [ ] Documentation updated
 
@@ -72,6 +97,13 @@ Plus **Regression Gate**: All previous batch tests must still pass.
 | B1-U06 | Heartbeat parser | Heartbeat message parsed | Fields extracted |
 | B1-U07 | Heartbeat timestamp | Timestamp validation | Within tolerance |
 | B1-U08 | Presence calculator | Last heartbeat age calculated | Correct age |
+| B1-U09 | Token claims | All required claims present | Claims complete |
+| B1-U10 | Token signature | Signature verification | Signature valid |
+| B1-U11 | Device keypair gen | Keypair generated correctly | Valid keypair |
+| B1-U12 | Keypair validation | Invalid keypair rejected | Rejection works |
+| B1-U13 | Session ID format | Session ID is UUID | Format valid |
+| B1-U14 | Heartbeat encryption | Heartbeat encrypted correctly | Decrypts OK |
+| B1-U15 | Presence threshold | 15s threshold enforced | Threshold exact |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -82,6 +114,10 @@ Plus **Regression Gate**: All previous batch tests must still pass.
 | B1-I04 | Heartbeat receipt | Server receives heartbeats | Heartbeat logged |
 | B1-I05 | Heartbeat storage | Heartbeats persisted | Queryable in DB |
 | B1-I06 | Multi-device | Same user, different devices | Separate sessions |
+| B1-I07 | Session cleanup | Old sessions cleaned up | No stale sessions |
+| B1-I08 | Concurrent sessions | Multiple concurrent sessions | All tracked |
+| B1-I09 | Heartbeat ordering | Out-of-order heartbeats | Handled correctly |
+| B1-I10 | Device re-auth | Same device re-authenticates | Session updated |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -92,12 +128,38 @@ Plus **Regression Gate**: All previous batch tests must still pass.
 | B1-E04 | Heartbeat drop 16s | Stop heartbeat for 16s | **Execute blocked** |
 | B1-E05 | Reconnection | Disconnect → reconnect | Session restored |
 | B1-E06 | Token refresh | Expired → refresh → continue | Seamless transition |
+| B1-E07 | Network switch | WiFi → cellular | Session maintained |
+| B1-E08 | App background | App backgrounded 30s | Heartbeat continues |
+| B1-E09 | App foreground | App foregrounded | No re-auth needed |
+| B1-E10 | Heartbeat at 14s | Stop at exactly 14s | Still allowed |
+| B1-E11 | Heartbeat at 15s | Stop at exactly 15s | Still allowed |
+| B1-E12 | Heartbeat at 15.1s | Stop at 15.1s | **Execute blocked** |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B1-A01 | Token forgery | Forged JWT token | Rejected |
+| B1-A02 | Token replay | Replay old valid token | Rejected after expiry |
+| B1-A03 | Session hijack | Use another user's session | Rejected |
+| B1-A04 | Heartbeat spoof | Fake heartbeat from attacker | Rejected |
+| B1-A05 | Device spoof | Clone device ID | Detected & rejected |
+| B1-A06 | Brute force auth | 1000 invalid attempts | Rate limited |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B1-P01 | WS connect latency | <100ms | p95 latency |
+| B1-P02 | Heartbeat processing | <10ms | p95 latency |
+| B1-P03 | Concurrent connections | 1000 | Max sustained |
 
 ### Gate Checklist
-- [ ] All B1-U* tests pass
-- [ ] All B1-I* tests pass
-- [ ] All B1-E* tests pass
-- [ ] Heartbeat >15s blocking verified
+- [ ] All B1-U* tests pass (15 tests)
+- [ ] All B1-I* tests pass (10 tests)
+- [ ] All B1-E* tests pass (12 tests)
+- [ ] All B1-A* tests pass (6 tests)
+- [ ] All B1-P* tests pass (3 tests)
+- [ ] Heartbeat >15s blocking verified (CRITICAL)
+- [ ] Regression: All B0-* tests still pass
 - [ ] Regression: All B0-* tests still pass
 
 ---
