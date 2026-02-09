@@ -235,7 +235,7 @@ export default function TalkScreen() {
             style={styles.textInput}
             value={textInput}
             onChangeText={setTextInput}
-            placeholder="Type instead\u2026"
+            placeholder="Type instead..."
             placeholderTextColor="#444455"
             returnKeyType="send"
             onSubmitEditing={handleSendText}
