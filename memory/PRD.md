@@ -1270,6 +1270,7 @@ For every subscribed user, provision:
 **Scope**:
 - Dynamic prompt system (PromptOrchestrator + SectionRegistry)
 - "Soul" stored in vector memory (NOT a file)
+- Prompts must be **dynamic and continuously learning**
 - Personalization allowed; drift forbidden
 - Explicit user signal required for self-modification
 
