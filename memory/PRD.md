@@ -1317,6 +1317,28 @@ For every subscribed user, provision:
 
 ---
 
+## 34A. BATCH GATE REPORTS — PLATFORM-DEFERRED ITEMS
+
+### Batch 0: Infrastructure Invariants — PLATFORM-DEFERRED
+
+The following Batch 0 infrastructure invariants **cannot be verified** on the Emergent hosted platform.
+They are **not completed** — they are **deferred to the DigitalOcean VPS deployment phase**.
+
+| Invariant | Spec Reference | Status | VPS Runbook Test |
+|-----------|---------------|--------|-----------------|
+| IP2 binds port 443 only | §18.2, I2-U01..U06 | **DEFERRED** | `infra/scripts/verify-ip-bindings.sh` |
+| No 0.0.0.0 binding | §18.4 (HARD RULE) | **DEFERRED** | `netstat -tlnp \| grep 443` |
+| Separate Nginx proxy per stack | §18.4 | **DEFERRED** | Nginx config audit |
+| myndlens_net ≠ obegee_net | §18.6, I5-U01..U06 | **DEFERRED** | `docker network ls` |
+| Port 80 closed for MyndLens | §18.4 | **DEFERRED** | Port scan |
+| TLS DNS-01 via acme.sh | §18.5, I4-U01..U08 | **DEFERRED** | `tls/acme/` runbook |
+| DNS A records (IP2) | §18.3, I3-U01..U08 | **DEFERRED** | `dns-migration-godaddy-to-do.md` |
+| Firewall: only TCP 443 inbound | §18.8 | **DEFERRED** | `nmap` external scan |
+
+**These MUST be verified before any production deployment. No exceptions.**
+
+---
+
 ## 34. FINAL RELEASE GATE (DoD)
 
 Release is permitted ONLY if:
