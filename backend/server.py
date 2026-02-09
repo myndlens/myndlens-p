@@ -564,6 +564,35 @@ async def api_dispatch(req: DispatchRequest):
         raise HTTPException(status_code=403, detail=str(e))
 
 
+# =====================================================
+#  Observability + Rate Limits (Batch 11)
+# =====================================================
+
+@api_router.get("/metrics")
+async def api_metrics():
+    """System metrics dashboard."""
+    return await get_system_metrics()
+
+
+class RateLimitCheckRequest(BaseModel):
+    key: str
+    limit_type: str
+
+
+@api_router.post("/rate-limit/check")
+async def api_check_rate_limit(req: RateLimitCheckRequest):
+    """Check a rate limit."""
+    allowed, reason = await check_rate_limit(req.key, req.limit_type)
+    status = await get_rate_status(req.key, req.limit_type)
+    return {"allowed": allowed, "reason": reason, "status": status}
+
+
+@api_router.get("/circuit-breakers")
+async def api_circuit_breakers():
+    """Get all circuit breaker statuses."""
+    return {"breakers": get_all_breaker_statuses()}
+
+
 # ---- Prompt System Diagnostic (no behavior change) ----
 class PromptBuildRequest(BaseModel):
     purpose: str  # PromptPurpose value
