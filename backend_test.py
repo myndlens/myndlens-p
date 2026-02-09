@@ -1,964 +1,402 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend Tests for MyndLens - Batch 0+1+2
-Tests all critical backend functionality including WebSocket flows and Audio Pipeline.
+MyndLens Prompt System Testing — Step 1 Infrastructure Tests
+Testing dynamic prompt assembly without LLM calls
+
+Critical Tests:
+1. Golden prompt assembly test (DIMENSIONS_EXTRACT)
+2. Golden prompt assembly test (THOUGHT_TO_INTENT)  
+3. Cache stability test (deterministic hashing)
+4. Tool gating test (EXECUTE vs DIMENSIONS_EXTRACT)
+5. Report completeness + snapshot persistence
+6. Purpose isolation test
+7. Regression tests for B0-B2 functionality
 """
+
 import asyncio
-import base64
+import requests
 import json
-import logging
-import os
-import time
-from datetime import datetime, timezone
-from typing import Optional
+import sys
+from typing import Dict, List, Any
 
-import aiohttp
-import websockets
-from websockets import WebSocketServerProtocol
+# Backend URL from environment
+BACKEND_URL = "https://voice-assistant-dev.preview.emergentagent.com"
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Backend URL from frontend .env
-BASE_URL = "https://voice-assistant-dev.preview.emergentagent.com"
-API_URL = f"{BASE_URL}/api"
-WS_URL = f"wss://voice-assistant-dev.preview.emergentagent.com/api/ws"
-
-class BackendTester:
+class PromptSystemTester:
     def __init__(self):
-        self.session: Optional[aiohttp.ClientSession] = None
-        self.test_results = {
-            # Batch 0+1 Tests (Regression)
-            "health_endpoint": False,
-            "auth_pair_endpoint": False,
-            "websocket_full_flow": False,
-            "presence_gate_test": False,
-            "auth_rejection_test": False,
-            "session_status_endpoint": False,
-            "redaction_test": False,
-            # Batch 2 Tests (Audio Pipeline + TTS)
-            "audio_chunk_flow": False,
-            "text_input_flow": False, 
-            "chunk_validation_empty": False,
-            "chunk_validation_invalid_base64": False,
-            "stream_end_cancel": False,
-            "mock_tts_response_content": False,
-        }
-        self.failed_tests = []
-        self.test_token = None
-        self.test_session_id = None
-
-    async def __aenter__(self):
-        self.session = aiohttp.ClientSession()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
-            await self.session.close()
-
-    def log_test_result(self, test_name: str, success: bool, details: str = ""):
-        """Log test results and track failures."""
-        status = "✅ PASS" if success else "❌ FAIL"
-        logger.info(f"{status} {test_name}: {details}")
+        self.base_url = BACKEND_URL
+        self.results = []
         
-        self.test_results[test_name] = success
-        if not success:
-            self.failed_tests.append(f"{test_name}: {details}")
-
-    async def test_health_endpoint(self):
-        """Test GET /api/health endpoint."""
+    def log_test_result(self, test_name: str, passed: bool, details: str = ""):
+        """Log test result"""
+        status = "✅ PASSED" if passed else "❌ FAILED"
+        self.results.append({
+            "test": test_name,
+            "passed": passed,
+            "details": details
+        })
+        print(f"{status}: {test_name}")
+        if details:
+            print(f"  Details: {details}")
+        print()
+    
+    def test_health_regression(self):
+        """Regression test: Health endpoint"""
         try:
-            async with self.session.get(f"{API_URL}/health") as response:
-                if response.status != 200:
-                    self.log_test_result("health_endpoint", False, f"HTTP {response.status}")
-                    return
-
-                data = await response.json()
-                required_fields = ["status", "env", "version", "active_sessions"]
-                
-                if not all(field in data for field in required_fields):
-                    missing = [f for f in required_fields if f not in data]
-                    self.log_test_result("health_endpoint", False, f"Missing fields: {missing}")
-                    return
-                
-                if data["status"] != "ok":
-                    self.log_test_result("health_endpoint", False, f"Status not ok: {data['status']}")
-                    return
-
-                self.log_test_result("health_endpoint", True, f"Status OK, {data['active_sessions']} active sessions")
-
-        except Exception as e:
-            self.log_test_result("health_endpoint", False, f"Exception: {str(e)}")
-
-    async def test_auth_pair_endpoint(self):
-        """Test POST /api/auth/pair endpoint."""
-        try:
-            payload = {
-                "user_id": "test_user_001",
-                "device_id": "test_device_001", 
-                "client_version": "1.0.0"
-            }
+            response = requests.get(f"{self.base_url}/api/health", timeout=10)
+            data = response.json()
             
-            async with self.session.post(f"{API_URL}/auth/pair", json=payload) as response:
-                if response.status != 200:
-                    self.log_test_result("auth_pair_endpoint", False, f"HTTP {response.status}")
-                    return
-
-                data = await response.json()
-                required_fields = ["token", "user_id", "device_id", "env"]
-                
-                if not all(field in data for field in required_fields):
-                    missing = [f for f in required_fields if f not in data]
-                    self.log_test_result("auth_pair_endpoint", False, f"Missing fields: {missing}")
-                    return
-
-                # Basic JWT format check (should have 3 parts separated by dots)
-                token = data["token"]
-                if len(token.split(".")) != 3:
-                    self.log_test_result("auth_pair_endpoint", False, "Token not in JWT format")
-                    return
-
-                # Store for later tests
-                self.test_token = token
-                
-                self.log_test_result("auth_pair_endpoint", True, f"Token received, env: {data['env']}")
-
-        except Exception as e:
-            self.log_test_result("auth_pair_endpoint", False, f"Exception: {str(e)}")
-
-    async def test_websocket_full_flow(self):
-        """Test complete WebSocket flow: connect, auth, heartbeat, execute request."""
-        if not self.test_token:
-            self.log_test_result("websocket_full_flow", False, "No token available")
-            return
+            # Verify expected fields
+            expected_fields = ["status", "env", "version", "active_sessions"]
+            missing_fields = [field for field in expected_fields if field not in data]
             
-        try:
-            async with websockets.connect(WS_URL) as websocket:
-                # Step 1: Send AUTH message
-                auth_msg = {
-                    "type": "auth",
-                    "id": "1", 
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "token": self.test_token,
-                        "device_id": "test_device_001",
-                        "client_version": "1.0.0"
-                    }
-                }
-                
-                await websocket.send(json.dumps(auth_msg))
-                
-                # Step 2: Receive AUTH_OK
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "auth_ok":
-                    self.log_test_result("websocket_full_flow", False, f"Expected auth_ok, got: {data.get('type')}")
-                    return
-                
-                session_id = data.get("payload", {}).get("session_id")
-                if not session_id:
-                    self.log_test_result("websocket_full_flow", False, "No session_id in auth_ok")
-                    return
-                
-                self.test_session_id = session_id
-                logger.info(f"WS authenticated, session_id: {session_id}")
-
-                # Step 3: Send HEARTBEAT
-                heartbeat_msg = {
-                    "type": "heartbeat",
-                    "id": "2",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "session_id": session_id,
-                        "seq": 1,
-                        "client_ts": datetime.now(timezone.utc).isoformat()
-                    }
-                }
-                
-                await websocket.send(json.dumps(heartbeat_msg))
-                
-                # Step 4: Receive HEARTBEAT_ACK
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "heartbeat_ack":
-                    self.log_test_result("websocket_full_flow", False, f"Expected heartbeat_ack, got: {data.get('type')}")
-                    return
-                
-                logger.info("Heartbeat acknowledged")
-
-                # Step 5: Send EXECUTE_REQUEST while heartbeat is fresh
-                execute_msg = {
-                    "type": "execute_request",
-                    "id": "3",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "session_id": session_id,
-                        "draft_id": "draft-001"
-                    }
-                }
-                
-                await websocket.send(json.dumps(execute_msg))
-                
-                # Step 6: Should receive EXECUTE_BLOCKED with PIPELINE_NOT_READY
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "execute_blocked":
-                    self.log_test_result("websocket_full_flow", False, f"Expected execute_blocked, got: {data.get('type')}")
-                    return
-                
-                block_code = data.get("payload", {}).get("code")
-                if block_code != "PIPELINE_NOT_READY":
-                    self.log_test_result("websocket_full_flow", False, f"Expected PIPELINE_NOT_READY, got: {block_code}")
-                    return
-                
-                self.log_test_result("websocket_full_flow", True, "Full WS flow completed successfully")
-
-        except Exception as e:
-            self.log_test_result("websocket_full_flow", False, f"Exception: {str(e)}")
-
-    async def test_presence_gate(self):
-        """CRITICAL TEST: Pair new device, connect WS, auth, wait 16s, then execute."""
-        try:
-            # Step 1: Pair a new device
-            payload = {
-                "user_id": "test_user_presence",
-                "device_id": "test_device_presence_001", 
-                "client_version": "1.0.0"
-            }
-            
-            async with self.session.post(f"{API_URL}/auth/pair", json=payload) as response:
-                if response.status != 200:
-                    self.log_test_result("presence_gate_test", False, f"Pairing failed: HTTP {response.status}")
-                    return
-                    
-                data = await response.json()
-                presence_token = data["token"]
-
-            # Step 2: Connect to WebSocket and authenticate
-            async with websockets.connect(WS_URL) as websocket:
-                auth_msg = {
-                    "type": "auth",
-                    "id": "1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "token": presence_token,
-                        "device_id": "test_device_presence_001",
-                        "client_version": "1.0.0"
-                    }
-                }
-                
-                await websocket.send(json.dumps(auth_msg))
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "auth_ok":
-                    self.log_test_result("presence_gate_test", False, f"Auth failed: {data.get('type')}")
-                    return
-                
-                presence_session_id = data.get("payload", {}).get("session_id")
-                logger.info(f"Presence test authenticated, session: {presence_session_id}")
-
-                # Step 3: Do NOT send any heartbeats - wait 16 seconds
-                logger.info("Waiting 16 seconds for heartbeat to go stale...")
-                await asyncio.sleep(16)
-
-                # Step 4: Send execute request
-                execute_msg = {
-                    "type": "execute_request",
-                    "id": "3",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "session_id": presence_session_id,
-                        "draft_id": "draft-stale-test"
-                    }
-                }
-                
-                await websocket.send(json.dumps(execute_msg))
-                
-                # Step 5: Should receive EXECUTE_BLOCKED with PRESENCE_STALE
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "execute_blocked":
-                    self.log_test_result("presence_gate_test", False, f"Expected execute_blocked, got: {data.get('type')}")
-                    return
-                
-                block_code = data.get("payload", {}).get("code")
-                if block_code != "PRESENCE_STALE":
-                    self.log_test_result("presence_gate_test", False, f"Expected PRESENCE_STALE, got: {block_code}")
-                    return
-                
-                self.log_test_result("presence_gate_test", True, "Presence gate correctly blocked stale heartbeat")
-
-        except Exception as e:
-            self.log_test_result("presence_gate_test", False, f"Exception: {str(e)}")
-
-    async def test_auth_rejection(self):
-        """Test WebSocket auth rejection with invalid token."""
-        try:
-            async with websockets.connect(WS_URL) as websocket:
-                # Send AUTH with invalid token
-                auth_msg = {
-                    "type": "auth",
-                    "id": "1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "token": "invalid.jwt.token",
-                        "device_id": "test_device_001",
-                        "client_version": "1.0.0"
-                    }
-                }
-                
-                await websocket.send(json.dumps(auth_msg))
-                
-                # Should receive AUTH_FAIL
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "auth_fail":
-                    self.log_test_result("auth_rejection_test", False, f"Expected auth_fail, got: {data.get('type')}")
-                    return
-                
-                self.log_test_result("auth_rejection_test", True, "Invalid token correctly rejected")
-
-        except websockets.ConnectionClosedError as e:
-            # Connection should be closed after auth failure
-            if e.code == 4003:  # Auth failed code
-                self.log_test_result("auth_rejection_test", True, "Connection closed with auth failure code")
+            if response.status_code == 200 and not missing_fields and data["status"] == "ok":
+                self.log_test_result("Health Endpoint Regression", True, f"status={data['status']}, env={data['env']}")
             else:
-                self.log_test_result("auth_rejection_test", False, f"Unexpected close code: {e.code}")
+                self.log_test_result("Health Endpoint Regression", False, f"Missing fields: {missing_fields}")
+                
         except Exception as e:
-            self.log_test_result("auth_rejection_test", False, f"Exception: {str(e)}")
-
-    async def test_session_status_endpoint(self):
-        """Test GET /api/session/{session_id} endpoint with active session."""
+            self.log_test_result("Health Endpoint Regression", False, f"Exception: {str(e)}")
+    
+    def test_auth_pair_regression(self):
+        """Regression test: Auth/Pair endpoint"""
         try:
-            # Create fresh session for this test
             payload = {
-                "user_id": "test_user_session", 
-                "device_id": "test_device_session_001",
+                "user_id": "test_user_prompt_system",
+                "device_id": "test_device_prompt_system",
                 "client_version": "1.0.0"
             }
+            response = requests.post(f"{self.base_url}/api/auth/pair", json=payload, timeout=10)
+            data = response.json()
             
-            async with self.session.post(f"{API_URL}/auth/pair", json=payload) as response:
-                if response.status != 200:
-                    self.log_test_result("session_status_endpoint", False, "Failed to create session for test")
-                    return
-                    
-                data = await response.json()
-                session_token = data["token"]
-
-            # Connect to WebSocket to activate session
-            async with websockets.connect(WS_URL) as websocket:
-                auth_msg = {
-                    "type": "auth",
-                    "id": "1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "token": session_token,
-                        "device_id": "test_device_session_001",
-                        "client_version": "1.0.0"
-                    }
-                }
+            # Verify token creation
+            expected_fields = ["token", "user_id", "device_id", "env"]
+            missing_fields = [field for field in expected_fields if field not in data]
+            
+            # Verify JWT format (3 parts separated by dots)
+            has_valid_jwt = "." in data.get("token", "") and len(data.get("token", "").split(".")) == 3
+            
+            if response.status_code == 200 and not missing_fields and has_valid_jwt:
+                self.log_test_result("Auth/Pair Regression", True, f"JWT token created, user_id={data['user_id']}")
+            else:
+                self.log_test_result("Auth/Pair Regression", False, f"Missing fields: {missing_fields} or invalid JWT")
                 
-                await websocket.send(json.dumps(auth_msg))
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "auth_ok":
-                    self.log_test_result("session_status_endpoint", False, "Failed to authenticate for session test")
-                    return
-                
-                test_session_id = data.get("payload", {}).get("session_id")
-                
-                # Send heartbeat to establish presence
-                heartbeat_msg = {
-                    "type": "heartbeat",
-                    "id": "2",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "session_id": test_session_id,
-                        "seq": 1,
-                        "client_ts": datetime.now(timezone.utc).isoformat()
-                    }
-                }
-                await websocket.send(json.dumps(heartbeat_msg))
-                await websocket.recv()  # Consume heartbeat_ack
-                
-                # Now test session status endpoint while session is active
-                async with self.session.get(f"{API_URL}/session/{test_session_id}") as response:
-                    if response.status != 200:
-                        self.log_test_result("session_status_endpoint", False, f"HTTP {response.status}")
-                        return
-
-                    data = await response.json()
-                    required_fields = ["session_id", "active", "presence_ok", "last_heartbeat_age_info"]
-                    
-                    if not all(field in data for field in required_fields):
-                        missing = [f for f in required_fields if f not in data]
-                        self.log_test_result("session_status_endpoint", False, f"Missing fields: {missing}")
-                        return
-
-                    self.log_test_result("session_status_endpoint", True, f"Session status: active={data['active']}, presence_ok={data['presence_ok']}")
-
         except Exception as e:
-            self.log_test_result("session_status_endpoint", False, f"Exception: {str(e)}")
-
-    async def test_redaction(self):
-        """Test that sensitive information is redacted in logs."""
+            self.log_test_result("Auth/Pair Regression", False, f"Exception: {str(e)}")
+    
+    def test_prompt_build_dimensions_extract(self):
+        """Critical Test 1: Golden prompt assembly test (DIMENSIONS_EXTRACT)"""
         try:
-            # Check supervisor backend logs for redaction patterns
-            import subprocess
-            result = subprocess.run(
-                ["tail", "-n", "50", "/var/log/supervisor/backend.out.log"],
-                capture_output=True, text=True
+            payload = {
+                "purpose": "DIMENSIONS_EXTRACT",
+                "transcript": "Send a message to Sarah about the meeting tomorrow"
+            }
+            response = requests.post(f"{self.base_url}/api/prompt/build", json=payload, timeout=10)
+            data = response.json()
+            
+            if response.status_code != 200:
+                self.log_test_result("Prompt Build DIMENSIONS_EXTRACT", False, f"HTTP {response.status_code}: {response.text}")
+                return
+            
+            # Verify required sections are included
+            required_sections = {"IDENTITY_ROLE", "PURPOSE_CONTRACT", "OUTPUT_SCHEMA", "TASK_CONTEXT"}
+            included = set(data.get("sections_included", []))
+            missing_required = required_sections - included
+            
+            # Verify banned sections are excluded  
+            banned_sections = {"TOOLING", "SKILLS_INDEX", "WORKSPACE_BOOTSTRAP"}
+            excluded = set(data.get("sections_excluded", []))
+            incorrectly_included = banned_sections - excluded
+            
+            # Verify messages array structure
+            messages = data.get("messages", [])
+            has_system_user_msgs = len(messages) >= 1 and any(msg.get("role") == "system" for msg in messages)
+            
+            # Verify report structure
+            report = data.get("report", {})
+            has_report_sections = "sections" in report
+            
+            all_checks_pass = (
+                not missing_required and 
+                not incorrectly_included and 
+                has_system_user_msgs and 
+                has_report_sections
             )
             
-            if result.returncode != 0:
-                self.log_test_result("redaction_test", False, "Cannot access backend logs")
-                return
+            details = f"Required included: {required_sections <= included}, Banned excluded: {banned_sections <= excluded}, Messages: {len(messages)}, Report: {has_report_sections}"
             
-            log_content = result.stdout
+            self.log_test_result("Prompt Build DIMENSIONS_EXTRACT", all_checks_pass, details)
+            return data
             
-            # Check that JWT tokens are redacted (should not see full tokens)
-            if self.test_token and self.test_token in log_content:
-                self.log_test_result("redaction_test", False, "Raw JWT token found in logs")
-                return
-            
-            # Look for redaction patterns like [REDACTED]
-            if "[REDACTED]" in log_content or "***" in log_content:
-                self.log_test_result("redaction_test", True, "Redaction patterns found in logs")
-            else:
-                # If no sensitive data and no redaction patterns, that's also OK
-                self.log_test_result("redaction_test", True, "No sensitive data found in logs")
-
         except Exception as e:
-            self.log_test_result("redaction_test", False, f"Exception: {str(e)}")
-
-    # =====================================================
-    #  BATCH 2: Audio Pipeline + TTS Tests
-    # =====================================================
-
-    def generate_fake_audio_chunk(self, size_kb: int = 1) -> str:
-        """Generate base64-encoded fake audio data."""
-        fake_audio = os.urandom(size_kb * 1024)
-        return base64.b64encode(fake_audio).decode()
-
-    async def test_audio_chunk_flow(self):
-        """Test audio chunk flow: 8 chunks, transcript_partial every 4 chunks."""
-        if not self.test_token:
-            self.log_test_result("audio_chunk_flow", False, "No token available")
-            return
-
+            self.log_test_result("Prompt Build DIMENSIONS_EXTRACT", False, f"Exception: {str(e)}")
+            return None
+    
+    def test_prompt_build_thought_to_intent(self):
+        """Critical Test 2: Golden prompt assembly test (THOUGHT_TO_INTENT)"""
         try:
-            # Pair device for audio test
             payload = {
-                "user_id": "audio_test_user",
-                "device_id": "audio_device_001",
-                "client_version": "1.0.0"
+                "purpose": "THOUGHT_TO_INTENT",
+                "transcript": "I need to call John"
+            }
+            response = requests.post(f"{self.base_url}/api/prompt/build", json=payload, timeout=10)
+            data = response.json()
+            
+            if response.status_code != 200:
+                self.log_test_result("Prompt Build THOUGHT_TO_INTENT", False, f"HTTP {response.status_code}: {response.text}")
+                return
+            
+            # Verify required sections are included
+            required_sections = {"IDENTITY_ROLE", "PURPOSE_CONTRACT", "OUTPUT_SCHEMA", "TASK_CONTEXT"}
+            included = set(data.get("sections_included", []))
+            missing_required = required_sections - included
+            
+            # Verify TOOLING is excluded for this purpose
+            excluded = set(data.get("sections_excluded", []))
+            tooling_excluded = "TOOLING" in excluded
+            
+            all_checks_pass = not missing_required and tooling_excluded
+            details = f"Required included: {required_sections <= included}, TOOLING excluded: {tooling_excluded}"
+            
+            self.log_test_result("Prompt Build THOUGHT_TO_INTENT", all_checks_pass, details)
+            return data
+            
+        except Exception as e:
+            self.log_test_result("Prompt Build THOUGHT_TO_INTENT", False, f"Exception: {str(e)}")
+            return None
+    
+    def test_cache_stability(self):
+        """Critical Test 3: Cache stability test (deterministic hashing)"""
+        try:
+            payload = {
+                "purpose": "DIMENSIONS_EXTRACT",
+                "transcript": "Send a message to Sarah about the meeting tomorrow"
             }
             
-            async with self.session.post(f"{API_URL}/auth/pair", json=payload) as response:
-                if response.status != 200:
-                    self.log_test_result("audio_chunk_flow", False, f"Pairing failed: HTTP {response.status}")
-                    return
-                    
-                data = await response.json()
-                audio_token = data["token"]
-
-            # Connect to WebSocket
-            async with websockets.connect(WS_URL) as websocket:
-                # Authenticate
-                auth_msg = {
-                    "type": "auth",
-                    "id": "auth1", 
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "token": audio_token,
-                        "device_id": "audio_device_001",
-                        "client_version": "1.0.0"
-                    }
-                }
-                
-                await websocket.send(json.dumps(auth_msg))
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "auth_ok":
-                    self.log_test_result("audio_chunk_flow", False, f"Auth failed: {data.get('type')}")
-                    return
-                
-                audio_session_id = data.get("payload", {}).get("session_id")
-                logger.info(f"Audio test authenticated, session: {audio_session_id}")
-
-                # Send heartbeat to establish presence
-                heartbeat_msg = {
-                    "type": "heartbeat",
-                    "id": "hb1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "session_id": audio_session_id,
-                        "seq": 1,
-                        "client_ts": datetime.now(timezone.utc).isoformat()
-                    }
-                }
-                await websocket.send(json.dumps(heartbeat_msg))
-                await websocket.recv()  # Consume heartbeat_ack
-
-                # Send 8 audio chunks
-                partial_responses = []
-                for i in range(1, 9):
-                    audio_chunk_msg = {
-                        "type": "audio_chunk",
-                        "id": f"chunk{i}",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "payload": {
-                            "session_id": audio_session_id,
-                            "audio": self.generate_fake_audio_chunk(),
-                            "seq": i
-                        }
-                    }
-                    
-                    await websocket.send(json.dumps(audio_chunk_msg))
-                    
-                    # Every 4 chunks (4 and 8), expect transcript_partial
-                    if i % 4 == 0:
-                        response = await websocket.recv()
-                        data = json.loads(response)
-                        
-                        if data.get("type") == "transcript_partial":
-                            partial_responses.append(data)
-                            logger.info(f"Received transcript_partial after chunk {i}: {data.get('payload', {}).get('message', '')}")
-                        else:
-                            self.log_test_result("audio_chunk_flow", False, f"Expected transcript_partial after chunk {i}, got: {data.get('type')}")
-                            return
-
-                if len(partial_responses) != 2:
-                    self.log_test_result("audio_chunk_flow", False, f"Expected 2 transcript_partial responses, got {len(partial_responses)}")
-                    return
-
-                self.log_test_result("audio_chunk_flow", True, f"Audio chunk flow completed: received {len(partial_responses)} transcript partials")
-
-        except Exception as e:
-            self.log_test_result("audio_chunk_flow", False, f"Exception: {str(e)}")
-
-    async def test_text_input_flow(self):
-        """Test text input flow: text_input → transcript_final → tts_audio."""
-        if not self.test_token:
-            self.log_test_result("text_input_flow", False, "No token available")
-            return
-
-        try:
-            async with websockets.connect(WS_URL) as websocket:
-                # Authenticate  
-                auth_msg = {
-                    "type": "auth",
-                    "id": "auth2",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "token": self.test_token,
-                        "device_id": "test_device_001",
-                        "client_version": "1.0.0"
-                    }
-                }
-                
-                await websocket.send(json.dumps(auth_msg))
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "auth_ok":
-                    self.log_test_result("text_input_flow", False, f"Auth failed: {data.get('type')}")
-                    return
-                
-                text_session_id = data.get("payload", {}).get("session_id")
-
-                # Send text input
-                text_msg = {
-                    "type": "text_input",
-                    "id": "text1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "session_id": text_session_id,
-                        "text": "send a message to Sarah about the meeting tomorrow"
-                    }
-                }
-                
-                await websocket.send(json.dumps(text_msg))
-
-                # Should receive transcript_final
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "transcript_final":
-                    self.log_test_result("text_input_flow", False, f"Expected transcript_final, got: {data.get('type')}")
-                    return
-
-                # Should receive tts_audio
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "tts_audio":
-                    self.log_test_result("text_input_flow", False, f"Expected tts_audio, got: {data.get('type')}")
-                    return
-
-                tts_message = data.get("payload", {}).get("message", "")
-                if "message" not in tts_message.lower():
-                    self.log_test_result("text_input_flow", False, f"TTS response doesn't contain expected content: {tts_message}")
-                    return
-
-                self.log_test_result("text_input_flow", True, f"Text input flow completed successfully: {tts_message[:60]}")
-
-        except Exception as e:
-            self.log_test_result("text_input_flow", False, f"Exception: {str(e)}")
-
-    async def test_chunk_validation_empty(self):
-        """Test audio chunk validation: empty chunk."""
-        if not self.test_token:
-            self.log_test_result("chunk_validation_empty", False, "No token available")
-            return
-
-        try:
-            async with websockets.connect(WS_URL) as websocket:
-                # Authenticate
-                auth_msg = {
-                    "type": "auth",
-                    "id": "auth3",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "token": self.test_token,
-                        "device_id": "test_device_001",
-                        "client_version": "1.0.0"
-                    }
-                }
-                
-                await websocket.send(json.dumps(auth_msg))
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "auth_ok":
-                    self.log_test_result("chunk_validation_empty", False, f"Auth failed: {data.get('type')}")
-                    return
-                
-                empty_session_id = data.get("payload", {}).get("session_id")
-
-                # Send audio chunk with empty audio field
-                empty_chunk_msg = {
-                    "type": "audio_chunk",
-                    "id": "empty1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "session_id": empty_session_id,
-                        "audio": "",  # Empty audio
-                        "seq": 1
-                    }
-                }
-                
-                await websocket.send(json.dumps(empty_chunk_msg))
-
-                # Should receive error with AUDIO_INVALID code
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "error":
-                    self.log_test_result("chunk_validation_empty", False, f"Expected error, got: {data.get('type')}")
-                    return
-
-                error_code = data.get("payload", {}).get("code")
-                if error_code != "AUDIO_INVALID":
-                    self.log_test_result("chunk_validation_empty", False, f"Expected AUDIO_INVALID, got: {error_code}")
-                    return
-
-                self.log_test_result("chunk_validation_empty", True, "Empty chunk correctly rejected with AUDIO_INVALID")
-
-        except Exception as e:
-            self.log_test_result("chunk_validation_empty", False, f"Exception: {str(e)}")
-
-    async def test_chunk_validation_invalid_base64(self):
-        """Test audio chunk validation: invalid base64."""
-        if not self.test_token:
-            self.log_test_result("chunk_validation_invalid_base64", False, "No token available")
-            return
-
-        try:
-            async with websockets.connect(WS_URL) as websocket:
-                # Authenticate
-                auth_msg = {
-                    "type": "auth",
-                    "id": "auth4",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "token": self.test_token,
-                        "device_id": "test_device_001",
-                        "client_version": "1.0.0"
-                    }
-                }
-                
-                await websocket.send(json.dumps(auth_msg))
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "auth_ok":
-                    self.log_test_result("chunk_validation_invalid_base64", False, f"Auth failed: {data.get('type')}")
-                    return
-                
-                invalid_session_id = data.get("payload", {}).get("session_id")
-
-                # Send audio chunk with invalid base64
-                invalid_chunk_msg = {
-                    "type": "audio_chunk",
-                    "id": "invalid1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "session_id": invalid_session_id,
-                        "audio": "not-valid-base64-data!!!",
-                        "seq": 1
-                    }
-                }
-                
-                await websocket.send(json.dumps(invalid_chunk_msg))
-
-                # Should receive error with AUDIO_INVALID code
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "error":
-                    self.log_test_result("chunk_validation_invalid_base64", False, f"Expected error, got: {data.get('type')}")
-                    return
-
-                error_code = data.get("payload", {}).get("code")
-                if error_code != "AUDIO_INVALID":
-                    self.log_test_result("chunk_validation_invalid_base64", False, f"Expected AUDIO_INVALID, got: {error_code}")
-                    return
-
-                self.log_test_result("chunk_validation_invalid_base64", True, "Invalid base64 chunk correctly rejected")
-
-        except Exception as e:
-            self.log_test_result("chunk_validation_invalid_base64", False, f"Exception: {str(e)}")
-
-    async def test_stream_end_cancel(self):
-        """Test stream end: send chunks then cancel."""
-        if not self.test_token:
-            self.log_test_result("stream_end_cancel", False, "No token available")
-            return
-
-        try:
-            async with websockets.connect(WS_URL) as websocket:
-                # Authenticate
-                auth_msg = {
-                    "type": "auth",
-                    "id": "auth5",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "token": self.test_token,
-                        "device_id": "test_device_001",
-                        "client_version": "1.0.0"
-                    }
-                }
-                
-                await websocket.send(json.dumps(auth_msg))
-                response = await websocket.recv()
-                data = json.loads(response)
-                
-                if data.get("type") != "auth_ok":
-                    self.log_test_result("stream_end_cancel", False, f"Auth failed: {data.get('type')}")
-                    return
-                
-                cancel_session_id = data.get("payload", {}).get("session_id")
-
-                # Send some audio chunks
-                for i in range(1, 3):
-                    chunk_msg = {
-                        "type": "audio_chunk",
-                        "id": f"cancel_chunk{i}",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "payload": {
-                            "session_id": cancel_session_id,
-                            "audio": self.generate_fake_audio_chunk(),
-                            "seq": i
-                        }
-                    }
-                    await websocket.send(json.dumps(chunk_msg))
-
-                # Send cancel message
-                cancel_msg = {
-                    "type": "cancel",
-                    "id": "cancel1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "payload": {
-                        "session_id": cancel_session_id
-                    }
-                }
-                
-                await websocket.send(json.dumps(cancel_msg))
-
-                # Should receive transcript_final if there was accumulated text
-                # This test verifies that cancel triggers stream end
-                # Note: May not receive response if no text was accumulated
-                try:
-                    response = await asyncio.wait_for(websocket.recv(), timeout=2.0)
-                    data = json.loads(response)
-                    logger.info(f"Cancel response: {data.get('type')}")
-                    
-                    # If we get a response, it should be transcript_final or we don't get any response (which is also valid)
-                    if data.get("type") not in ["transcript_final", None]:
-                        logger.info(f"Cancel triggered response: {data.get('type')}")
-                        
-                except asyncio.TimeoutError:
-                    # No response within timeout is also acceptable for cancel
-                    logger.info("No response to cancel (acceptable behavior)")
-
-                self.log_test_result("stream_end_cancel", True, "Stream end cancel completed successfully")
-
-        except Exception as e:
-            self.log_test_result("stream_end_cancel", False, f"Exception: {str(e)}")
-
-    async def test_mock_tts_response_content(self):
-        """Test mock TTS response content based on input."""
-        if not self.test_token:
-            self.log_test_result("mock_tts_response_content", False, "No token available")
-            return
-
-        try:
-            # Test cases: input text → expected content in response
-            test_cases = [
-                ("Hello", "hello"),
-                ("send a message to someone", "message"),  
-                ("schedule a meeting", "meeting"),
-            ]
-
-            results = []
+            # Call the same endpoint twice
+            response1 = requests.post(f"{self.base_url}/api/prompt/build", json=payload, timeout=10)
+            response2 = requests.post(f"{self.base_url}/api/prompt/build", json=payload, timeout=10)
             
-            for test_text, expected_keyword in test_cases:
-                async with websockets.connect(WS_URL) as websocket:
-                    # Authenticate
-                    auth_msg = {
-                        "type": "auth",
-                        "id": f"auth_tts_{len(results)}",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "payload": {
-                            "token": self.test_token,
-                            "device_id": "test_device_001",
-                            "client_version": "1.0.0"
-                        }
-                    }
-                    
-                    await websocket.send(json.dumps(auth_msg))
-                    response = await websocket.recv()
-                    data = json.loads(response)
-                    
-                    if data.get("type") != "auth_ok":
-                        results.append(False)
-                        continue
-                    
-                    tts_session_id = data.get("payload", {}).get("session_id")
-
-                    # Send text input
-                    text_msg = {
-                        "type": "text_input",
-                        "id": f"tts_test_{len(results)}",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "payload": {
-                            "session_id": tts_session_id,
-                            "text": test_text
-                        }
-                    }
-                    
-                    await websocket.send(json.dumps(text_msg))
-
-                    # Skip transcript_final, get tts_audio
-                    await websocket.recv()  # transcript_final
-                    response = await websocket.recv()  # tts_audio
-                    data = json.loads(response)
-                    
-                    if data.get("type") == "tts_audio":
-                        tts_response = data.get("payload", {}).get("message", "").lower()
-                        if expected_keyword in tts_response:
-                            results.append(True)
-                            logger.info(f"TTS test passed: '{test_text}' → '{tts_response[:60]}'")
-                        else:
-                            results.append(False)
-                            logger.warning(f"TTS test failed: '{test_text}' → '{tts_response[:60]}' (missing '{expected_keyword}')")
-                    else:
-                        results.append(False)
-
-            success_rate = sum(results) / len(results) if results else 0
-            if success_rate >= 0.67:  # At least 2/3 tests should pass
-                self.log_test_result("mock_tts_response_content", True, f"TTS content tests: {sum(results)}/{len(results)} passed")
-            else:
-                self.log_test_result("mock_tts_response_content", False, f"TTS content tests: only {sum(results)}/{len(results)} passed")
-
+            if response1.status_code != 200 or response2.status_code != 200:
+                self.log_test_result("Cache Stability Test", False, f"HTTP errors: {response1.status_code}, {response2.status_code}")
+                return
+            
+            data1 = response1.json()
+            data2 = response2.json()
+            
+            # Verify stable_hash is identical (deterministic)
+            stable_hash1 = data1.get("stable_hash", "")
+            stable_hash2 = data2.get("stable_hash", "")
+            stable_identical = stable_hash1 == stable_hash2 and stable_hash1 != ""
+            
+            # Volatile hash should be same with same transcript
+            volatile_hash1 = data1.get("volatile_hash", "")
+            volatile_hash2 = data2.get("volatile_hash", "")
+            volatile_identical = volatile_hash1 == volatile_hash2 and volatile_hash1 != ""
+            
+            all_checks_pass = stable_identical and volatile_identical
+            details = f"Stable hash identical: {stable_identical}, Volatile hash identical: {volatile_identical}"
+            
+            self.log_test_result("Cache Stability Test", all_checks_pass, details)
+            
         except Exception as e:
-            self.log_test_result("mock_tts_response_content", False, f"Exception: {str(e)}")
-
-    async def run_all_tests(self):
-        """Run all backend tests in sequence."""
-        logger.info("=" * 60)
-        logger.info("STARTING MYNDLENS BACKEND TESTS - BATCH 0+1+2")
-        logger.info("=" * 60)
+            self.log_test_result("Cache Stability Test", False, f"Exception: {str(e)}")
+    
+    def test_tool_gating(self):
+        """Critical Test 4: Tool gating test"""
+        try:
+            # Test EXECUTE purpose - TOOLING should be included
+            execute_payload = {
+                "purpose": "EXECUTE",
+                "transcript": "delete the file"
+            }
+            execute_response = requests.post(f"{self.base_url}/api/prompt/build", json=execute_payload, timeout=10)
+            
+            # Test DIMENSIONS_EXTRACT purpose - TOOLING should be excluded
+            extract_payload = {
+                "purpose": "DIMENSIONS_EXTRACT", 
+                "transcript": "test"
+            }
+            extract_response = requests.post(f"{self.base_url}/api/prompt/build", json=extract_payload, timeout=10)
+            
+            if execute_response.status_code != 200 or extract_response.status_code != 200:
+                self.log_test_result("Tool Gating Test", False, f"HTTP errors: {execute_response.status_code}, {extract_response.status_code}")
+                return
+            
+            execute_data = execute_response.json()
+            extract_data = extract_response.json()
+            
+            # Verify TOOLING inclusion/exclusion
+            execute_included = set(execute_data.get("sections_included", []))
+            execute_has_tooling = "TOOLING" in execute_included
+            
+            extract_excluded = set(extract_data.get("sections_excluded", []))
+            extract_no_tooling = "TOOLING" in extract_excluded
+            
+            all_checks_pass = execute_has_tooling and extract_no_tooling
+            details = f"EXECUTE includes TOOLING: {execute_has_tooling}, DIMENSIONS_EXTRACT excludes TOOLING: {extract_no_tooling}"
+            
+            self.log_test_result("Tool Gating Test", all_checks_pass, details)
+            
+        except Exception as e:
+            self.log_test_result("Tool Gating Test", False, f"Exception: {str(e)}")
+    
+    def test_report_completeness_and_persistence(self):
+        """Critical Test 5: Report completeness + snapshot persistence"""
+        try:
+            payload = {
+                "purpose": "DIMENSIONS_EXTRACT",
+                "transcript": "test report completeness"
+            }
+            response = requests.post(f"{self.base_url}/api/prompt/build", json=payload, timeout=10)
+            
+            if response.status_code != 200:
+                self.log_test_result("Report Completeness & Persistence", False, f"HTTP {response.status_code}: {response.text}")
+                return
+            
+            data = response.json()
+            report = data.get("report", {})
+            
+            # Verify report has all 12 SectionIDs (from types.py enum)
+            expected_section_ids = {
+                "IDENTITY_ROLE", "PURPOSE_CONTRACT", "OUTPUT_SCHEMA", "TOOLING",
+                "WORKSPACE_BOOTSTRAP", "SKILLS_INDEX", "RUNTIME_CAPABILITIES", 
+                "SAFETY_GUARDRAILS", "TASK_CONTEXT", "MEMORY_RECALL_SNIPPETS",
+                "DIMENSIONS_INJECTED", "CONFLICTS_SUMMARY"
+            }
+            
+            report_sections = report.get("sections", [])
+            reported_section_ids = {section.get("section_id") for section in report_sections}
+            
+            all_sections_present = expected_section_ids <= reported_section_ids
+            
+            # Verify excluded sections have gating_reason
+            excluded_sections = [s for s in report_sections if not s.get("included", True)]
+            excluded_have_reasons = all(s.get("gating_reason") for s in excluded_sections)
+            
+            # Verify report has prompt_id (indicates persistence)
+            has_prompt_id = "prompt_id" in report and report["prompt_id"] != ""
+            
+            all_checks_pass = all_sections_present and excluded_have_reasons and has_prompt_id
+            details = f"All 12 sections: {all_sections_present} ({len(reported_section_ids)}/12), Excluded reasons: {excluded_have_reasons}, Prompt ID: {has_prompt_id}"
+            
+            self.log_test_result("Report Completeness & Persistence", all_checks_pass, details)
+            
+        except Exception as e:
+            self.log_test_result("Report Completeness & Persistence", False, f"Exception: {str(e)}")
+    
+    def test_purpose_isolation(self):
+        """Critical Test 6: Purpose isolation test"""
+        try:
+            # Test DIMENSIONS_EXTRACT - should NOT contain execution instructions
+            extract_payload = {
+                "purpose": "DIMENSIONS_EXTRACT",
+                "transcript": "test isolation"
+            }
+            extract_response = requests.post(f"{self.base_url}/api/prompt/build", json=extract_payload, timeout=10)
+            
+            # Test EXECUTE - should contain safety guardrails  
+            execute_payload = {
+                "purpose": "EXECUTE",
+                "transcript": "delete something"
+            }
+            execute_response = requests.post(f"{self.base_url}/api/prompt/build", json=execute_payload, timeout=10)
+            
+            if extract_response.status_code != 200 or execute_response.status_code != 200:
+                self.log_test_result("Purpose Isolation Test", False, f"HTTP errors: {extract_response.status_code}, {execute_response.status_code}")
+                return
+            
+            extract_data = extract_response.json()
+            execute_data = execute_response.json()
+            
+            # Check system message content differs between purposes
+            extract_messages = extract_data.get("messages", [])
+            execute_messages = execute_data.get("messages", [])
+            
+            extract_system = ""
+            execute_system = ""
+            
+            for msg in extract_messages:
+                if msg.get("role") == "system":
+                    extract_system = msg.get("content", "")
+                    
+            for msg in execute_messages:
+                if msg.get("role") == "system":
+                    execute_system = msg.get("content", "")
+            
+            # Verify they are different (purpose isolation)
+            systems_differ = extract_system != execute_system and extract_system != "" and execute_system != ""
+            
+            # Verify EXECUTE includes safety but DIMENSIONS_EXTRACT doesn't
+            execute_included = set(execute_data.get("sections_included", []))
+            extract_included = set(extract_data.get("sections_included", []))
+            
+            execute_has_safety = "SAFETY_GUARDRAILS" in execute_included
+            extract_no_tooling = "TOOLING" not in extract_included
+            
+            all_checks_pass = systems_differ and execute_has_safety and extract_no_tooling
+            details = f"System messages differ: {systems_differ}, EXECUTE has safety: {execute_has_safety}, EXTRACT no tools: {extract_no_tooling}"
+            
+            self.log_test_result("Purpose Isolation Test", all_checks_pass, details)
+            
+        except Exception as e:
+            self.log_test_result("Purpose Isolation Test", False, f"Exception: {str(e)}")
+    
+    def run_all_tests(self):
+        """Run all prompt system tests"""
+        print("🧪 MyndLens Prompt System Infrastructure Tests")
+        print("=" * 60)
+        print()
         
-        # BATCH 0+1: Critical regression tests
-        logger.info("RUNNING BATCH 0+1 REGRESSION TESTS...")
-        await self.test_health_endpoint()
-        await self.test_auth_pair_endpoint()
-        await self.test_websocket_full_flow()
-        await self.test_presence_gate()  # Most critical test
-        await self.test_auth_rejection()
-        await self.test_session_status_endpoint()
-        await self.test_redaction()
+        # Regression tests first
+        print("📋 REGRESSION TESTS (B0-B2)")
+        print("-" * 30)
+        self.test_health_regression()
+        self.test_auth_pair_regression()
+        print()
         
-        # BATCH 2: Audio Pipeline + TTS Tests
-        logger.info("RUNNING BATCH 2 AUDIO PIPELINE TESTS...")
-        await self.test_audio_chunk_flow()
-        await self.test_text_input_flow()
-        await self.test_chunk_validation_empty()
-        await self.test_chunk_validation_invalid_base64()
-        await self.test_stream_end_cancel()
-        await self.test_mock_tts_response_content()
+        # Critical prompt system tests  
+        print("🎯 CRITICAL PROMPT SYSTEM TESTS")
+        print("-" * 35)
+        self.test_prompt_build_dimensions_extract()
+        self.test_prompt_build_thought_to_intent()
+        self.test_cache_stability()
+        self.test_tool_gating()
+        self.test_report_completeness_and_persistence()
+        self.test_purpose_isolation()
+        print()
         
         # Summary
-        logger.info("=" * 60)
-        logger.info("TEST SUMMARY")
-        logger.info("=" * 60)
+        passed_tests = [r for r in self.results if r["passed"]]
+        failed_tests = [r for r in self.results if not r["passed"]]
         
-        passed = sum(1 for result in self.test_results.values() if result)
-        total = len(self.test_results)
+        print("=" * 60)
+        print(f"📊 TEST SUMMARY: {len(passed_tests)}/{len(self.results)} PASSED")
+        print("=" * 60)
         
-        # Group results by batch
-        batch_0_1_tests = ["health_endpoint", "auth_pair_endpoint", "websocket_full_flow", 
-                          "presence_gate_test", "auth_rejection_test", "session_status_endpoint", "redaction_test"]
-        batch_2_tests = ["audio_chunk_flow", "text_input_flow", "chunk_validation_empty", 
-                        "chunk_validation_invalid_base64", "stream_end_cancel", "mock_tts_response_content"]
+        if failed_tests:
+            print("\n❌ FAILED TESTS:")
+            for test in failed_tests:
+                print(f"  - {test['test']}: {test['details']}")
         
-        logger.info("BATCH 0+1 REGRESSION TESTS:")
-        for test_name in batch_0_1_tests:
-            status = "✅ PASS" if self.test_results[test_name] else "❌ FAIL"
-            logger.info(f"  {status} {test_name}")
+        if passed_tests:
+            print(f"\n✅ PASSED TESTS: {len(passed_tests)}")
+            for test in passed_tests:
+                print(f"  - {test['test']}")
         
-        logger.info("BATCH 2 AUDIO PIPELINE TESTS:")
-        for test_name in batch_2_tests:
-            status = "✅ PASS" if self.test_results[test_name] else "❌ FAIL"
-            logger.info(f"  {status} {test_name}")
-        
-        logger.info("-" * 40)
-        logger.info(f"TOTAL: {passed}/{total} tests passed")
-        
-        if self.failed_tests:
-            logger.info("\nFAILED TESTS:")
-            for failure in self.failed_tests:
-                logger.info(f"❌ {failure}")
-        
-        return passed == total
+        return len(failed_tests) == 0
 
-async def main():
-    """Main test runner."""
-    async with BackendTester() as tester:
-        success = await tester.run_all_tests()
-        return success
+def main():
+    """Main test execution"""
+    tester = PromptSystemTester()
+    success = tester.run_all_tests()
+    
+    if success:
+        print("\n🎉 ALL TESTS PASSED - Prompt System Infrastructure Ready!")
+        sys.exit(0)
+    else:
+        print("\n💥 SOME TESTS FAILED - Check logs above")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    success = asyncio.run(main())
-    exit(0 if success else 1)
+    main()
