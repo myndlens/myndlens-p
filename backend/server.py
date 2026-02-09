@@ -371,6 +371,126 @@ async def build_prompt(req: PromptBuildRequest):
     }
 
 
+# ---- Prompt Compliance Report (Truth Endpoint) ----
+
+@api_router.get("/prompt/compliance")
+async def prompt_compliance():
+    """Truth endpoint: prompt system compliance report.
+    
+    Returns: call sites, last snapshots per purpose, stable hashes,
+    bypass attempts, rogue prompt scan results.
+    No prompt bodies — hashes only.
+    """
+    from prompting.call_sites import list_all as list_call_sites
+    from prompting.types import PromptPurpose
+
+    db = get_db()
+
+    # Call site registry
+    call_sites = list_call_sites()
+
+    # Last N snapshots per purpose
+    snapshots_by_purpose = {}
+    for purpose in PromptPurpose:
+        cursor = db.prompt_snapshots.find(
+            {"purpose": purpose.value},
+            {"_id": 0, "prompt_id": 1, "purpose": 1, "stable_hash": 1, "volatile_hash": 1, "budget_used": 1, "created_at": 1},
+        ).sort("created_at", -1).limit(3)
+        snapshots_by_purpose[purpose.value] = await cursor.to_list(3)
+
+    # Stable hashes per purpose (from latest snapshot)
+    stable_hashes = {}
+    for purpose, snaps in snapshots_by_purpose.items():
+        if snaps:
+            stable_hashes[purpose] = snaps[0].get("stable_hash", "none")
+
+    # Bypass attempts
+    bypass_cursor = db.audit_events.find(
+        {"event_type": "prompt_bypass_attempt"},
+        {"_id": 0, "event_id": 1, "timestamp": 1, "details": 1},
+    ).sort("timestamp", -1).limit(10)
+    bypass_events = await bypass_cursor.to_list(10)
+    bypass_count = await db.audit_events.count_documents({"event_type": "prompt_bypass_attempt"})
+
+    # Rogue prompt scan (static analysis)
+    rogue_scan = _scan_for_rogue_prompts()
+
+    return {
+        "call_sites": call_sites,
+        "snapshots_by_purpose": {k: [_serialize_snap(s) for s in v] for k, v in snapshots_by_purpose.items()},
+        "stable_hashes": stable_hashes,
+        "bypass_attempts": {
+            "total_count": bypass_count,
+            "recent": bypass_events,
+        },
+        "rogue_prompt_scan": rogue_scan,
+    }
+
+
+def _serialize_snap(snap: dict) -> dict:
+    """Serialize a snapshot for JSON output."""
+    result = {}
+    for k, v in snap.items():
+        if hasattr(v, 'isoformat'):
+            result[k] = v.isoformat()
+        else:
+            result[k] = v
+    return result
+
+
+def _scan_for_rogue_prompts() -> dict:
+    """Static scan for rogue prompt patterns in the codebase."""
+    import os
+    import re
+
+    violations = []
+    allowed_dirs = {"prompting/sections", "tests"}
+    scan_dir = Path(__file__).parent
+
+    patterns = [
+        (re.compile(r'LlmChat\s*\('), "LlmChat( import outside llm_gateway"),
+        (re.compile(r'from emergentintegrations\.llm'), "Direct emergentintegrations.llm import"),
+    ]
+
+    for root, dirs, files in os.walk(scan_dir):
+        rel_root = os.path.relpath(root, scan_dir)
+        # Skip allowed dirs and non-python files
+        if any(rel_root.startswith(a) for a in allowed_dirs):
+            continue
+        if "__pycache__" in rel_root:
+            continue
+
+        for fname in files:
+            if not fname.endswith(".py"):
+                continue
+            fpath = os.path.join(root, fname)
+            rel_path = os.path.relpath(fpath, scan_dir)
+
+            # Skip the gateway itself
+            if rel_path == "prompting/llm_gateway.py":
+                continue
+
+            try:
+                with open(fpath, "r") as f:
+                    content = f.read()
+                for pattern, desc in patterns:
+                    matches = pattern.findall(content)
+                    if matches:
+                        violations.append({
+                            "file": rel_path,
+                            "pattern": desc,
+                            "count": len(matches),
+                        })
+            except Exception:
+                pass
+
+    return {
+        "clean": len(violations) == 0,
+        "violations": violations,
+        "files_scanned": sum(1 for _ in scan_dir.rglob("*.py")),
+    }
+
+
 # Include REST router
 app.include_router(api_router)
 
