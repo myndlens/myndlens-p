@@ -67,7 +67,7 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>Continue with OpenClaw</Text>
           )}
         </TouchableOpacity>
-        <Text style={styles.hint}>Secure sign-in via OpenClaw</Text>
+        <Text style={styles.hint}>Secure sign-in via ObeGee</Text>
       </View>
     </View>
   );
