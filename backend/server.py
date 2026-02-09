@@ -466,9 +466,23 @@ def _scan_for_rogue_prompts() -> dict:
             fpath = os.path.join(root, fname)
             rel_path = os.path.relpath(fpath, scan_dir)
 
-            # Skip the gateway itself
+            # Skip the gateway itself and the scanner function
             if rel_path == "prompting/llm_gateway.py":
                 continue
+            if rel_path == "server.py":
+                # Only scan non-scan-function code
+                content_lines = content.split("\n")
+                # Skip lines inside _scan_for_rogue_prompts
+                in_scanner = False
+                filtered = []
+                for line in content_lines:
+                    if "def _scan_for_rogue_prompts" in line:
+                        in_scanner = True
+                    elif in_scanner and (line.startswith("def ") or line.startswith("class ") or line.startswith("@")):
+                        in_scanner = False
+                    if not in_scanner:
+                        filtered.append(line)
+                content = "\n".join(filtered)
 
             try:
                 with open(fpath, "r") as f:
