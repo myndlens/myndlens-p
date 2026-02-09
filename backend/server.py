@@ -270,6 +270,61 @@ async def get_session_status(session_id: str):
     )
 
 
+# =====================================================
+#  Digital Self APIs (Batch 5)
+# =====================================================
+
+class StoreFactRequest(BaseModel):
+    user_id: str
+    text: str
+    fact_type: str = "FACT"
+    provenance: str = "EXPLICIT"
+
+class RegisterEntityRequest(BaseModel):
+    user_id: str
+    entity_type: str
+    name: str
+    aliases: List[str] = []
+
+class RecallRequest(BaseModel):
+    user_id: str
+    query: str
+    n_results: int = 3
+
+
+@api_router.post("/memory/store")
+async def api_store_fact(req: StoreFactRequest):
+    """Store a fact in the Digital Self."""
+    from memory.write_policy import can_write
+    if not can_write("user_confirmation"):
+        raise HTTPException(status_code=403, detail="Write not allowed")
+    node_id = await digital_self.store_fact(
+        user_id=req.user_id, text=req.text,
+        fact_type=req.fact_type, provenance=req.provenance,
+    )
+    return {"node_id": node_id, "status": "stored"}
+
+
+@api_router.post("/memory/entity")
+async def api_register_entity(req: RegisterEntityRequest):
+    """Register an entity in the Digital Self."""
+    entity_id = await digital_self.register_entity(
+        user_id=req.user_id, entity_type=req.entity_type,
+        name=req.name, aliases=req.aliases,
+    )
+    return {"entity_id": entity_id, "status": "registered"}
+
+
+@api_router.post("/memory/recall")
+async def api_recall(req: RecallRequest):
+    """Recall memories from the Digital Self."""
+    results = await digital_self.recall(
+        user_id=req.user_id, query_text=req.query, n_results=req.n_results,
+    )
+    stats = digital_self.get_memory_stats(req.user_id)
+    return {"results": results, "stats": stats}
+
+
 # ---- Prompt System Diagnostic (no behavior change) ----
 class PromptBuildRequest(BaseModel):
     purpose: str  # PromptPurpose value
