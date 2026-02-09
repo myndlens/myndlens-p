@@ -140,16 +140,19 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             if msg_type == WSMessageType.HEARTBEAT.value:
                 await _handle_heartbeat(websocket, session_id, payload)
 
+            elif msg_type == WSMessageType.AUDIO_CHUNK.value:
+                await _handle_audio_chunk(websocket, session_id, payload)
+
             elif msg_type == WSMessageType.EXECUTE_REQUEST.value:
                 await _handle_execute_request(websocket, session_id, payload)
 
             elif msg_type == WSMessageType.CANCEL.value:
                 logger.info("Cancel received: session=%s", session_id)
-                # Future: cancel pending operations
+                # End any active STT stream
+                await _handle_stream_end(websocket, session_id)
 
             elif msg_type == WSMessageType.TEXT_INPUT.value:
-                logger.info("Text input received: session=%s", session_id)
-                # Future: handle text-based input (Batch 2+)
+                await _handle_text_input(websocket, session_id, payload)
 
             else:
                 await _send(websocket, WSMessageType.ERROR, ErrorPayload(
