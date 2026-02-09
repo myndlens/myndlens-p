@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     ELEVENLABS_API_KEY: str = Field(default="")
     GEMINI_API_KEY: str = Field(default="")
 
+    # ── ObeGee SSO ─────────────────────────────────────────────
+    # Separate secret from MyndLens JWT — never reuse
+    OBEGEE_SSO_HS_SECRET: str = Field(default="obegee-sso-dev-secret-CHANGE-IN-PROD")
+    OBEGEE_TOKEN_VALIDATION_MODE: str = Field(default="HS256")  # HS256 | JWKS
+    OBEGEE_JWKS_URL: str = Field(default="")  # For JWKS mode (future)
+    OBEGEE_S2S_TOKEN: str = Field(default="obegee-s2s-dev-token-CHANGE-IN-PROD")
+    ENABLE_OBEGEE_MOCK_IDP: bool = Field(default=True)  # MUST be false in prod
+
     # ── Observability ────────────────────────────────────────────
     LOG_LEVEL: str = Field(default="INFO")
     LOG_REDACTION_ENABLED: bool = Field(default=True)
