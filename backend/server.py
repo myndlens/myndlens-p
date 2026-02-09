@@ -24,6 +24,9 @@ from auth.tokens import generate_token
 from auth.device_binding import get_session
 from gateway.ws_server import handle_ws_connection, get_active_session_count
 from presence.heartbeat import check_presence
+from prompting.orchestrator import PromptOrchestrator
+from prompting.types import PromptContext, PromptPurpose, PromptMode
+from prompting.storage.mongo import save_prompt_snapshot
 
 # ---- Setup logging ----
 setup_logging()
