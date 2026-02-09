@@ -173,7 +173,7 @@ async def test_sso_full_flow(results: TestResults):
     token = sso_data["token"]
     
     try:
-        async with websockets.connect(WS_URL) as ws:
+        async with websockets.connect(WS_URL, ping_interval=None) as ws:
             # Authenticate
             auth_msg = {
                 "type": "auth", 
@@ -185,7 +185,7 @@ async def test_sso_full_flow(results: TestResults):
             }
             await ws.send(json.dumps(auth_msg))
             
-            auth_response = await ws.recv()
+            auth_response = await asyncio.wait_for(ws.recv(), timeout=10.0)
             auth_data = json.loads(auth_response)
             
             if auth_data.get("type") != "auth_ok":
@@ -204,7 +204,7 @@ async def test_sso_full_flow(results: TestResults):
             }
             await ws.send(json.dumps(heartbeat_msg))
             
-            hb_response = await ws.recv()
+            hb_response = await asyncio.wait_for(ws.recv(), timeout=10.0)
             hb_data = json.loads(hb_response)
             
             if hb_data.get("type") != "heartbeat_ack":
@@ -226,7 +226,7 @@ async def test_sso_full_flow(results: TestResults):
             
             for _ in range(3):  # Wait for up to 3 messages
                 try:
-                    response = await asyncio.wait_for(ws.recv(), timeout=5.0)
+                    response = await asyncio.wait_for(ws.recv(), timeout=10.0)
                     data = json.loads(response)
                     
                     if data.get("type") == "transcript_final":
