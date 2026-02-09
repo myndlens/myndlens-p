@@ -64,6 +64,10 @@ async def init_indexes() -> None:
     await db.commits.create_index("session_id")
     await db.commits.create_index("state")
 
+    # Dispatches: idempotency
+    await db.dispatches.create_index("idempotency_key", unique=True)
+    await db.dispatches.create_index("mio_id")
+
     logger.info("MongoDB indexes initialized")
 
 
