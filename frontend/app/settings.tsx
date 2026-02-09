@@ -34,7 +34,7 @@ export default function SettingsScreen() {
     wsClient.disconnect();
     await clearAuth();
     clearStoreAuth();
-    router.replace('/pairing');
+    router.replace('/login');
   }
 
   function handleClose() {
