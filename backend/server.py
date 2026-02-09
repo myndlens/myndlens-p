@@ -34,6 +34,7 @@ from tts.orchestrator import get_tts_provider as get_tts
 from prompting.orchestrator import PromptOrchestrator
 from prompting.types import PromptContext, PromptPurpose, PromptMode
 from prompting.storage.mongo import save_prompt_snapshot
+from memory import retriever as digital_self
 
 # ---- Setup logging ----
 setup_logging()
