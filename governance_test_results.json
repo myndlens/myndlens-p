@@ -1,0 +1,113 @@
+{
+  "summary": {
+    "passed": 17,
+    "failed": 0,
+    "total": 17,
+    "success_rate": 1.0
+  },
+  "test_results": [
+    {
+      "test": "Health Endpoint",
+      "success": true,
+      "details": "Status: ok, Version: 0.2.0",
+      "timestamp": "2026-02-09T14:17:37.367195+00:00"
+    },
+    {
+      "test": "Retention Policy Status",
+      "success": true,
+      "details": "Policy collections: 7, Stats collections: 6",
+      "timestamp": "2026-02-09T14:17:37.883601+00:00"
+    },
+    {
+      "test": "Store Test Data",
+      "success": true,
+      "details": "Fact stored with node_id: 21282982-40c9-42cb-9b7f-8cfcbb9a5d51",
+      "timestamp": "2026-02-09T14:17:39.745437+00:00"
+    },
+    {
+      "test": "Backup Without S2S Auth",
+      "success": true,
+      "details": "Correctly rejected without S2S token",
+      "timestamp": "2026-02-09T14:17:40.256468+00:00"
+    },
+    {
+      "test": "Backup Creation",
+      "success": true,
+      "details": "Backup ID: 999f5243-b10..., Counts: {'graphs': 1, 'entities': 0, 'sessions': 0, 'transcripts': 0, 'commits': 0, 'audit_events': 0}",
+      "timestamp": "2026-02-09T14:17:40.809824+00:00"
+    },
+    {
+      "test": "List Backups Without S2S",
+      "success": true,
+      "details": "Correctly rejected without S2S token",
+      "timestamp": "2026-02-09T14:17:41.321226+00:00"
+    },
+    {
+      "test": "List Backups",
+      "success": true,
+      "details": "Found 1 backups including our test backup",
+      "timestamp": "2026-02-09T14:17:41.833039+00:00"
+    },
+    {
+      "test": "Pre-Restore Data Check",
+      "success": true,
+      "details": "Found 1 memory entries before restore test",
+      "timestamp": "2026-02-09T14:17:42.600899+00:00"
+    },
+    {
+      "test": "Restore Without S2S",
+      "success": true,
+      "details": "Correctly rejected without S2S token",
+      "timestamp": "2026-02-09T14:17:43.107558+00:00"
+    },
+    {
+      "test": "Restore From Backup",
+      "success": true,
+      "details": "Restored counts: {'graphs': 1, 'entities': 0, 'sessions': 0, 'transcripts': 0, 'commits': 0, 'audit_events': 0}, Provenance preserved: True",
+      "timestamp": "2026-02-09T14:17:43.618655+00:00"
+    },
+    {
+      "test": "Verify Restored Data",
+      "success": true,
+      "details": "Found restored data in 1 results",
+      "timestamp": "2026-02-09T14:17:44.313134+00:00"
+    },
+    {
+      "test": "Retention Cleanup Without S2S",
+      "success": true,
+      "details": "Correctly rejected without S2S token",
+      "timestamp": "2026-02-09T14:17:44.821590+00:00"
+    },
+    {
+      "test": "Retention Cleanup",
+      "success": true,
+      "details": "Deleted 0 records, Preserved 304 audit events",
+      "timestamp": "2026-02-09T14:17:45.337157+00:00"
+    },
+    {
+      "test": "SSO Flow Regression",
+      "success": true,
+      "details": "SSO token obtained for tenant: 4bcbb200-8b05-4ace-b67b-e479c7917f96",
+      "timestamp": "2026-02-09T14:17:45.849825+00:00"
+    },
+    {
+      "test": "L1 Scout Regression",
+      "success": true,
+      "details": "Memory store (L1 dependency) working",
+      "timestamp": "2026-02-09T14:17:46.496603+00:00"
+    },
+    {
+      "test": "Rate Limits Regression",
+      "success": true,
+      "details": "Rate limit check working, allowed: True",
+      "timestamp": "2026-02-09T14:17:47.005455+00:00"
+    },
+    {
+      "test": "Circuit Breakers Regression",
+      "success": true,
+      "details": "Circuit breakers status retrieved: 6 breakers",
+      "timestamp": "2026-02-09T14:17:47.516294+00:00"
+    }
+  ],
+  "timestamp": "2026-02-09T14:17:48.017178+00:00"
+}
