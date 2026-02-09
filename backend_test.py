@@ -193,7 +193,10 @@ async def test_websocket_auth_heartbeat(test_session: TestSession):
         # Send heartbeat
         heartbeat_msg = {
             "type": "heartbeat",
-            "payload": {"session_id": test_session.session_id}
+            "payload": {
+                "session_id": test_session.session_id,
+                "seq": 1
+            }
         }
         logger.info(f"Sending heartbeat: {heartbeat_msg['type']}")
         await test_session.ws.send(json.dumps(heartbeat_msg))
