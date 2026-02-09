@@ -76,11 +76,12 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
     """
     await websocket.accept()
     session_id = None
-    claims: TokenClaims | None = None
+    user_id_resolved: str | None = None
+    subscription_status: str = "ACTIVE"
+    sso_claims: SSOClaims | None = None
 
     try:
         # ---- Phase 1: Authentication ----
-        # Wait for auth message (10s timeout handled by client)
         raw = await websocket.receive_text()
         msg = json.loads(raw)
 
@@ -92,14 +93,31 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             await websocket.close(code=4001, reason="Protocol error")
             return
 
-        # Validate token
+        # Validate token — try SSO first, fall back to legacy JWT
         try:
             auth_payload = AuthPayload(**msg.get("payload", {}))
-            claims = validate_token(auth_payload.token)
 
-            # Verify device_id matches token
-            if claims.device_id != auth_payload.device_id:
-                raise AuthError("Device ID mismatch")
+            # Try SSO token validation first
+            try:
+                validator = get_sso_validator()
+                sso_claims = validator.validate(auth_payload.token)
+                user_id_resolved = sso_claims.obegee_user_id
+                subscription_status = sso_claims.subscription_status
+
+                await log_audit_event(
+                    AuditEventType.SSO_AUTH_SUCCESS,
+                    user_id=user_id_resolved,
+                    details={
+                        "tenant_id": sso_claims.myndlens_tenant_id,
+                        "subscription": subscription_status,
+                    },
+                )
+            except AuthError:
+                # Fall back to legacy MyndLens JWT (dev/pair flow)
+                claims = validate_token(auth_payload.token)
+                user_id_resolved = claims.user_id
+                if claims.device_id != auth_payload.device_id:
+                    raise AuthError("Device ID mismatch")
 
         except AuthError as e:
             await _send(websocket, WSMessageType.AUTH_FAIL, AuthFailPayload(
@@ -115,9 +133,9 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
 
         # Create session
         session = await create_session(
-            user_id=claims.user_id,
-            device_id=claims.device_id,
-            env=claims.env,
+            user_id=user_id_resolved,
+            device_id=auth_payload.device_id,
+            env=get_settings().ENV if not sso_claims else "dev",
             client_version=auth_payload.client_version,
         )
         session_id = session.session_id
@@ -126,20 +144,25 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
         # Send AUTH_OK
         await _send(websocket, WSMessageType.AUTH_OK, AuthOkPayload(
             session_id=session_id,
-            user_id=claims.user_id,
+            user_id=user_id_resolved,
             heartbeat_interval_ms=get_heartbeat_interval_ms(),
         ))
 
         await log_audit_event(
             AuditEventType.AUTH_SUCCESS,
             session_id=session_id,
-            user_id=claims.user_id,
-            details={"device_id": claims.device_id},
+            user_id=user_id_resolved,
+            details={
+                "device_id": auth_payload.device_id,
+                "sso": sso_claims is not None,
+                "subscription": subscription_status,
+            },
         )
 
         logger.info(
-            "WS authenticated: session=%s user=%s device=%s",
-            session_id, claims.user_id, claims.device_id,
+            "WS authenticated: session=%s user=%s device=%s sso=%s sub=%s",
+            session_id, user_id_resolved, auth_payload.device_id,
+            sso_claims is not None, subscription_status,
         )
 
         # ---- Phase 2: Message Loop ----
