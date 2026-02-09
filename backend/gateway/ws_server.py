@@ -3,6 +3,14 @@
 Handles authenticated WS connections, message routing,
 heartbeat tracking, execute-gate enforcement,
 and audio chunk streaming with transcript assembly.
+
+EXECUTION GUARDRAIL (Patch 5 / §3.2):
+  No execution path may proceed without an explicit `execute_request` message
+  from the mobile client (i.e. the Execute button). Any future batch that adds
+  execution capability MUST route through _handle_execute_request() and pass
+  the presence gate. Tier 0 (INFO_RETRIEVE / DRAFT_ONLY) is the sole exception
+  and still requires the execute_request envelope — it simply skips the physical
+  latch.  This comment is the guardrail contract; violating it requires an ADR.
 """
 import json
 import logging
@@ -29,6 +37,8 @@ from schemas.ws_messages import (
     HeartbeatAckPayload,
     ExecuteRequestPayload,
     ExecuteBlockedPayload,
+    TranscriptPayload,
+    TTSAudioPayload,
     ErrorPayload,
 )
 from stt.orchestrator import get_stt_provider, decode_audio_payload
