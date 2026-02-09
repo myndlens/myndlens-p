@@ -353,14 +353,22 @@ async def test_presence_gate_regression(test_session: TestSession):
     logger.info("=== Testing Presence Gate Regression ===")
     
     try:
+        if not test_session.ws:
+            test_session.log_result("Presence Gate Regression", False, "No WebSocket connection available")
+            return False
+            
         # Wait 16 seconds to make heartbeat stale
         logger.info("Waiting 16 seconds for heartbeat to become stale...")
         await asyncio.sleep(16)
         
         # Try to send execute request (should be blocked)
+        # Note: Execute request needs draft_id, but should be blocked before payload validation
         execute_msg = {
             "type": "execute_request",
-            "payload": {"session_id": test_session.session_id}
+            "payload": {
+                "session_id": test_session.session_id,
+                "draft_id": "test_draft_id"  # Add required field
+            }
         }
         await test_session.ws.send(json.dumps(execute_msg))
         
