@@ -35,6 +35,11 @@ from prompting.orchestrator import PromptOrchestrator
 from prompting.types import PromptContext, PromptPurpose, PromptMode
 from prompting.storage.mongo import save_prompt_snapshot
 from memory import retriever as digital_self
+from commit.state_machine import (
+    create_commit, transition as commit_transition,
+    get_commit, get_session_commits, recover_pending,
+    CommitState,
+)
 
 # ---- Setup logging ----
 setup_logging()
