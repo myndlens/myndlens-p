@@ -215,13 +215,18 @@ export default function TalkScreen() {
         });
       });
     } else if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
-      // Stop recording
+      // Stop recording → enter COMMITTING state
+      // COMMITTING: stop recorder, send stream_end, freeze utterance
       await stopRecording();
-      transition('THINKING');
-      addStatus(`Recording stopped (${chunksSent} chunks)`);
+      transition('COMMITTING');
+      addStatus(`Committing (${chunksSent} chunks)`);
 
-      // Signal end of stream
-      wsClient.send('cancel', { session_id: sessionId });
+      // Signal end of stream to server
+      wsClient.send('cancel', { session_id: sessionId, reason: 'user_stop' });
+
+      // Transition to THINKING once committed
+      transition('THINKING');
+      addStatus('Processing...');
     }
   }
 
