@@ -325,26 +325,75 @@ class BackendTester:
             self.log_test_result("auth_rejection_test", False, f"Exception: {str(e)}")
 
     async def test_session_status_endpoint(self):
-        """Test GET /api/session/{session_id} endpoint."""
-        if not self.test_session_id:
-            self.log_test_result("session_status_endpoint", False, "No session_id available")
-            return
-            
+        """Test GET /api/session/{session_id} endpoint with active session."""
         try:
-            async with self.session.get(f"{API_URL}/session/{self.test_session_id}") as response:
+            # Create fresh session for this test
+            payload = {
+                "user_id": "test_user_session", 
+                "device_id": "test_device_session_001",
+                "client_version": "1.0.0"
+            }
+            
+            async with self.session.post(f"{API_URL}/auth/pair", json=payload) as response:
                 if response.status != 200:
-                    self.log_test_result("session_status_endpoint", False, f"HTTP {response.status}")
+                    self.log_test_result("session_status_endpoint", False, "Failed to create session for test")
                     return
-
+                    
                 data = await response.json()
-                required_fields = ["session_id", "active", "presence_ok", "last_heartbeat_age_info"]
-                
-                if not all(field in data for field in required_fields):
-                    missing = [f for f in required_fields if f not in data]
-                    self.log_test_result("session_status_endpoint", False, f"Missing fields: {missing}")
-                    return
+                session_token = data["token"]
 
-                self.log_test_result("session_status_endpoint", True, f"Session status: active={data['active']}, presence_ok={data['presence_ok']}")
+            # Connect to WebSocket to activate session
+            async with websockets.connect(WS_URL) as websocket:
+                auth_msg = {
+                    "type": "auth",
+                    "id": "1",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "token": session_token,
+                        "device_id": "test_device_session_001",
+                        "client_version": "1.0.0"
+                    }
+                }
+                
+                await websocket.send(json.dumps(auth_msg))
+                response = await websocket.recv()
+                data = json.loads(response)
+                
+                if data.get("type") != "auth_ok":
+                    self.log_test_result("session_status_endpoint", False, "Failed to authenticate for session test")
+                    return
+                
+                test_session_id = data.get("payload", {}).get("session_id")
+                
+                # Send heartbeat to establish presence
+                heartbeat_msg = {
+                    "type": "heartbeat",
+                    "id": "2",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "session_id": test_session_id,
+                        "seq": 1,
+                        "client_ts": datetime.now(timezone.utc).isoformat()
+                    }
+                }
+                await websocket.send(json.dumps(heartbeat_msg))
+                await websocket.recv()  # Consume heartbeat_ack
+                
+                # Now test session status endpoint while session is active
+                async with self.session.get(f"{API_URL}/session/{test_session_id}") as response:
+                    if response.status != 200:
+                        self.log_test_result("session_status_endpoint", False, f"HTTP {response.status}")
+                        return
+
+                    data = await response.json()
+                    required_fields = ["session_id", "active", "presence_ok", "last_heartbeat_age_info"]
+                    
+                    if not all(field in data for field in required_fields):
+                        missing = [f for f in required_fields if f not in data]
+                        self.log_test_result("session_status_endpoint", False, f"Missing fields: {missing}")
+                        return
+
+                    self.log_test_result("session_status_endpoint", True, f"Session status: active={data['active']}, presence_ok={data['presence_ok']}")
 
         except Exception as e:
             self.log_test_result("session_status_endpoint", False, f"Exception: {str(e)}")
