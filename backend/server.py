@@ -112,14 +112,15 @@ class PairResponse(BaseModel):
 
 @api_router.post("/auth/pair", response_model=PairResponse)
 async def pair_device(req: PairRequest):
-    """Pair a device and return a JWT for WebSocket auth.
+    """DEV ONLY: Pair a device with a simple JWT.
     
-    In production, this would require prior user authentication.
-    For Batch 1, we use a simplified flow.
+    Deprecated in favor of SSO login. Kept for dev/testing only.
     """
     settings = get_settings()
-    session_id = str(uuid.uuid4())
+    if settings.ENV == "prod":
+        raise HTTPException(status_code=404, detail="Not found")
 
+    session_id = str(uuid.uuid4())
     token = generate_token(
         user_id=req.user_id,
         device_id=req.device_id,
@@ -127,10 +128,7 @@ async def pair_device(req: PairRequest):
         env=settings.ENV,
     )
 
-    logger.info(
-        "Device paired: user=%s device=%s",
-        req.user_id, req.device_id,
-    )
+    logger.info("DEV pair: user=%s device=%s", req.user_id, req.device_id)
 
     return PairResponse(
         token=token,
@@ -138,6 +136,111 @@ async def pair_device(req: PairRequest):
         device_id=req.device_id,
         env=settings.ENV,
     )
+
+
+# =====================================================
+#  ObeGee SSO Mock IDP (dev fixture only)
+# =====================================================
+
+class SSOLoginRequest(BaseModel):
+    username: str
+    password: str
+    device_id: str
+
+
+class SSOLoginResponse(BaseModel):
+    token: str
+    obegee_user_id: str
+    myndlens_tenant_id: str
+    subscription_status: str
+
+
+# Conditionally register the mock IDP route
+_settings_for_route = get_settings()
+if _settings_for_route.ENV != "prod" and _settings_for_route.ENABLE_OBEGEE_MOCK_IDP:
+
+    @api_router.post("/sso/myndlens/token", response_model=SSOLoginResponse)
+    async def mock_obegee_sso_token(req: SSOLoginRequest):
+        """MOCK ObeGee SSO endpoint — DEV ONLY.
+        
+        Issues SSO tokens with correct claims for testing.
+        This endpoint MUST NOT exist in prod (route not registered).
+        """
+        settings = get_settings()
+        # Hard guard (belt + suspenders)
+        if settings.ENV == "prod":
+            raise HTTPException(status_code=404, detail="Not found")
+
+        # Auto-activate tenant for dev convenience
+        from tenants.lifecycle import activate_tenant
+        result = await activate_tenant(req.username)
+        tenant_id = result["tenant_id"]
+
+        now = datetime.now(timezone.utc)
+        payload = {
+            "iss": "obegee",
+            "aud": "myndlens",
+            "obegee_user_id": req.username,
+            "myndlens_tenant_id": tenant_id,
+            "subscription_status": "ACTIVE",
+            "iat": now.timestamp(),
+            "exp": (now + timedelta(hours=24)).timestamp(),
+        }
+        token = jwt.encode(payload, settings.OBEGEE_SSO_HS_SECRET, algorithm="HS256")
+
+        logger.info("MOCK SSO token issued: user=%s tenant=%s", req.username, tenant_id)
+
+        return SSOLoginResponse(
+            token=token,
+            obegee_user_id=req.username,
+            myndlens_tenant_id=tenant_id,
+            subscription_status="ACTIVE",
+        )
+
+
+# =====================================================
+#  Tenant Lifecycle APIs (S2S auth)
+# =====================================================
+
+def _verify_s2s_token(x_obegee_s2s_token: str = Header(None)) -> None:
+    """Verify service-to-service auth token."""
+    settings = get_settings()
+    if x_obegee_s2s_token != settings.OBEGEE_S2S_TOKEN:
+        raise HTTPException(status_code=403, detail="Invalid S2S token")
+
+
+class TenantActivateReq(BaseModel):
+    obegee_user_id: str
+    openclaw_endpoint: Optional[str] = None
+
+
+class TenantActionReq(BaseModel):
+    tenant_id: str
+    reason: str = ""
+
+
+@api_router.post("/tenants/activate")
+async def api_activate_tenant(req: TenantActivateReq, x_obegee_s2s_token: str = Header(None)):
+    """Activate a tenant. Idempotent. Requires S2S auth."""
+    _verify_s2s_token(x_obegee_s2s_token)
+    from tenants.lifecycle import activate_tenant
+    return await activate_tenant(req.obegee_user_id, req.openclaw_endpoint)
+
+
+@api_router.post("/tenants/suspend")
+async def api_suspend_tenant(req: TenantActionReq, x_obegee_s2s_token: str = Header(None)):
+    """Suspend a tenant. Requires S2S auth."""
+    _verify_s2s_token(x_obegee_s2s_token)
+    from tenants.lifecycle import suspend_tenant
+    return await suspend_tenant(req.tenant_id, req.reason)
+
+
+@api_router.post("/tenants/deprovision")
+async def api_deprovision_tenant(req: TenantActionReq, x_obegee_s2s_token: str = Header(None)):
+    """Deprovision a tenant. Requires S2S auth."""
+    _verify_s2s_token(x_obegee_s2s_token)
+    from tenants.lifecycle import deprovision_tenant
+    return await deprovision_tenant(req.tenant_id, req.reason)
 
 
 # ---- Session Status ----
