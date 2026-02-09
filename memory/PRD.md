@@ -416,10 +416,28 @@ Transport: HTTPS only
 | Condition | Response |
 |-----------|----------|
 | L1/L2 disagree | Default to Ambiguity / Ask User (Clarify) |
-| L2 offline | Read-Only Safe Mode |
+| L2 offline | Read-Only Safe Mode (**No silent fallback to L1-only execution**) |
 | Signature fails | Hard Rejection |
 | Touch correlation fails | Hard Rejection |
 | Heartbeat lost >15s | Refuse MIO generation |
+
+---
+
+## 13A. GUARDRAILS PURPOSE & BEHAVIOR
+
+### Purpose
+Guardrails provide constraints on:
+- What intents can be acted upon
+- What should be refused
+
+### Continuous Evaluation
+- As thought capture progresses, continuously verify guardrails are not being crossed
+- Evaluation happens in real-time, not just at execution time
+
+### Response Behavior
+- If crossing detected → immediate response that action is not right
+- Refusal must be **tactful** (never harsh)
+- Always provide empathetic redirection
 
 ---
 
