@@ -552,6 +552,8 @@ async def test_presence_gate_regression(results: TestResults):
                 results.add_result("Presence Gate Regression", False, f"Auth failed: {auth_data}")
                 return
                 
+            session_id = auth_data["payload"]["session_id"]
+                
             # Send one heartbeat, then wait 16+ seconds before execute
             heartbeat_msg = {
                 "type": "heartbeat",
