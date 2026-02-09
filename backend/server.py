@@ -93,6 +93,7 @@ async def health():
         "tts_provider": type(tts).__name__,
         "tts_healthy": tts_healthy,
         "mock_tts": settings.MOCK_TTS,
+        "mock_llm": settings.MOCK_LLM,
     }
 
 
