@@ -246,3 +246,154 @@ async def _handle_execute_request(ws: WebSocket, session_id: str, payload: dict)
 def get_active_session_count() -> int:
     """Return number of active WebSocket connections."""
     return len(active_connections)
+
+
+# =====================================================
+#  Batch 2: Audio Chunk + Transcript + TTS Handlers
+# =====================================================
+
+async def _handle_audio_chunk(ws: WebSocket, session_id: str, payload: dict) -> None:
+    """Process an audio chunk: validate → STT → transcript → respond."""
+    try:
+        audio_bytes, seq, error = decode_audio_payload(payload)
+
+        if error:
+            await _send(ws, WSMessageType.ERROR, ErrorPayload(
+                message=error,
+                code="AUDIO_INVALID",
+            ))
+            return
+
+        # Feed to STT provider
+        stt = get_stt_provider()
+        fragment = await stt.feed_audio(session_id, audio_bytes, seq)
+
+        if fragment:
+            # Add to transcript assembler
+            state, span = transcript_assembler.add_fragment(session_id, fragment)
+
+            # Send transcript partial to client
+            await _send(ws, WSMessageType.TRANSCRIPT_PARTIAL, ErrorPayload(
+                message=state.get_current_text(),
+                code="OK",
+            ))
+
+            # If STT declares final (end of utterance), send transcript_final
+            if fragment.is_final:
+                await _send(ws, WSMessageType.TRANSCRIPT_FINAL, ErrorPayload(
+                    message=state.get_current_text(),
+                    code="OK",
+                ))
+                # Save transcript to DB
+                await save_transcript(state)
+                # Send a mock TTS response
+                await _send_mock_tts_response(ws, session_id, state.get_current_text())
+
+    except Exception as e:
+        logger.error("Audio chunk error: session=%s error=%s", session_id, str(e), exc_info=True)
+        await _send(ws, WSMessageType.ERROR, ErrorPayload(
+            message="Audio processing failed",
+            code="AUDIO_ERROR",
+        ))
+
+
+async def _handle_stream_end(ws: WebSocket, session_id: str) -> None:
+    """Handle end of audio stream (user stopped speaking or cancelled)."""
+    try:
+        stt = get_stt_provider()
+        final_fragment = await stt.end_stream(session_id)
+
+        if final_fragment:
+            state, span = transcript_assembler.add_fragment(session_id, final_fragment)
+
+            # Send transcript_final
+            await _send(ws, WSMessageType.TRANSCRIPT_FINAL, ErrorPayload(
+                message=state.get_current_text(),
+                code="OK",
+            ))
+            # Save and respond with TTS
+            await save_transcript(state)
+            await _send_mock_tts_response(ws, session_id, state.get_current_text())
+
+        # Cleanup transcript state
+        transcript_assembler.cleanup(session_id)
+
+    except Exception as e:
+        logger.error("Stream end error: session=%s error=%s", session_id, str(e))
+
+
+async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict) -> None:
+    """Handle text input as an alternative to voice (STT fallback)."""
+    text = payload.get("text", "").strip()
+    if not text:
+        return
+
+    logger.info("Text input: session=%s text='%s'", session_id, text[:50])
+
+    # Create a synthetic transcript fragment
+    from stt.provider.interface import TranscriptFragment
+    import uuid
+
+    fragment = TranscriptFragment(
+        text=text,
+        confidence=1.0,
+        is_final=True,
+        latency_ms=0,
+        fragment_id=str(uuid.uuid4()),
+    )
+
+    state, span = transcript_assembler.add_fragment(session_id, fragment)
+
+    # Send transcript_final
+    await _send(ws, WSMessageType.TRANSCRIPT_FINAL, ErrorPayload(
+        message=state.get_current_text(),
+        code="OK",
+    ))
+
+    await save_transcript(state)
+    await _send_mock_tts_response(ws, session_id, text)
+
+
+async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: str) -> None:
+    """Send a mock TTS response based on the transcript.
+
+    In Batch 2, TTS is mocked. Server sends text-based response
+    that the client can render with local speech synthesis.
+    """
+    # Generate a contextual mock response
+    response_text = _generate_mock_response(transcript)
+
+    payload = {
+        "text": response_text,
+        "session_id": session_id,
+        "is_mock": True,
+        "format": "text",  # "text" for local TTS, "audio" for streamed audio
+    }
+
+    await _send(ws, WSMessageType.TTS_AUDIO, ErrorPayload(
+        message=response_text,
+        code="OK",
+    ))
+
+    logger.info(
+        "TTS response sent: session=%s response='%s'",
+        session_id, response_text[:60],
+    )
+
+
+def _generate_mock_response(transcript: str) -> str:
+    """Generate a deterministic mock response for testing."""
+    lower = transcript.lower()
+
+    if "hello" in lower:
+        return "Hello! How can I help you today?"
+    elif "send" in lower and "message" in lower:
+        return "I understand you'd like to send a message. Who would you like to send it to?"
+    elif "meeting" in lower:
+        return "I see you're thinking about a meeting. When would you like to schedule it?"
+    elif "tomorrow" in lower:
+        return "Got it, tomorrow. What time works best for you?"
+    elif "confirm" in lower:
+        return "I'll prepare that for your review. Please check the draft card."
+    else:
+        return f"I heard: '{transcript[:50]}'. Could you tell me more about what you'd like to do?"
