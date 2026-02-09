@@ -651,6 +651,44 @@ async def api_retention_cleanup(x_obegee_s2s_token: str = Header(None)):
     return await run_retention_cleanup()
 
 
+# =====================================================
+#  Soul Management APIs (Batch 13)
+# =====================================================
+
+@api_router.get("/soul/status")
+async def api_soul_status():
+    """Get soul status: version, integrity, drift check."""
+    from soul.store import retrieve_soul
+    from soul.versioning import get_current_version, verify_integrity
+    from soul.drift_controls import check_drift
+
+    version = await get_current_version()
+    integrity = await verify_integrity()
+    drift = check_drift()
+    fragments = retrieve_soul()
+
+    return {
+        "version": version,
+        "integrity": integrity,
+        "drift": drift,
+        "fragments": len(fragments),
+    }
+
+
+class UserSoulRequest(BaseModel):
+    user_id: str
+    text: str
+    category: str
+
+
+@api_router.post("/soul/personalize")
+async def api_personalize_soul(req: UserSoulRequest):
+    """Add a user-specific soul fragment (requires explicit user signal)."""
+    from soul.store import add_user_soul_fragment
+    frag_id = await add_user_soul_fragment(req.user_id, req.text, req.category)
+    return {"fragment_id": frag_id, "category": req.category}
+
+
 # ---- Prompt System Diagnostic (no behavior change) ----
 class PromptBuildRequest(BaseModel):
     purpose: str  # PromptPurpose value
