@@ -1051,6 +1051,18 @@ logger.debug(f"[{test_id}] Stack trace:", exc_info=True)
 
 ### Modules: B14, B15, C2
 
+### C2: MyndLens Channel Unit Tests (NEW)
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| C2-U01 | Channel contract | Contract schema valid | Schema validates | Contract version |
+| C2-U02 | Zero-code-change | No OpenClaw code modified | API unchanged | Diff check |
+| C2-U03 | Action translation | Intent → OpenClaw action | Correct mapping | Mapping table |
+| C2-U04 | Response parsing | OpenClaw response parsed | Fields extracted | Response schema |
+| C2-U05 | Error mapping | OpenClaw errors mapped | User-friendly | Error code map |
+| C2-U06 | Timeout config | Configurable timeout | Timeout applied | Timeout value |
+| C2-U07 | Retry policy | Retry on transient failure | Retries attempted | Retry count |
+| C2-U08 | Circuit breaker | Breaker on repeated failure | Breaker opens | Breaker state |
+
 ### L1 Unit Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
 |---------|-----------|-----------|---------------|
