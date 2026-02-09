@@ -747,6 +747,70 @@ Rules:
 
 ---
 
+## 20A. TIME, LOCALE & SCHEDULING RESOLUTION (S7)
+
+### Time Authority
+- **Server is source of truth for time**
+- Device timezone is transmitted explicitly with each request
+- All timestamps stored in UTC
+
+### Relative Time Handling
+- Relative times (e.g., "tomorrow", "next week") MUST be resolved
+- Resolution MUST be confirmed in draft card before execution
+- User sees both relative input and absolute resolved time
+
+### Locale Handling
+- Date/time formats respect user locale
+- Ambiguous dates (e.g., 01/02/2025) require disambiguation
+
+---
+
+## 20B. CANONICAL ENTITY RESOLUTION SAFETY (S9)
+
+### Same-Name Disambiguation
+- When multiple entities share the same name, system MUST disambiguate
+- Present options with distinguishing context (e.g., "John Smith (Work)" vs "John Smith (Family)")
+- Never auto-select without user confirmation
+
+### Channel Binding
+- Channel must be **explicit** (WhatsApp vs SMS vs Email)
+- If entity has multiple channels, user must confirm which
+- Default channel can be suggested based on Digital Self history
+
+### Verification Markers
+- Show "last-used" or "verified" markers to user
+- Verified entities from explicit user confirmation get priority
+- OBSERVED entities shown with lower confidence indicator
+
+---
+
+## 20C. SERVER COMMIT STATE PERSISTENCE (S11)
+
+### State Machine States
+```
+DRAFT → PENDING_CONFIRMATION → CONFIRMED → DISPATCHING → COMPLETED
+                            → CANCELLED
+                            → FAILED
+```
+
+### Persistence Rules
+- Commit state machine is **persisted durably** (not in-memory only)
+- **Exactly-once semantics** enforced via idempotency keys
+- State transitions are atomic and logged
+
+### Recovery Rules (BE Restart)
+- On restart, recover pending commits from durable storage
+- DISPATCHING state → re-verify MIO validity and heartbeat before retry
+- Stale PENDING_CONFIRMATION → timeout and notify user
+- Never auto-resume DISPATCHING without fresh presence verification
+
+### Audit Trail
+- Every state transition logged with timestamp and reason
+- Failed transitions include error details
+- Recovery actions are auditable
+
+---
+
 ## 21. OBSERVABILITY & REDACTION (S8)
 
 ### 21.1 Log Tiers
