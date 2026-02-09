@@ -160,7 +160,6 @@ Plus:
 - [ ] All B1-P* tests pass (3 tests)
 - [ ] Heartbeat >15s blocking verified (CRITICAL)
 - [ ] Regression: All B0-* tests still pass
-- [ ] Regression: All B0-* tests still pass
 
 ---
 
@@ -179,6 +178,13 @@ Plus:
 | B2-U06 | TTS interruption | Interrupt signal handled | Playback stops |
 | B2-U07 | Transcript assembler | Partials assembled | Correct assembly |
 | B2-U08 | Evidence span | Spans tracked correctly | Span IDs valid |
+| B2-U09 | Audio format validation | Invalid format rejected | Error returned |
+| B2-U10 | Chunk sequence number | Sequence numbers assigned | Sequential |
+| B2-U11 | Audio buffer management | Buffer overflow handled | Graceful handling |
+| B2-U12 | VAD energy calculation | Energy levels computed | Correct values |
+| B2-U13 | TTS queue management | Queue handles multiple | FIFO order |
+| B2-U14 | Audio state transitions | Valid transitions only | Invalid rejected |
+| B2-U15 | Chunk timestamp | Timestamps accurate | ±10ms accuracy |
 
 ### L2 Integration Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
@@ -189,15 +195,55 @@ Plus:
 | B2-I04 | Transcript assembly | Server assembles transcript | Correct text |
 | B2-I05 | TTS → Mobile | Server sends TTS audio | Mobile receives |
 | B2-I06 | Audio state machine | States transition correctly | Valid transitions |
+| B2-I07 | Bidirectional audio | Simultaneous send/receive | Both work |
+| B2-I08 | Audio compression | Compressed audio handled | Quality maintained |
+| B2-I09 | Latency measurement | End-to-end latency tracked | Metrics captured |
+| B2-I10 | Chunk loss detection | Missing chunks detected | Gap flagged |
 
 ### L3 E2E Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
 |---------|-----------|-----------|---------------|
 | B2-E01 | Speak → Server | User speaks, server receives | Audio logged |
 | B2-E02 | Server → TTS | Server sends TTS response | Audio plays |
-| B2-E03 | Interrupt TTS | User speaks during TTS | TTS stops |
+| B2-E03 | Interrupt TTS | User speaks during TTS | TTS stops <100ms |
 | B2-E04 | VAD → Capture | Speech starts capture | State = CAPTURING |
 | B2-E05 | Silence → Stop | Silence ends capture | State = COMMITTING |
+| B2-E06 | Full loop (stub) | Speak → stub response → hear | Loop completes |
+| B2-E07 | Long utterance | 30 second speech | All chunks received |
+| B2-E08 | Rapid speech | Fast talking | No drops |
+| B2-E09 | Background noise | Noisy environment | VAD handles |
+| B2-E10 | TTS completion | TTS finishes playing | State = LISTENING |
+| B2-E11 | Multiple interrupts | Interrupt multiple times | Each interrupt works |
+| B2-E12 | Audio state recovery | State corruption → recover | Graceful recovery |
+
+### L4 Adversarial Tests
+| Test ID | Test Name | Attack Vector | Pass Criteria |
+|---------|-----------|---------------|---------------|
+| B2-A01 | Malformed audio | Invalid audio format | Graceful rejection |
+| B2-A02 | Audio flood | 1000 chunks/second | Rate limited |
+| B2-A03 | Giant chunk | 100MB audio chunk | Rejected |
+| B2-A04 | Empty chunks | Stream of empty chunks | Handled |
+| B2-A05 | Corrupted sequence | Out-of-order chunks | Reordered or rejected |
+| B2-A06 | TTS injection | Malicious TTS command | Sanitized |
+
+### Performance Tests
+| Test ID | Test Name | Target | Measurement |
+|---------|-----------|--------|-------------|
+| B2-P01 | Chunk latency | <50ms | p95 mobile→server |
+| B2-P02 | TTS start latency | <200ms | Request→first byte |
+| B2-P03 | Audio throughput | 100 concurrent | Streams sustained |
+| B2-P04 | VAD latency | <20ms | Detection time |
+| B2-P05 | Interrupt latency | <100ms | Speak→TTS stops |
+
+### Gate Checklist
+- [ ] All B2-U* tests pass (15 tests)
+- [ ] All B2-I* tests pass (10 tests)
+- [ ] All B2-E* tests pass (12 tests)
+- [ ] All B2-A* tests pass (6 tests)
+- [ ] All B2-P* tests pass (5 tests)
+- [ ] 250ms chunking verified (CRITICAL)
+- [ ] TTS interruption <100ms verified
+- [ ] Regression: All B0-B1 tests still pass
 | B2-E06 | Full loop (stub) | Speak → stub response → hear | Loop completes |
 
 ### Gate Checklist
