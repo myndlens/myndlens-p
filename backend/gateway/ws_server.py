@@ -231,10 +231,28 @@ async def _handle_heartbeat(ws: WebSocket, session_id: str, payload: dict) -> No
         ))
 
 
-async def _handle_execute_request(ws: WebSocket, session_id: str, payload: dict) -> None:
-    """Process an execute request. Gate on presence."""
+async def _handle_execute_request(ws: WebSocket, session_id: str, payload: dict, subscription_status: str = "ACTIVE") -> None:
+    """Process an execute request. Gate on presence AND subscription."""
     try:
         req = ExecuteRequestPayload(**payload)
+
+        # SUBSCRIPTION GATE: Block if not ACTIVE
+        if subscription_status != "ACTIVE":
+            await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
+                reason=f"Subscription status is {subscription_status}. Execute blocked.",
+                code="SUBSCRIPTION_INACTIVE",
+                draft_id=req.draft_id,
+            ))
+            await log_audit_event(
+                AuditEventType.SUBSCRIPTION_INACTIVE_BLOCK,
+                session_id=session_id,
+                details={"subscription": subscription_status, "draft_id": req.draft_id},
+            )
+            logger.warning(
+                "EXECUTE_BLOCKED: session=%s reason=SUBSCRIPTION_INACTIVE sub=%s",
+                session_id, subscription_status,
+            )
+            return
 
         # CRITICAL GATE: Check heartbeat freshness
         is_present = await check_presence(session_id)
