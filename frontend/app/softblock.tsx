@@ -31,7 +31,7 @@ export default function SoftBlockScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + 40 }]}>
       <View style={styles.content}>
-        <Text style={styles.icon}>\u26A0\uFE0F</Text>
+        <Text style={styles.icon}>{'\u26A0\uFE0F'}</Text>
         <Text style={styles.title}>{title}</Text>
       </View>
 
