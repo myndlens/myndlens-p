@@ -64,10 +64,10 @@ export default function LoginScreen() {
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.buttonText}>Continue with ObeGee</Text>
+            <Text style={styles.buttonText}>Continue with OpenClaw</Text>
           )}
         </TouchableOpacity>
-        <Text style={styles.hint}>Secure sign-in via ObeGee</Text>
+        <Text style={styles.hint}>Secure sign-in via OpenClaw</Text>
       </View>
     </View>
   );
