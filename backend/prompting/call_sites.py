@@ -36,14 +36,14 @@ CALL_SITES: Dict[str, CallSite] = {
         allowed_purposes=frozenset({PromptPurpose.VERIFY, PromptPurpose.SAFETY_GATE}),
         owner_module="l2.sentry",
         description="Authoritative intent validation (Gemini Pro). Shadow derivation.",
-        status="reserved",
+        status="active",
     ),
     "QC_SENTRY": CallSite(
         call_site_id="QC_SENTRY",
         allowed_purposes=frozenset({PromptPurpose.VERIFY}),
         owner_module="qc.sentry",
         description="Adversarial passes: persona drift, capability leak, harm projection.",
-        status="reserved",
+        status="active",
     ),
     "GUARDRAILS_CLASSIFIER": CallSite(
         call_site_id="GUARDRAILS_CLASSIFIER",
