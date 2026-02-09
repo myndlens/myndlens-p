@@ -1210,10 +1210,82 @@ agent_communication:
           agent: "testing"
           comment: "✅ TESTED: Complete user data snapshot system working perfectly! Backup creates comprehensive snapshot including graphs, entities, sessions, transcripts, commits, and optionally audit_events. Restore uses upsert strategy to preserve provenance integrity and prevent duplicate nodes. Verified data persistence through complete backup → restore → verify cycle with test data (Sarah colleague fact)."
 
+  - task: "Soul Status API GET /api/soul/status"
+    implemented: true
+    working: true
+    file: "server.py, soul/store.py, soul/versioning.py, soul/drift_controls.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Soul status API working perfectly. Returns all required fields: version (1.0.0), integrity (valid=true, hashes match), drift (drift_detected=false), fragments=5. All critical values match review request specifications."
+
+  - task: "Soul Powers IDENTITY_ROLE (Dynamic from Vector Memory)"
+    implemented: true
+    working: true
+    file: "prompting/sections/standard/identity_role.py, soul/store.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED CRITICAL: Soul powers IDENTITY_ROLE working! POST /api/prompt/build with purpose=THOUGHT_TO_INTENT system message contains dynamic soul fragment content (sovereign, empathetic, cognitive proxy, Digital Self) retrieved from vector memory, NOT old hardcoded identity text. This is the key architectural change - prompts now powered by Soul Store."
+
+  - task: "Soul Personalization API POST /api/soul/personalize"
+    implemented: true
+    working: true
+    file: "server.py, soul/store.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Soul personalization API working correctly. Successfully adds user-specific soul fragments with explicit user signal. Returns proper response format: {fragment_id, category: 'communication'}. User fragments stored in ChromaDB with is_base=False."
+
+  - task: "Soul Drift Detection After Personalization"
+    implemented: true
+    working: true
+    file: "soul/drift_controls.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Drift detection working correctly after user personalization. User additions do NOT count as drift - drift_detected remains false after adding user soul fragments. This is correct behavior as user personalization is allowed while base soul drift is forbidden."
+
+  - task: "Soul Hash Stability"
+    implemented: true
+    working: true
+    file: "soul/versioning.py, soul/store.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Soul hash stability verified. Base_hash identical across multiple calls to GET /api/soul/status. Deterministic hashing ensures soul version consistency and integrity checking."
+
+  - task: "Soul Fragments in L1 Scout (ChromaDB Integration)"
+    implemented: true
+    working: true
+    file: "l1/scout.py, prompting/orchestrator.py, prompting/sections/standard/identity_role.py, soul/store.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED MOST IMPORTANT: Soul fragments successfully integrated with L1 Scout! Complete flow working: SSO login → WebSocket auth → heartbeat → text_input 'Send a message to Sarah about the meeting' → transcript_final → draft_update → tts_audio. L1 Scout now uses Soul-powered IDENTITY_ROLE prompts from ChromaDB vector memory instead of hardcoded text. This completes the Soul Store integration with the prompt system."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 12
+  test_sequence: 13
   run_ui: false
 
 test_plan:
