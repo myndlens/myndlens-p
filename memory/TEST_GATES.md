@@ -767,7 +767,23 @@ logger.debug(f"[{test_id}] Stack trace:", exc_info=True)
 
 ## BATCH 6 — Guardrails + Commit State Machine
 
-### Modules: B8, B11
+### Modules: M4, B8, B11
+
+### M4: Draft Card UI Unit Tests (NEW)
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| M4-U01 | Card render | Draft card renders | Card visible | Render time |
+| M4-U02 | Action summary | Action summary displayed | Text shown | Summary content |
+| M4-U03 | Target display | Target entity shown | Correct target | Target name |
+| M4-U04 | Timing display | Timing/schedule shown | Correct time | Time value |
+| M4-U05 | Risk tier badge | Tier badge displayed | Correct tier | Tier number |
+| M4-U06 | Tier 0 no confirm | Tier 0 skips confirmation | No prompt | Tier check |
+| M4-U07 | Tier 2 confirm | Tier 2 shows confirmation | Prompt shown | Confirm type |
+| M4-U08 | Cancel button | Cancel always available | Button present | Button state |
+| M4-U09 | Undo button | Undo available pre-dispatch | Button present | Button state |
+| M4-U10 | Confirmation flow | Confirm → proceed | State changes | Flow state |
+| M4-U11 | Cancel flow | Cancel → discard | State cleared | Flow state |
+| M4-U12 | Loading state | Processing shows indicator | Indicator shown | Loading flag |
 
 ### L1 Unit Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
