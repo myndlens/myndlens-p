@@ -18,6 +18,13 @@ class AuditEventType(str, Enum):
     EXECUTE_COMPLETED = "execute_completed"
     ENV_GUARD_VIOLATION = "env_guard_violation"
     PRESENCE_STALE = "presence_stale"
+    # SSO + Tenant lifecycle
+    SSO_AUTH_SUCCESS = "sso_auth_success"
+    SSO_AUTH_FAILURE = "sso_auth_failure"
+    SUBSCRIPTION_INACTIVE_BLOCK = "subscription_inactive_block"
+    TENANT_ACTIVATED = "tenant_activated"
+    TENANT_SUSPENDED = "tenant_suspended"
+    TENANT_DEPROVISIONED = "tenant_deprovisioned"
 
 
 class AuditEvent(BaseModel):
