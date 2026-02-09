@@ -1298,6 +1298,30 @@ logger.debug(f"[{test_id}] Stack trace:", exc_info=True)
 
 ### Modules: C3, C1
 
+### C1: ObeGee Tenancy Boundary Unit Tests (NEW)
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| C1-U01 | Boundary definition | Boundary rules defined | Rules loaded | Rule count |
+| C1-U02 | Identity separation | MyndLens ≠ ObeGee identity | Separate systems | Identity check |
+| C1-U03 | Routing rules | Routing to correct system | Routes valid | Route table |
+| C1-U04 | Deployment isolation | Separate deployment | Containers isolated | Container list |
+| C1-U05 | No shared secrets | Keys not shared | Key isolation | Key namespaces |
+| C1-U06 | DNS resolution | Correct DNS per system | DNS resolves | DNS queries |
+| C1-U07 | Cross-system block | Direct access blocked | No shortcuts | Block log |
+| C1-U08 | Public DNS required | Cross-system via DNS | HTTPS enforced | Connection type |
+
+### C3: OpenClaw Multi-Tenant Unit Tests (NEW)
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| C3-U01 | Tenant registry | All tenants registered | Registry populated | Tenant count |
+| C3-U02 | Docker endpoint | Endpoint per tenant | Endpoints valid | Endpoint URLs |
+| C3-U03 | Key per tenant | Unique key per tenant | Keys different | Key prefixes |
+| C3-U04 | Isolation rules | Tenant isolation enforced | Rules active | Isolation config |
+| C3-U05 | Quota per tenant | Quota assigned | Quotas set | Quota values |
+| C3-U06 | Rate limit per tenant | Rate limits assigned | Limits set | Rate values |
+| C3-U07 | Audit per tenant | Audit trail separate | Logs isolated | Audit count |
+| C3-U08 | Failure containment | Failure isolated | Blast radius zero | Failure scope |
+
 ### L1 Unit Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
 |---------|-----------|-----------|---------------|
@@ -1340,6 +1364,8 @@ logger.debug(f"[{test_id}] Stack trace:", exc_info=True)
 | B10-P03 | Isolation overhead | <5% | Performance impact |
 
 ### Gate Checklist
+- [ ] All C1-U* tests pass (8 tests)
+- [ ] All C3-U* tests pass (8 tests)
 - [ ] All B10-U* tests pass (4 tests)
 - [ ] All B10-I* tests pass (4 tests)
 - [ ] All B10-E* tests pass (6 tests)
