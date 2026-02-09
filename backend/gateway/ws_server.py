@@ -364,9 +364,12 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict) -> N
     state, span = transcript_assembler.add_fragment(session_id, fragment)
 
     # Send transcript_final
-    await _send(ws, WSMessageType.TRANSCRIPT_FINAL, ErrorPayload(
-        message=state.get_current_text(),
-        code="OK",
+    await _send(ws, WSMessageType.TRANSCRIPT_FINAL, TranscriptPayload(
+        text=state.get_current_text(),
+        is_final=True,
+        fragment_count=len(state.fragments),
+        confidence=1.0,
+        span_ids=[span.span_id],
     ))
 
     await save_transcript(state)
