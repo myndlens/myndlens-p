@@ -464,6 +464,50 @@ async def api_run_qc(req: QCRunRequest):
     }
 
 
+# =====================================================
+#  MIO Signing + Verification APIs (Batch 8)
+# =====================================================
+
+class MIOSignRequest(BaseModel):
+    mio_dict: dict
+
+
+class MIOVerifyRequest(BaseModel):
+    mio_dict: dict
+    signature: str
+    session_id: str
+    device_id: str
+    tier: int = 0
+    touch_token: Optional[str] = None
+
+
+@api_router.post("/mio/sign")
+async def api_sign_mio(req: MIOSignRequest):
+    """Sign a MIO with ED25519."""
+    signature = sign_mio(req.mio_dict)
+    return {"signature": signature, "public_key": get_public_key_hex()}
+
+
+@api_router.post("/mio/verify")
+async def api_verify_mio(req: MIOVerifyRequest):
+    """Full MIO verification pipeline."""
+    valid, reason = await verify_mio_for_execution(
+        mio_dict=req.mio_dict,
+        signature=req.signature,
+        session_id=req.session_id,
+        device_id=req.device_id,
+        tier=req.tier,
+        touch_token=req.touch_token,
+    )
+    return {"valid": valid, "reason": reason}
+
+
+@api_router.get("/mio/public-key")
+async def api_mio_public_key():
+    """Get the MIO signing public key."""
+    return {"public_key": get_public_key_hex(), "algorithm": "ED25519"}
+
+
 # ---- Prompt System Diagnostic (no behavior change) ----
 class PromptBuildRequest(BaseModel):
     purpose: str  # PromptPurpose value
