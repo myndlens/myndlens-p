@@ -593,6 +593,61 @@ async def api_circuit_breakers():
     return {"breakers": get_all_breaker_statuses()}
 
 
+# =====================================================
+#  Data Governance + Backup/Restore (Batch 12)
+# =====================================================
+
+class BackupRequest(BaseModel):
+    user_id: str
+    include_audit: bool = True
+
+
+class RestoreRequest(BaseModel):
+    backup_id: str
+
+
+@api_router.post("/governance/backup")
+async def api_create_backup(req: BackupRequest, x_obegee_s2s_token: str = Header(None)):
+    """Create a backup snapshot. Requires S2S auth."""
+    _verify_s2s_token(x_obegee_s2s_token)
+    from governance.backup import create_backup
+    return await create_backup(req.user_id, req.include_audit)
+
+
+@api_router.get("/governance/backups/{user_id}")
+async def api_list_backups(user_id: str, x_obegee_s2s_token: str = Header(None)):
+    """List backups for a user. Requires S2S auth."""
+    _verify_s2s_token(x_obegee_s2s_token)
+    from governance.backup import list_backups
+    return await list_backups(user_id)
+
+
+@api_router.post("/governance/restore")
+async def api_restore_backup(req: RestoreRequest, x_obegee_s2s_token: str = Header(None)):
+    """Restore from a backup. Requires S2S auth."""
+    _verify_s2s_token(x_obegee_s2s_token)
+    from governance.restore import restore_from_backup
+    try:
+        return await restore_from_backup(req.backup_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@api_router.get("/governance/retention")
+async def api_retention_status():
+    """Get retention policy status."""
+    from governance.retention import get_retention_status
+    return await get_retention_status()
+
+
+@api_router.post("/governance/retention/cleanup")
+async def api_retention_cleanup(x_obegee_s2s_token: str = Header(None)):
+    """Run retention cleanup. Requires S2S auth."""
+    _verify_s2s_token(x_obegee_s2s_token)
+    from governance.retention import run_retention_cleanup
+    return await run_retention_cleanup()
+
+
 # ---- Prompt System Diagnostic (no behavior change) ----
 class PromptBuildRequest(BaseModel):
     purpose: str  # PromptPurpose value
