@@ -40,6 +40,8 @@ from commit.state_machine import (
     get_commit, get_session_commits, recover_pending,
     CommitState,
 )
+from l2.sentry import run_l2_sentry, check_l1_l2_agreement
+from qc.sentry import run_qc_sentry
 
 # ---- Setup logging ----
 setup_logging()
