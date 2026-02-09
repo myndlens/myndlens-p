@@ -300,6 +300,8 @@ async def test_suspended_token_flow(results: TestResults):
                 results.add_result("Suspended Token Flow", False, f"WS auth should succeed with SUSPENDED token: {auth_data}")
                 return
                 
+            session_id = auth_data["payload"]["session_id"]
+                
             # Send heartbeat (should work)
             heartbeat_msg = {
                 "type": "heartbeat", 
