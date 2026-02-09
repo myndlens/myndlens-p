@@ -117,17 +117,19 @@ export default function TalkScreen() {
         setHeartbeatSeq(env.payload.seq);
       }),
       wsClient.on('transcript_partial', (env: WSEnvelope) => {
-        setPartialTranscript(env.payload.message);
-        addStatus(`Transcript: "${env.payload.message}"`);
+        const text = env.payload.text || env.payload.message || '';
+        setPartialTranscript(text);
+        addStatus(`Transcript: "${text}"`);
       }),
       wsClient.on('transcript_final', (env: WSEnvelope) => {
-        setTranscript(env.payload.message);
+        const text = env.payload.text || env.payload.message || '';
+        setTranscript(text);
         setPartialTranscript('');
-        addStatus(`Final: "${env.payload.message}"`);
+        addStatus(`Final: "${text}"`);
         transition('THINKING');
       }),
       wsClient.on('tts_audio', (env: WSEnvelope) => {
-        const text = env.payload.message;
+        const text = env.payload.text || env.payload.message || '';
         setTtsText(text);
         addStatus(`TTS: "${text}"`);
         transition('RESPONDING');
