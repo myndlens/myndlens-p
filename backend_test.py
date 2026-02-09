@@ -552,6 +552,7 @@ async def test_presence_gate_regression(results: TestResults):
             heartbeat_msg = {
                 "type": "heartbeat",
                 "payload": {
+                    "session_id": session_id,
                     "seq": 1,
                     "client_ts": datetime.now(timezone.utc).timestamp()
                 }
