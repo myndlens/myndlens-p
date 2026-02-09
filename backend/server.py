@@ -508,6 +508,35 @@ async def api_mio_public_key():
     return {"public_key": get_public_key_hex(), "algorithm": "ED25519"}
 
 
+# =====================================================
+#  Dispatcher API (Batch 9)
+# =====================================================
+
+class DispatchRequest(BaseModel):
+    mio_dict: dict
+    signature: str
+    session_id: str
+    device_id: str
+    tenant_id: str
+
+
+@api_router.post("/dispatch")
+async def api_dispatch(req: DispatchRequest):
+    """Dispatch a signed MIO to OpenClaw via the Dispatcher."""
+    from dispatcher.dispatcher import dispatch
+    try:
+        result = await dispatch(
+            mio_dict=req.mio_dict,
+            signature=req.signature,
+            session_id=req.session_id,
+            device_id=req.device_id,
+            tenant_id=req.tenant_id,
+        )
+        return result
+    except DispatchBlockedError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
 # ---- Prompt System Diagnostic (no behavior change) ----
 class PromptBuildRequest(BaseModel):
     purpose: str  # PromptPurpose value
