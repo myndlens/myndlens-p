@@ -148,16 +148,9 @@ async def test_websocket_auth_heartbeat(test_session: TestSession):
     try:
         logger.info(f"Connecting to WebSocket: {WS_URL}")
         
-        # Add extra headers for proper connection
-        extra_headers = {
-            "Origin": BACKEND_URL,
-            "User-Agent": "MyndLens-Test-Client/1.0"
-        }
-        
-        # Connect to WebSocket with extra headers
+        # Connect to WebSocket
         test_session.ws = await websockets.connect(
             WS_URL, 
-            extra_headers=extra_headers,
             ping_interval=None,
             ping_timeout=None
         )
