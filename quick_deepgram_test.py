@@ -89,6 +89,7 @@ def test_websocket_basic():
         import websocket
         
         messages = []
+        session_id = None
         
         def on_message(ws, message):
             data = json.loads(message)
@@ -96,16 +97,28 @@ def test_websocket_basic():
             print(f"  📨 Received: {data.get('type', 'unknown')}")
             
             if data.get("type") == "auth_ok":
-                print("  ✅ WebSocket authenticated")
-                # Send heartbeat
-                ws.send(json.dumps({"type": "heartbeat"}))
+                nonlocal session_id
+                session_id = data.get("payload", {}).get("session_id")
+                print(f"  ✅ WebSocket authenticated, session: {session_id}")
+                # Send heartbeat with required fields
+                heartbeat_msg = {
+                    "type": "heartbeat",
+                    "payload": {
+                        "session_id": session_id,
+                        "seq": 1
+                    }
+                }
+                ws.send(json.dumps(heartbeat_msg))
                 
             elif data.get("type") == "heartbeat_ack":
                 print("  💓 Heartbeat acknowledged")
                 # Send text input instead of audio for simpler test
                 text_msg = {
                     "type": "text_input", 
-                    "payload": {"text": "Hello test message", "session_id": "test"}
+                    "payload": {
+                        "text": "Hello test message", 
+                        "session_id": session_id
+                    }
                 }
                 ws.send(json.dumps(text_msg))
                 
