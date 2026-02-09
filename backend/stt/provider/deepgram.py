@@ -127,15 +127,17 @@ class DeepgramSTTProvider(STTProvider):
         start_time = time.monotonic()
 
         try:
-            # Deepgram SDK v5.x API - options are passed as kwargs
-            source = {"buffer": buffer_data}
+            # Deepgram SDK v5.x API - use listen.v1.media.transcribe_file
+            # source should be a file-like object with the buffer data
+            import io
+            audio_buffer = io.BytesIO(buffer_data)
             
             # Run in executor to avoid blocking the event loop
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None,
-                lambda: self._client.listen.prerecorded.transcribe_file(
-                    source,
+                lambda: self._client.listen.v1.media.transcribe_file(
+                    request=audio_buffer,
                     model="nova-2",
                     punctuate=True,
                     smart_format=True,
