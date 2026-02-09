@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""Backend Test Suite for MyndLens Batch 8 - MIO Signing & Verification.
+"""Backend Test Suite for MyndLens Batch 9 - Dispatcher + Tenant Registry.
 
 CRITICAL TESTS:
-1. MIO Sign + Verify (ED25519)
-2. MIO Verify - Valid signature  
-3. MIO Public Key endpoint
-4. Replay protection
-5. TTL expiry
-6. Touch token validation (Tier >= 2)
-7. Regression tests
+1. **Dispatch endpoint - MIO verification gate**
+2. **Dispatch blocked - inactive tenant**
+3. **Dispatch blocked - env guard**
+4. **Idempotency**
+5. **Stub OpenClaw execution**
+6. **REGRESSION**: Health, SSO, L1 flow, MIO sign/verify, commit, guardrails
 
 Backend URL: https://voice-assistant-dev.preview.emergentagent.com/api
 """
