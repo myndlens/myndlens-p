@@ -1,7 +1,8 @@
-"""WebSocket server — B1 Gateway.
+"""WebSocket server — B1+B2 Gateway.
 
 Handles authenticated WS connections, message routing,
-heartbeat tracking, and execute-gate enforcement.
+heartbeat tracking, execute-gate enforcement,
+and audio chunk streaming with transcript assembly.
 """
 import json
 import logging
@@ -30,6 +31,9 @@ from schemas.ws_messages import (
     ExecuteBlockedPayload,
     ErrorPayload,
 )
+from stt.orchestrator import get_stt_provider, decode_audio_payload
+from transcript.assembler import transcript_assembler
+from transcript.storage import save_transcript
 
 logger = logging.getLogger(__name__)
 
