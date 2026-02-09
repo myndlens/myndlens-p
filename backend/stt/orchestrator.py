@@ -21,9 +21,16 @@ MAX_CHUNKS_PER_SECOND = 10  # Rate limit
 def _get_provider() -> STTProvider:
     """Get the configured STT provider."""
     if is_mock_stt():
+        logger.info("[STT] Using MockSTTProvider")
         return MockSTTProvider(latency_ms=30.0)
-    # Future: return DeepgramSTTProvider()
-    return MockSTTProvider(latency_ms=30.0)
+    # Real Deepgram provider
+    try:
+        from stt.provider.deepgram import DeepgramSTTProvider
+        logger.info("[STT] Using DeepgramSTTProvider")
+        return DeepgramSTTProvider()
+    except Exception as e:
+        logger.error("[STT] Deepgram init failed, falling back to mock: %s", str(e))
+        return MockSTTProvider(latency_ms=30.0)
 
 
 # Singleton provider
