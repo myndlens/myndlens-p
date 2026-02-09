@@ -71,11 +71,16 @@ api_router = APIRouter(prefix="/api")
 @api_router.get("/health")
 async def health():
     settings = get_settings()
+    stt = get_stt_provider()
+    stt_healthy = await stt.is_healthy()
     return {
         "status": "ok",
         "env": settings.ENV,
-        "version": "0.1.0",
+        "version": "0.2.0",
         "active_sessions": get_active_session_count(),
+        "stt_provider": type(stt).__name__,
+        "stt_healthy": stt_healthy,
+        "mock_stt": settings.MOCK_STT,
     }
 
 
