@@ -42,6 +42,8 @@ from commit.state_machine import (
 )
 from l2.sentry import run_l2_sentry, check_l1_l2_agreement
 from qc.sentry import run_qc_sentry
+from mio.signer import sign_mio, verify_mio, get_public_key_hex
+from mio.verify import verify_mio_for_execution
 
 # ---- Setup logging ----
 setup_logging()
