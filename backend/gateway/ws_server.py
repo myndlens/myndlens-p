@@ -392,9 +392,11 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         "format": "text",  # "text" for local TTS, "audio" for streamed audio
     }
 
-    await _send(ws, WSMessageType.TTS_AUDIO, ErrorPayload(
-        message=response_text,
-        code="OK",
+    await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+        text=response_text,
+        session_id=session_id,
+        format="text",
+        is_mock=True,
     ))
 
     logger.info(
