@@ -47,6 +47,7 @@ def build_default_registry() -> SectionRegistry:
         safety_guardrails,
         task_context,
         runtime_capabilities,
+        tooling,
     )
 
     registry = SectionRegistry()
@@ -56,6 +57,7 @@ def build_default_registry() -> SectionRegistry:
     registry.register(SectionID.SAFETY_GUARDRAILS, safety_guardrails.generate)
     registry.register(SectionID.TASK_CONTEXT, task_context.generate)
     registry.register(SectionID.RUNTIME_CAPABILITIES, runtime_capabilities.generate)
+    registry.register(SectionID.TOOLING, tooling.generate)
 
     logger.info(
         "SectionRegistry built with %d sections: %s",
