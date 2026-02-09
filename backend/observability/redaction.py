@@ -10,8 +10,9 @@ from typing import List, Tuple
 _PATTERNS: List[Tuple[re.Pattern, str]] = [
     # Email
     (re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"), "[REDACTED_EMAIL]"),
-    # Phone (international)
-    (re.compile(r"\+?\d[\d\-\s]{8,15}\d"), "[REDACTED_PHONE]"),
+    # Phone (international) - must start with + or have common phone patterns
+    (re.compile(r"\+\d{1,3}[\d\-\s]{7,14}\d"), "[REDACTED_PHONE]"),
+    (re.compile(r"\b\d{3}[\-\.\s]\d{3}[\-\.\s]\d{4}\b"), "[REDACTED_PHONE]"),
     # SSN
     (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[REDACTED_SSN]"),
     # API key patterns (generic long hex/base64)
