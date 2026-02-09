@@ -1,17 +1,31 @@
 /**
  * Audio State Machine — controls the voice interaction lifecycle.
  *
- * States: IDLE → LISTENING → CAPTURING → THINKING → RESPONDING → IDLE
+ * Spec §3.5 locked FSM:
+ *   IDLE → LISTENING → CAPTURING → COMMITTING → THINKING → RESPONDING → IDLE
+ *
+ * COMMITTING is the ONLY state where:
+ *   - Recorder stops
+ *   - stream_end is sent to server
+ *   - Final user utterance buffer is frozen
+ *   - Transition to THINKING occurs after server acknowledges
  */
 import { create } from 'zustand';
 
-export type AudioState = 'IDLE' | 'LISTENING' | 'CAPTURING' | 'THINKING' | 'RESPONDING';
+export type AudioState =
+  | 'IDLE'
+  | 'LISTENING'
+  | 'CAPTURING'
+  | 'COMMITTING'
+  | 'THINKING'
+  | 'RESPONDING';
 
-// Valid transitions
+// Valid transitions per spec §3.5
 const VALID_TRANSITIONS: Record<AudioState, AudioState[]> = {
   IDLE:       ['LISTENING'],
   LISTENING:  ['CAPTURING', 'IDLE'],
-  CAPTURING:  ['THINKING', 'LISTENING', 'IDLE'],
+  CAPTURING:  ['COMMITTING', 'IDLE'],          // CAPTURING → COMMITTING only (no direct THINKING)
+  COMMITTING: ['THINKING', 'IDLE'],             // COMMITTING → THINKING after stream_end acknowledged
   THINKING:   ['RESPONDING', 'IDLE', 'LISTENING'],
   RESPONDING: ['LISTENING', 'IDLE', 'CAPTURING'],
 };
@@ -23,6 +37,8 @@ interface AudioStore {
   ttsText: string;
   isSpeaking: boolean;
   chunksSent: number;
+  vadActive: boolean;
+  vadEnergy: number;
   error: string | null;
 
   transition: (to: AudioState) => boolean;
@@ -31,6 +47,8 @@ interface AudioStore {
   setTtsText: (text: string) => void;
   setIsSpeaking: (speaking: boolean) => void;
   incrementChunks: () => void;
+  setVadActive: (active: boolean) => void;
+  setVadEnergy: (energy: number) => void;
   setError: (error: string | null) => void;
   reset: () => void;
 }
@@ -42,6 +60,8 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   ttsText: '',
   isSpeaking: false,
   chunksSent: 0,
+  vadActive: false,
+  vadEnergy: 0,
   error: null,
 
   transition: (to: AudioState) => {
@@ -51,7 +71,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       set({ state: to, error: null });
       return true;
     }
-    console.warn(`[AudioFSM] Invalid transition: ${current} → ${to}`);
+    console.warn(`[AudioFSM] Invalid transition: ${current} \u2192 ${to}`);
     return false;
   },
 
@@ -60,6 +80,8 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   setTtsText: (text) => set({ ttsText: text }),
   setIsSpeaking: (speaking) => set({ isSpeaking: speaking }),
   incrementChunks: () => set((s) => ({ chunksSent: s.chunksSent + 1 })),
+  setVadActive: (active) => set({ vadActive: active }),
+  setVadEnergy: (energy) => set({ vadEnergy: energy }),
   setError: (error) => set({ error }),
   reset: () => set({
     state: 'IDLE',
@@ -68,6 +90,8 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
     ttsText: '',
     isSpeaking: false,
     chunksSent: 0,
+    vadActive: false,
+    vadEnergy: 0,
     error: null,
   }),
 }));
