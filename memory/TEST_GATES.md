@@ -399,7 +399,21 @@ logger.debug(f"[{test_id}] Stack trace:", exc_info=True)
 
 ## BATCH 2 — Audio Pipeline + TTS Loop
 
-### Modules: M1, M3, B1↑, B4
+### Modules: M1, M3, M7, B1↑, B4
+
+### M7: Offline Behavior Unit Tests (NEW)
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| M7-U01 | Network state detection | Offline/online detected | State accurate | Network state |
+| M7-U02 | Execute disabled offline | Execute blocked when offline | Block enforced | Block reason |
+| M7-U03 | Heartbeat pause | Heartbeat pauses offline | No sends | Heartbeat queue |
+| M7-U04 | Draft discard | Partial drafts discarded on disconnect | Clean state | Draft state |
+| M7-U05 | Buffer limit | Local buffer has strict limit | Limit enforced | Buffer size |
+| M7-U06 | Reconnection trigger | Online triggers reconnection | Reconnect attempt | Reconnect event |
+| M7-U07 | Graceful degradation | UI shows offline status | Status shown | UI state |
+| M7-U08 | Data preservation | Critical data preserved | Data intact | Data checksum |
+| M7-U09 | Queue management | Queued actions managed | Queue bounded | Queue size |
+| M7-U10 | Timeout handling | Stale offline state handled | Timeout enforced | Timeout value |
 
 ### L1 Unit Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
