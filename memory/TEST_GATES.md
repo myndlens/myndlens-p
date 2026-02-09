@@ -1150,6 +1150,18 @@ logger.debug(f"[{test_id}] Stack trace:", exc_info=True)
 
 ### Modules: B21, C4, B15↑
 
+### C4: Docker Bootstrap & Channel Preinstall Unit Tests (NEW)
+| Test ID | Test Name | Assertion | Pass Criteria | Log Points |
+|---------|-----------|-----------|---------------|------------|
+| C4-U01 | Docker image valid | Base image exists | Image pulls | Image name, tag |
+| C4-U02 | Init script | Init script runs | Script completes | Script output |
+| C4-U03 | Channel installed | MyndLens channel in container | Channel present | Channel version |
+| C4-U04 | Channel configured | Config applied | Config valid | Config params |
+| C4-U05 | Channel enabled | Channel active | Status = active | Channel status |
+| C4-U06 | BE endpoint set | Correct BE endpoint | Endpoint matches | Endpoint URL |
+| C4-U07 | Tenant key set | API key provisioned | Key present | Key prefix |
+| C4-U08 | No manual steps | Fully automated | Script exit 0 | Automation log |
+
 ### L1 Unit Tests
 | Test ID | Test Name | Assertion | Pass Criteria |
 |---------|-----------|-----------|---------------|
