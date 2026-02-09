@@ -268,7 +268,7 @@ frontend:
           agent: "main"
           comment: "User enters ID, device pairs, token stored. Verified working in browser."
 
-  - task: "Talk screen with WS connection"
+  - task: "Talk screen with audio pipeline UI"
     implemented: true
     working: true
     file: "app/talk.tsx"
@@ -278,7 +278,68 @@ frontend:
     status_history:
         - working: true
           agent: "main"
-          comment: "Connects to WS, shows session info, presence status, execute button, activity log."
+          comment: "Full audio pipeline UI: mic button with state machine, transcript display, TTS response, text input fallback, execute button, activity log."
+
+  # Batch 2 Backend Tasks
+  - task: "Mock STT Provider"
+    implemented: true
+    working: true
+    file: "stt/provider/mock.py, stt/provider/interface.py, stt/orchestrator.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Mock STT provider with deterministic transcript fragments. Provider interface defines contract. Orchestrator validates chunks and routes to provider."
+
+  - task: "Transcript Assembler with Evidence Spans"
+    implemented: true
+    working: true
+    file: "transcript/assembler.py, transcript/spans.py, transcript/storage.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Assembles partial transcripts into coherent text. Creates evidence spans for grounding. Persists to MongoDB. Verified via text input flow."
+
+  - task: "Audio chunk WS handler"
+    implemented: true
+    working: "NA"
+    file: "gateway/ws_server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Gateway handles audio_chunk messages: validates, routes to STT, assembles transcript, sends partial/final responses, triggers TTS. Needs WS testing with audio chunks."
+
+  - task: "Text input handler (STT fallback)"
+    implemented: true
+    working: true
+    file: "gateway/ws_server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Text input creates synthetic transcript fragment, assembles, saves, and triggers TTS response. Verified via browser flow."
+
+  - task: "Mock TTS response generator"
+    implemented: true
+    working: true
+    file: "gateway/ws_server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Deterministic mock TTS responses based on transcript content. Sends text for client-side speech synthesis."
 
   - task: "Settings screen"
     implemented: true
