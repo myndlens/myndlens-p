@@ -444,8 +444,16 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         top = l1_draft.hypotheses[0]
         dim_state.update_from_suggestions(top.dimension_suggestions)
 
-    # 3. Generate contextual response based on L1 output
-    if l1_draft.hypotheses and not l1_draft.is_mock:
+    # 2.5. Run guardrails check (continuous, per spec §13A)
+    guardrail = check_guardrails(transcript, dim_state, l1_draft)
+    if guardrail.block_execution:
+        # Guardrail triggered — send nudge instead of normal response
+        response_text = guardrail.nudge or "I need a bit more clarity before proceeding."
+        logger.warning(
+            "GUARDRAIL: session=%s result=%s reason=%s",
+            session_id, guardrail.result.value, guardrail.reason,
+        )
+    elif l1_draft.hypotheses and not l1_draft.is_mock:
         top = l1_draft.hypotheses[0]
         response_text = _generate_l1_response(top, dim_state)
     else:
