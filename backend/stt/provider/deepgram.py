@@ -47,13 +47,16 @@ class DeepgramSTTProvider(STTProvider):
     def _init_client(self):
         """Initialize the Deepgram client."""
         try:
+            import os
             from deepgram import DeepgramClient
             settings = get_settings()
             api_key = settings.DEEPGRAM_API_KEY
             if not api_key:
                 logger.error("[DeepgramSTT] No API key configured")
                 return
-            self._client = DeepgramClient(api_key)
+            # SDK v5.x reads from DEEPGRAM_API_KEY env var
+            os.environ["DEEPGRAM_API_KEY"] = api_key
+            self._client = DeepgramClient()
             logger.info("[DeepgramSTT] Client initialized")
         except Exception as e:
             logger.error("[DeepgramSTT] Failed to initialize: %s", str(e))
