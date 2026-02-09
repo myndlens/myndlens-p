@@ -29,6 +29,7 @@ class BackendTester:
     def __init__(self):
         self.session: Optional[aiohttp.ClientSession] = None
         self.test_results = {
+            # Batch 0+1 Tests (Regression)
             "health_endpoint": False,
             "auth_pair_endpoint": False,
             "websocket_full_flow": False,
@@ -36,6 +37,13 @@ class BackendTester:
             "auth_rejection_test": False,
             "session_status_endpoint": False,
             "redaction_test": False,
+            # Batch 2 Tests (Audio Pipeline + TTS)
+            "audio_chunk_flow": False,
+            "text_input_flow": False, 
+            "chunk_validation_empty": False,
+            "chunk_validation_invalid_base64": False,
+            "stream_end_cancel": False,
+            "mock_tts_response_content": False,
         }
         self.failed_tests = []
         self.test_token = None
