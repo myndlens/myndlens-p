@@ -2,10 +2,13 @@
 
 Version: v1
 All WS communication flows through these typed envelopes.
+
+FROZEN: Any changes require an ADR + schema compatibility test.
+All message types and payload models MUST be defined here.
 """
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel, Field
 import uuid
 
@@ -45,7 +48,9 @@ class WSEnvelope(BaseModel):
     payload: dict = Field(default_factory=dict)
 
 
-# ---- Client Payloads ----
+# =====================================================
+#  Client → Server Payloads
+# =====================================================
 
 class AuthPayload(BaseModel):
     token: str
@@ -59,6 +64,15 @@ class HeartbeatPayload(BaseModel):
     client_ts: datetime = Field(default_factory=datetime.utcnow)
 
 
+class AudioChunkPayload(BaseModel):
+    """Audio chunk from client — ~250ms of audio, base64-encoded."""
+    session_id: str
+    audio: str  # base64-encoded audio data
+    seq: int  # monotonic chunk sequence number
+    timestamp: Optional[float] = None  # client-side timestamp (epoch ms)
+    duration_ms: int = 250  # nominal chunk duration
+
+
 class ExecuteRequestPayload(BaseModel):
     session_id: str
     draft_id: str
@@ -66,7 +80,21 @@ class ExecuteRequestPayload(BaseModel):
     biometric_proof: Optional[str] = None  # for Tier 3
 
 
-# ---- Server Payloads ----
+class CancelPayload(BaseModel):
+    """Cancel/stream-end signal from client."""
+    session_id: str
+    reason: str = "user_cancel"  # user_cancel | vad_end_of_utterance
+
+
+class TextInputPayload(BaseModel):
+    """Text input as STT fallback."""
+    session_id: str
+    text: str
+
+
+# =====================================================
+#  Server → Client Payloads
+# =====================================================
 
 class AuthOkPayload(BaseModel):
     session_id: str
@@ -85,10 +113,33 @@ class HeartbeatAckPayload(BaseModel):
     server_ts: datetime = Field(default_factory=datetime.utcnow)
 
 
+class TranscriptPayload(BaseModel):
+    """Transcript partial or final from server."""
+    text: str
+    is_final: bool = False
+    fragment_count: int = 0
+    confidence: float = 0.0
+    span_ids: List[str] = Field(default_factory=list)
+
+
+class TTSAudioPayload(BaseModel):
+    """TTS response from server. Format=text for local TTS, audio for streamed."""
+    text: str
+    session_id: str
+    format: str = "text"  # "text" (local TTS) | "audio" (binary stream)
+    is_mock: bool = False
+
+
 class ExecuteBlockedPayload(BaseModel):
     reason: str
-    code: str  # PRESENCE_STALE | ENV_GUARD | GUARDRAIL_VIOLATION | etc.
+    code: str  # PRESENCE_STALE | ENV_GUARD | GUARDRAIL_VIOLATION | PIPELINE_NOT_READY
     draft_id: Optional[str] = None
+
+
+class ExecuteOkPayload(BaseModel):
+    draft_id: str
+    mio_id: Optional[str] = None
+    dispatch_status: str = "pending"
 
 
 class ErrorPayload(BaseModel):
