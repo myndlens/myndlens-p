@@ -65,18 +65,16 @@ async def run_l1_scout(
         artifact, report = orchestrator.build(ctx)
         await save_prompt_snapshot(report)
 
-        # Call Gemini via emergentintegrations
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        # Call Gemini via LLM Gateway (the ONLY allowed path)
+        from prompting.llm_gateway import call_llm
 
-        chat = LlmChat(
-            api_key=settings.EMERGENT_LLM_KEY,
-            session_id=f"l1-{session_id}-{uuid.uuid4().hex[:8]}",
-            system_message=artifact.messages[0]["content"] if artifact.messages else "",
-        ).with_model("gemini", "gemini-2.0-flash")
-
-        user_content = artifact.messages[1]["content"] if len(artifact.messages) > 1 else transcript
-        user_msg = UserMessage(text=user_content)
-        response = await chat.send_message(user_msg)
+        response = await call_llm(
+            artifact=artifact,
+            call_site_id="L1_SCOUT",
+            model_provider="gemini",
+            model_name="gemini-2.0-flash",
+            session_id=f"l1-{session_id}",
+        )
 
         latency_ms = (time.monotonic() - start) * 1000
 
