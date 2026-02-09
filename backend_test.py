@@ -570,6 +570,7 @@ async def test_presence_gate_regression(results: TestResults):
             execute_msg = {
                 "type": "execute_request",
                 "payload": {
+                    "session_id": session_id,
                     "draft_id": str(uuid.uuid4())
                 }
             }
