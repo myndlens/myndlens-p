@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     MOCK_TTS: bool = Field(default=True)
     MOCK_LLM: bool = Field(default=True)
 
+    # ── Emergent LLM Key (universal key for Gemini/OpenAI/Anthropic) ──
+    EMERGENT_LLM_KEY: str = Field(default="")
+
     model_config = {
         "env_file": str(_ROOT / ".env"),
         "env_file_encoding": "utf-8",
