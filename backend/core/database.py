@@ -68,6 +68,10 @@ async def init_indexes() -> None:
     await db.dispatches.create_index("idempotency_key", unique=True)
     await db.dispatches.create_index("mio_id")
 
+    # Rate limits: TTL auto-cleanup
+    await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
+    await db.rate_limits.create_index([("bucket", 1), ("timestamp", -1)])
+
     logger.info("MongoDB indexes initialized")
 
 
