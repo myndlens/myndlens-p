@@ -146,19 +146,36 @@ async def test_websocket_auth_heartbeat(test_session: TestSession):
     logger.info("=== Testing WebSocket Auth & Heartbeat ===")
     
     try:
-        # Connect to WebSocket
-        test_session.ws = await websockets.connect(WS_URL)
+        logger.info(f"Connecting to WebSocket: {WS_URL}")
+        
+        # Add extra headers for proper connection
+        extra_headers = {
+            "Origin": BACKEND_URL,
+            "User-Agent": "MyndLens-Test-Client/1.0"
+        }
+        
+        # Connect to WebSocket with extra headers
+        test_session.ws = await websockets.connect(
+            WS_URL, 
+            extra_headers=extra_headers,
+            ping_interval=None,
+            ping_timeout=None
+        )
+        logger.info("WebSocket connected successfully")
         
         # Send auth message
         auth_msg = {
             "type": "auth",
             "payload": {"token": test_session.token}
         }
+        logger.info(f"Sending auth message: {auth_msg['type']}")
         await test_session.ws.send(json.dumps(auth_msg))
         
         # Wait for auth response
+        logger.info("Waiting for auth response...")
         response = await asyncio.wait_for(test_session.ws.recv(), timeout=10)
         auth_response = json.loads(response)
+        logger.info(f"Auth response: {auth_response}")
         
         if auth_response.get("type") != "auth_ok":
             test_session.log_result("WebSocket Auth", False, f"Auth failed: {auth_response}")
@@ -174,11 +191,14 @@ async def test_websocket_auth_heartbeat(test_session: TestSession):
             "type": "heartbeat",
             "payload": {"session_id": test_session.session_id}
         }
+        logger.info(f"Sending heartbeat: {heartbeat_msg['type']}")
         await test_session.ws.send(json.dumps(heartbeat_msg))
         
         # Wait for heartbeat ack
+        logger.info("Waiting for heartbeat ack...")
         response = await asyncio.wait_for(test_session.ws.recv(), timeout=10)
         heartbeat_response = json.loads(response)
+        logger.info(f"Heartbeat response: {heartbeat_response}")
         
         if heartbeat_response.get("type") != "heartbeat_ack":
             test_session.log_result("WebSocket Heartbeat", False, f"Heartbeat failed: {heartbeat_response}")
@@ -188,6 +208,12 @@ async def test_websocket_auth_heartbeat(test_session: TestSession):
             f"Session {test_session.session_id[:8]} authenticated and heartbeat OK")
         return True
         
+    except websockets.exceptions.ConnectionClosed as e:
+        test_session.log_result("WebSocket Auth & Heartbeat", False, f"Connection closed: {e}")
+        return False
+    except asyncio.TimeoutError as e:
+        test_session.log_result("WebSocket Auth & Heartbeat", False, f"Timeout waiting for response")
+        return False
     except Exception as e:
         test_session.log_result("WebSocket Auth & Heartbeat", False, f"Exception: {str(e)}")
         return False
