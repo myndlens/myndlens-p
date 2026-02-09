@@ -17,10 +17,10 @@ from typing import Dict, Any
 import httpx
 
 
-# Test configuration
-BACKEND_URL = os.getenv("REACT_APP_BACKEND_URL", "http://localhost:8001")
+# Test configuration - Using frontend's EXPO_PUBLIC_BACKEND_URL
+BACKEND_URL = "https://voice-assistant-dev.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
-WS_URL = f"{BACKEND_URL.replace('http://', 'ws://').replace('https://', 'wss://')}/api/ws"
+WS_URL = f"{BACKEND_URL.replace('https://', 'wss://')}/api/ws"
 
 # Test secrets and tokens (matching backend config)
 OBEGEE_SSO_SECRET = "obegee-sso-dev-secret-CHANGE-IN-PROD"
