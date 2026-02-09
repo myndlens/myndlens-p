@@ -975,7 +975,7 @@ agent_communication:
     stuck_count: 0
     priority: "high"
     needs_retesting: true
-    status_health:
+    status_history:
         - working: "NA"
           agent: "main"
           comment: "Same user activation returns identical tenant_id. Idempotent activation logic. Needs testing."
