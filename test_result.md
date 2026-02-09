@@ -111,11 +111,14 @@ backend:
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: true
           agent: "main"
           comment: "Health endpoint returns status ok, env, version, active_sessions count. Verified with curl."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Health endpoint working correctly. Returns all required fields: status=ok, env=dev, version=0.1.0, active_sessions=0"
 
   - task: "Auth/Pair endpoint POST /api/auth/pair"
     implemented: true
@@ -123,11 +126,14 @@ backend:
     file: "server.py, auth/tokens.py, auth/device_binding.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: true
           agent: "main"
           comment: "Device pairing creates JWT token with user_id, device_id, session_id, env. Verified via frontend flow."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Auth/Pair endpoint working perfectly. Creates valid JWT tokens with correct claims. Token format validated (3 parts separated by dots). Returns required fields: token, user_id, device_id, env."
 
   - task: "WebSocket Gateway /api/ws with auth"
     implemented: true
@@ -135,11 +141,14 @@ backend:
     file: "gateway/ws_server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: true
           agent: "main"
           comment: "WS accepts connection, authenticates via JWT, creates session, routes messages. Full flow verified via frontend."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: WebSocket full flow working excellently. Successfully tested: 1) Connection accepted, 2) Auth message with JWT validated, 3) Received auth_ok with session_id, 4) Heartbeat sent and acknowledged, 5) Execute request processed correctly."
 
   - task: "Heartbeat tracking and presence verification"
     implemented: true
@@ -147,23 +156,29 @@ backend:
     file: "presence/heartbeat.py, presence/rules.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: true
           agent: "main"
           comment: "Heartbeat recording, 15s threshold check, execute blocking when stale. Needs deeper testing."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Heartbeat tracking working perfectly. Tested heartbeat send/ack cycle. Presence verification correctly implemented with 15s timeout threshold."
 
   - task: "Execute gate - blocks when heartbeat stale"
     implemented: true
-    working: "NA"
+    working: true
     file: "gateway/ws_server.py, presence/heartbeat.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Execute request handler checks presence before allowing execution. Returns EXECUTE_BLOCKED with PRESENCE_STALE code when heartbeat >15s. Needs end-to-end testing."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED CRITICAL GATE: Execute gate working perfectly! Tested complete presence stale flow: 1) Paired new device, 2) Connected WS and authenticated, 3) Waited 16s without heartbeat, 4) Sent execute request, 5) Correctly received EXECUTE_BLOCKED with PRESENCE_STALE code. This is the most critical security feature and it's working correctly."
 
   - task: "PII/Secrets Redaction in logs"
     implemented: true
@@ -171,23 +186,29 @@ backend:
     file: "observability/redaction.py, core/logging_config.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: true
           agent: "main"
           comment: "Redaction patterns for email, phone, SSN, API keys, JWT, MongoDB URIs. Logging formatter applies redaction automatically."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: PII/Secrets redaction working. No sensitive JWT tokens found in raw form in backend logs. Logs show [REDACTED_PHONE] patterns confirming redaction is active."
 
   - task: "Env Guard - hard env separation"
     implemented: true
-    working: "NA"
+    working: true
     file: "envguard/env_separation.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "assert_dispatch_allowed blocks prod dispatch from non-prod. Needs testing."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Env guard implementation verified. Functions assert_dispatch_allowed() and assert_env() correctly block prod dispatch from non-prod environments. Code properly raises EnvGuardError for violations."
 
   - task: "Audit event logging"
     implemented: true
@@ -195,23 +216,29 @@ backend:
     file: "observability/audit_log.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: true
           agent: "main"
           comment: "Audit events persisted to MongoDB. Auth success/failure, session created/terminated, execute blocked events. Verified in backend logs."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Audit logging working correctly. Verified audit events in backend logs: auth_success, session_terminated, execute_blocked, auth_failure. All events properly logged with session_id, user_id, and details."
 
   - task: "Session status endpoint GET /api/session/{id}"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Returns session status with presence check. Needs testing."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Session status endpoint working correctly. Returns required fields: session_id, active=True, presence_ok=True, last_heartbeat_age_info. Properly validates active sessions and presence state."
 
   - task: "Pydantic schemas - WS messages, MIO, Session, Audit"
     implemented: true
@@ -219,11 +246,14 @@ backend:
     file: "schemas/ws_messages.py, schemas/mio.py, schemas/session.py, schemas/audit.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: true
           agent: "main"
           comment: "All canonical schemas defined as Pydantic models. MIO schema frozen for future batches."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Pydantic schemas working correctly through WebSocket message validation. All WS messages (auth, heartbeat, execute_request) properly validated using defined schemas."
 
 frontend:
   - task: "Pairing screen with device binding"
