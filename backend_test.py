@@ -226,10 +226,11 @@ def test_dispatch_blocked_inactive_tenant(results: TestResults, active_tenant_id
         sign_result = sign_mio_for_dispatch(test_mio)
         
         # Try to dispatch with a non-existent tenant ID
+        unique_session = f"test-session-inactive-{int(time.time_ns())}"
         dispatch_request = {
             "mio_dict": test_mio,
             "signature": sign_result["signature"],
-            "session_id": "test-session-inactive",
+            "session_id": unique_session,
             "device_id": "test-device-inactive", 
             "tenant_id": "non-existent-tenant-id"
         }
