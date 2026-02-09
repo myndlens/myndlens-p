@@ -1,7 +1,8 @@
 /**
  * WebSocket auth — handles pairing + token management.
+ * Uses cross-platform storage wrapper.
  */
-import * as SecureStore from 'expo-secure-store';
+import { getItem, setItem, deleteItem } from '../utils/storage';
 import { ENV } from '../config/env';
 
 const TOKEN_KEY = 'myndlens_auth_token';
@@ -9,25 +10,24 @@ const USER_ID_KEY = 'myndlens_user_id';
 const DEVICE_ID_KEY = 'myndlens_device_id';
 
 function generateDeviceId(): string {
-  // Simple random ID for now; in production use expo-device or a crypto UUID
   return 'dev_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 }
 
 export async function getOrCreateDeviceId(): Promise<string> {
-  let deviceId = await SecureStore.getItemAsync(DEVICE_ID_KEY);
+  let deviceId = await getItem(DEVICE_ID_KEY);
   if (!deviceId) {
     deviceId = generateDeviceId();
-    await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId);
+    await setItem(DEVICE_ID_KEY, deviceId);
   }
   return deviceId;
 }
 
 export async function getStoredToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(TOKEN_KEY);
+  return getItem(TOKEN_KEY);
 }
 
 export async function getStoredUserId(): Promise<string | null> {
-  return SecureStore.getItemAsync(USER_ID_KEY);
+  return getItem(USER_ID_KEY);
 }
 
 export interface PairResponse {
@@ -57,14 +57,14 @@ export async function pairDevice(userId: string): Promise<PairResponse> {
 
   const data: PairResponse = await response.json();
 
-  // Store token and user ID securely
-  await SecureStore.setItemAsync(TOKEN_KEY, data.token);
-  await SecureStore.setItemAsync(USER_ID_KEY, data.user_id);
+  // Store token and user ID
+  await setItem(TOKEN_KEY, data.token);
+  await setItem(USER_ID_KEY, data.user_id);
 
   return data;
 }
 
 export async function clearAuth(): Promise<void> {
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
-  await SecureStore.deleteItemAsync(USER_ID_KEY);
+  await deleteItem(TOKEN_KEY);
+  await deleteItem(USER_ID_KEY);
 }
