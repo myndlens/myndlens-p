@@ -262,10 +262,11 @@ def test_dispatch_env_guard(results: TestResults, tenant_id: str):
         test_mio = create_test_mio("dispatch-env-guard-test")
         sign_result = sign_mio_for_dispatch(test_mio)
         
+        unique_session = f"test-session-env-{int(time.time_ns())}"
         dispatch_request = {
             "mio_dict": test_mio,
             "signature": sign_result["signature"],
-            "session_id": "test-session-env",
+            "session_id": unique_session,
             "device_id": "test-device-env", 
             "tenant_id": tenant_id
         }
@@ -298,10 +299,11 @@ def test_dispatch_idempotency(results: TestResults, tenant_id: str):
         test_mio = create_test_mio("dispatch-idempotent-test")
         sign_result = sign_mio_for_dispatch(test_mio)
         
+        unique_session = f"test-session-idem-{int(time.time_ns())}"
         dispatch_request = {
             "mio_dict": test_mio,
             "signature": sign_result["signature"],
-            "session_id": "test-session-idem",
+            "session_id": unique_session,
             "device_id": "test-device-idem", 
             "tenant_id": tenant_id
         }
@@ -336,10 +338,11 @@ def test_stub_openclaw_execution(results: TestResults, tenant_id: str):
         test_mio = create_test_mio("dispatch-stub-test")
         sign_result = sign_mio_for_dispatch(test_mio)
         
+        unique_session = f"test-session-stub-{int(time.time_ns())}"
         dispatch_request = {
             "mio_dict": test_mio,
             "signature": sign_result["signature"],
-            "session_id": "test-session-stub",
+            "session_id": unique_session,
             "device_id": "test-device-stub", 
             "tenant_id": tenant_id
         }
