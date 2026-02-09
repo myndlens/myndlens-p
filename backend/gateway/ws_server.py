@@ -424,22 +424,51 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict) -> N
 
 
 async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: str) -> None:
-    """Send a TTS response based on the transcript.
+    """Process transcript through L1 Scout → Dimensions → generate response → TTS.
 
-    Uses ElevenLabs when MOCK_TTS=false, otherwise falls back to text-only.
-    Audio is sent as base64-encoded MP3 in the payload.
+    Flow: transcript → L1 hypotheses → dimension update → contextual response → TTS
     """
     import base64
 
-    # Generate contextual response text
-    response_text = _generate_mock_response(transcript)
+    # 1. Run L1 Scout
+    l1_draft = await run_l1_scout(
+        session_id=session_id,
+        user_id="",  # resolved from session if needed
+        transcript=transcript,
+    )
 
-    # Use TTS provider to synthesize
+    # 2. Update dimensions from top hypothesis
+    dim_state = get_dimension_state(session_id)
+    if l1_draft.hypotheses:
+        top = l1_draft.hypotheses[0]
+        dim_state.update_from_suggestions(top.dimension_suggestions)
+
+    # 3. Generate contextual response based on L1 output
+    if l1_draft.hypotheses and not l1_draft.is_mock:
+        top = l1_draft.hypotheses[0]
+        response_text = _generate_l1_response(top, dim_state)
+    else:
+        response_text = _generate_mock_response(transcript)
+
+    # 4. Send draft_update with L1 hypotheses (for future execute CTA)
+    if l1_draft.hypotheses:
+        top = l1_draft.hypotheses[0]
+        draft_payload = {
+            "draft_id": l1_draft.draft_id,
+            "hypothesis": top.hypothesis,
+            "action_class": top.action_class,
+            "confidence": top.confidence,
+            "dimensions": dim_state.to_dict(),
+            "is_mock": l1_draft.is_mock,
+        }
+        data = _make_envelope(WSMessageType.DRAFT_UPDATE, draft_payload)
+        await ws.send_text(data)
+
+    # 5. TTS
     tts = get_tts_provider()
     result = await tts.synthesize(response_text)
 
     if result.audio_bytes and not result.is_mock:
-        # Real audio: send as base64 MP3
         audio_b64 = base64.b64encode(result.audio_bytes).decode("ascii")
         payload = TTSAudioPayload(
             text=response_text,
@@ -447,21 +476,47 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             format="mp3",
             is_mock=False,
         )
-        # Include audio in the raw payload
         payload_dict = payload.model_dump()
         payload_dict["audio"] = audio_b64
         payload_dict["audio_size_bytes"] = len(result.audio_bytes)
-
         data = _make_envelope(WSMessageType.TTS_AUDIO, payload_dict)
         await ws.send_text(data)
     else:
-        # Mock/fallback: send text only (client uses local TTS)
         await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
             text=response_text,
             session_id=session_id,
             format="text",
             is_mock=True,
         ))
+
+    logger.info(
+        "Response sent: session=%s l1_mock=%s hypotheses=%d response='%s'",
+        session_id, l1_draft.is_mock, len(l1_draft.hypotheses), response_text[:60],
+    )
+
+
+def _generate_l1_response(hypothesis, dim_state) -> str:
+    """Generate response based on L1 hypothesis and dimensions."""
+    action = hypothesis.action_class
+    confidence = hypothesis.confidence
+    dims = dim_state.a_set
+
+    if confidence < 0.5:
+        return "I'm not quite sure what you'd like to do. Could you tell me more?"
+
+    if action == "COMM_SEND":
+        who = dims.who or "someone"
+        return f"I understand you'd like to send a message to {who}. What would you like to say?"
+    elif action == "SCHED_MODIFY":
+        when = dims.when or "a time"
+        return f"I can help schedule that. When works best for you?"
+    elif action == "INFO_RETRIEVE":
+        return "Let me look that up for you."
+    elif action == "DOC_EDIT":
+        return "I can help with that document. What changes do you need?"
+    else:
+        what = dims.what or hypothesis.hypothesis
+        return f"I understand: {what}. How would you like to proceed?"
 
     logger.info(
         "TTS response sent: session=%s response='%s'",
