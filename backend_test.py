@@ -391,8 +391,19 @@ async def test_l1_scout_ws_flow():
             auth_resp = json.loads(response)
             
             if auth_resp.get("type") == "auth_ok":
-                # Send heartbeat
-                heartbeat_msg = {"type": "heartbeat", "payload": {}}
+                session_id = auth_resp.get("payload", {}).get("session_id", "")
+                if not session_id:
+                    results.add_result("L1 Scout WS flow", False, "No session_id in auth response")
+                    return results
+                
+                # Send heartbeat with session_id and seq
+                heartbeat_msg = {
+                    "type": "heartbeat", 
+                    "payload": {
+                        "session_id": session_id,
+                        "seq": 1
+                    }
+                }
                 await websocket.send(json.dumps(heartbeat_msg))
                 
                 # Wait for heartbeat ack
@@ -401,7 +412,10 @@ async def test_l1_scout_ws_flow():
                 # Send text input to trigger L1 Scout
                 text_input_msg = {
                     "type": "text_input", 
-                    "payload": {"text": "Send a message to Sarah about the meeting tomorrow at 3pm"}
+                    "payload": {
+                        "session_id": session_id,
+                        "text": "Send a message to Sarah about the meeting tomorrow at 3pm"
+                    }
                 }
                 await websocket.send(json.dumps(text_input_msg))
                 
