@@ -1,0 +1,51 @@
+/app/backend_test.py:17: DeprecationWarning: websockets.WebSocketServerProtocol is deprecated
+  from websockets import WebSocketServerProtocol
+INFO:__main__:============================================================
+INFO:__main__:STARTING MYNDLENS BACKEND TESTS - BATCH 0+1+2
+INFO:__main__:============================================================
+INFO:__main__:RUNNING BATCH 0+1 REGRESSION TESTS...
+INFO:__main__:✅ PASS health_endpoint: Status OK, 0 active sessions
+INFO:__main__:✅ PASS auth_pair_endpoint: Token received, env: dev
+INFO:__main__:WS authenticated, session_id: 2c71dae0-c652-4c77-b669-22708a2cf556
+INFO:__main__:Heartbeat acknowledged
+INFO:__main__:✅ PASS websocket_full_flow: Full WS flow completed successfully
+INFO:__main__:Presence test authenticated, session: 3c3732c4-81ff-4c7c-84ab-465d72e94531
+INFO:__main__:Waiting 16 seconds for heartbeat to go stale...
+INFO:__main__:✅ PASS presence_gate_test: Presence gate correctly blocked stale heartbeat
+INFO:__main__:✅ PASS auth_rejection_test: Invalid token correctly rejected
+INFO:__main__:✅ PASS session_status_endpoint: Session status: active=True, presence_ok=True
+INFO:__main__:✅ PASS redaction_test: No sensitive data found in logs
+INFO:__main__:RUNNING BATCH 2 AUDIO PIPELINE TESTS...
+INFO:__main__:Audio test authenticated, session: 1e2078d2-e137-4237-a839-ee6e0ee2e424
+INFO:__main__:Received transcript_partial after chunk 4: Hello
+INFO:__main__:Received transcript_partial after chunk 8: Hello I need to
+INFO:__main__:✅ PASS audio_chunk_flow: Audio chunk flow completed: received 2 transcript partials
+INFO:__main__:✅ PASS text_input_flow: Text input flow completed successfully: I understand you'd like to send a message. Who would you lik
+INFO:__main__:✅ PASS chunk_validation_empty: Empty chunk correctly rejected with AUDIO_INVALID
+INFO:__main__:✅ PASS chunk_validation_invalid_base64: Invalid base64 chunk correctly rejected
+INFO:__main__:No response to cancel (acceptable behavior)
+INFO:__main__:✅ PASS stream_end_cancel: Stream end cancel completed successfully
+INFO:__main__:TTS test passed: 'Hello' → 'hello! how can i help you today?'
+INFO:__main__:TTS test passed: 'send a message to someone' → 'i understand you'd like to send a message. who would you lik'
+INFO:__main__:TTS test passed: 'schedule a meeting' → 'i see you're thinking about a meeting. when would you like t'
+INFO:__main__:✅ PASS mock_tts_response_content: TTS content tests: 3/3 passed
+INFO:__main__:============================================================
+INFO:__main__:TEST SUMMARY
+INFO:__main__:============================================================
+INFO:__main__:BATCH 0+1 REGRESSION TESTS:
+INFO:__main__:  ✅ PASS health_endpoint
+INFO:__main__:  ✅ PASS auth_pair_endpoint
+INFO:__main__:  ✅ PASS websocket_full_flow
+INFO:__main__:  ✅ PASS presence_gate_test
+INFO:__main__:  ✅ PASS auth_rejection_test
+INFO:__main__:  ✅ PASS session_status_endpoint
+INFO:__main__:  ✅ PASS redaction_test
+INFO:__main__:BATCH 2 AUDIO PIPELINE TESTS:
+INFO:__main__:  ✅ PASS audio_chunk_flow
+INFO:__main__:  ✅ PASS text_input_flow
+INFO:__main__:  ✅ PASS chunk_validation_empty
+INFO:__main__:  ✅ PASS chunk_validation_invalid_base64
+INFO:__main__:  ✅ PASS stream_end_cancel
+INFO:__main__:  ✅ PASS mock_tts_response_content
+INFO:__main__:----------------------------------------
+INFO:__main__:TOTAL: 13/13 tests passed
