@@ -74,7 +74,7 @@ async def dispatch(
         logger.info("Dispatch idempotent (duplicate): key=%s", idem_key)
         return existing
 
-    # 4. Submit to ObeGee Adapter (NOT OpenClaw)
+    # 4. Submit to ObeGee Adapter (NOT OpenClaw — per Dev Agent Contract §7)
     grounding = mio_dict.get("grounding", {})
     evidence_hashes = {
         "transcript_hash": grounding.get("transcript_hash", ""),
@@ -87,12 +87,20 @@ async def dispatch(
     if biometric:
         latch_proofs["biometric"] = "present"
 
+    params = mio_dict.get("intent_envelope", {}).get("params", {})
+    action_class = mio_dict.get("intent_envelope", {}).get("action_class", "")
+    expires_at = str(mio_dict.get("header", {}).get("timestamp", ""))
+
     adapter_result = await submit_mio_to_adapter(
         mio_id=mio_id,
         signature=signature,
         action=action,
+        action_class=action_class,
+        params=params,
         tier=tier,
         tenant_id=tenant_id,
+        session_id=session_id,
+        expires_at=expires_at,
         evidence_hashes=evidence_hashes,
         latch_proofs=latch_proofs,
     )
