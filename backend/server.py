@@ -762,6 +762,14 @@ def _scan_for_rogue_prompts() -> dict:
     patterns = [
         (re.compile(r'LlmChat\s*\('), "LlmChat( import outside llm_gateway"),
         (re.compile(r'from emergentintegrations\.llm'), "Direct emergentintegrations.llm import"),
+        # Ownership violations (Dev Agent Contract)
+        (re.compile(r'call_openclaw\s*\('), "Direct OpenClaw call (must use ObeGee adapter)"),
+        (re.compile(r'activate_tenant\s*\('), "Tenant lifecycle (ObeGee-owned) in MyndLens code"),
+        (re.compile(r'suspend_tenant\s*\('), "Tenant lifecycle (ObeGee-owned) in MyndLens code"),
+        (re.compile(r'deprovision_tenant\s*\('), "Tenant lifecycle (ObeGee-owned) in MyndLens code"),
+        (re.compile(r'rotate_tenant_key\s*\('), "Tenant key mgmt (ObeGee-owned) in MyndLens code"),
+        (re.compile(r'subprocess\..*ssh'), "SSH attempt (MyndLens has no infra access)"),
+        (re.compile(r'os\.system.*restart'), "Service restart (MyndLens has no deployment authority)"),
     ]
 
     for root, dirs, files in os.walk(scan_dir):
