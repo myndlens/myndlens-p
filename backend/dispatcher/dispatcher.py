@@ -1,16 +1,19 @@
-"""Dispatcher — B14.
+"""Dispatcher — B14 (refactored per Dev Agent Contract).
 
-Translates signed MIO → OpenClaw REST API call.
-Injects tenant API key. Enforces idempotency.
-Logs CEO-level observability trace.
+Per Contract §7: MyndLens → Signed MIO → ObeGee Channel Adapter → OpenClaw
+MyndLens NEVER calls OpenClaw directly.
 
-Execution Guardrail: No execution without valid signed MIO.
+The dispatcher:
+  1. Verifies MIO (signature, TTL, replay, presence, latch)
+  2. Checks idempotency
+  3. Submits signed MIO to ObeGee Adapter
+  4. Records dispatch + audit
 """
 import logging
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from core.database import get_db
 from core.exceptions import DispatchBlockedError
@@ -18,7 +21,7 @@ from config.settings import get_settings
 from envguard.env_separation import assert_dispatch_allowed
 from mio.verify import verify_mio_for_execution
 from dispatcher.idempotency import check_idempotency, record_dispatch
-from dispatcher.http_client import call_openclaw
+from dispatcher.http_client import submit_mio_to_adapter
 from observability.audit_log import log_audit_event
 from schemas.audit import AuditEventType
 
@@ -32,15 +35,10 @@ async def dispatch(
     device_id: str,
     tenant_id: str,
 ) -> Dict[str, Any]:
-    """Dispatch a signed MIO to the tenant's OpenClaw endpoint.
-    
-    Pipeline:
-      1. Verify MIO (signature, TTL, replay, presence, touch, biometric)
-      2. Check idempotency
-      3. Look up tenant endpoint + key
-      4. Translate MIO → OpenClaw schema
-      5. Execute HTTPS call
-      6. Log trace
+    """Dispatch a signed MIO via ObeGee Adapter.
+
+    MyndLens sends: signed MIO + evidence hashes + latch proofs.
+    MyndLens never sends: transcripts, memory, prompts, secrets.
     """
     start = time.monotonic()
     mio_id = mio_dict.get("header", {}).get("mio_id", "")
@@ -56,7 +54,7 @@ async def dispatch(
     except Exception as e:
         raise DispatchBlockedError(str(e))
 
-    # 2. Verify MIO
+    # 2. Verify MIO (6-gate pipeline)
     valid, reason = await verify_mio_for_execution(
         mio_dict=mio_dict,
         signature=signature,
@@ -76,31 +74,32 @@ async def dispatch(
         logger.info("Dispatch idempotent (duplicate): key=%s", idem_key)
         return existing
 
-    # 4. Look up tenant
-    db = get_db()
-    tenant = await db.tenants.find_one({"tenant_id": tenant_id})
-    if not tenant:
-        raise DispatchBlockedError(f"Tenant not found: {tenant_id}")
-    if tenant.get("status") != "ACTIVE":
-        raise DispatchBlockedError(f"Tenant not active: {tenant.get('status')}")
+    # 4. Submit to ObeGee Adapter (NOT OpenClaw)
+    grounding = mio_dict.get("grounding", {})
+    evidence_hashes = {
+        "transcript_hash": grounding.get("transcript_hash", ""),
+        "l1_hash": grounding.get("l1_hash", ""),
+        "l2_audit_hash": grounding.get("l2_audit_hash", ""),
+    }
+    latch_proofs = {}
+    if touch_token:
+        latch_proofs["touch_token"] = "present"
+    if biometric:
+        latch_proofs["biometric"] = "present"
 
-    endpoint = tenant.get("openclaw_endpoint", "")
-    tenant_key = tenant.get("key_refs", {}).get("api_key", "")
-
-    # 5. Translate MIO → OpenClaw schema
-    openclaw_payload = _translate_mio(mio_dict, action)
-
-    # 6. Execute
-    result = await call_openclaw(
-        endpoint=endpoint,
-        payload=openclaw_payload,
-        tenant_key=tenant_key,
+    adapter_result = await submit_mio_to_adapter(
         mio_id=mio_id,
+        signature=signature,
+        action=action,
+        tier=tier,
+        tenant_id=tenant_id,
+        evidence_hashes=evidence_hashes,
+        latch_proofs=latch_proofs,
     )
 
     latency_ms = (time.monotonic() - start) * 1000
 
-    # 7. Record dispatch
+    # 5. Record dispatch
     dispatch_record = {
         "dispatch_id": str(uuid.uuid4()),
         "idempotency_key": idem_key,
@@ -108,13 +107,13 @@ async def dispatch(
         "session_id": session_id,
         "tenant_id": tenant_id,
         "action": action,
-        "status": result.get("status", "completed"),
+        "status": adapter_result.get("status", "submitted"),
         "latency_ms": latency_ms,
         "timestamp": datetime.now(timezone.utc),
     }
     await record_dispatch(idem_key, dispatch_record)
 
-    # 8. Audit
+    # 6. Audit
     await log_audit_event(
         AuditEventType.EXECUTE_COMPLETED,
         session_id=session_id,
@@ -122,24 +121,14 @@ async def dispatch(
             "mio_id": mio_id,
             "action": action,
             "tenant_id": tenant_id,
+            "adapter_status": adapter_result.get("status"),
             "latency_ms": latency_ms,
         },
     )
 
     logger.info(
-        "DISPATCH: mio=%s action=%s tenant=%s latency=%.0fms status=%s",
-        mio_id[:12], action, tenant_id[:12], latency_ms, result.get("status"),
+        "DISPATCH via adapter: mio=%s action=%s tenant=%s status=%s latency=%.0fms",
+        mio_id[:12], action, tenant_id[:12], adapter_result.get("status"), latency_ms,
     )
 
     return dispatch_record
-
-
-def _translate_mio(mio_dict: dict, action: str) -> dict:
-    """Translate MIO → OpenClaw REST payload (zero-change bridge)."""
-    params = mio_dict.get("intent_envelope", {}).get("params", {})
-    return {
-        "action": action,
-        "params": params,
-        "source": "myndlens",
-        "mio_id": mio_dict.get("header", {}).get("mio_id", ""),
-    }
