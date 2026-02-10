@@ -1,0 +1,24 @@
+{
+  "release_tag": "myndlens-v0.2.0",
+  "artifact_digest": "TO_BE_COMPUTED",
+  "artifact_type": "container",
+  "env": "staging",
+  "migration_required": false,
+  "expected_health_checks": [
+    "GET /api/health → status=ok",
+    "GET /api/prompt/compliance → rogue_prompt_scan.clean=true",
+    "GET /api/soul/status → integrity.valid=true",
+    "GET /api/metrics → ws_connections >= 0"
+  ],
+  "rollback_pointer": null,
+  "ci_gates_passed": {
+    "lint": true,
+    "unit_tests": true,
+    "contract_tests": true,
+    "integration_tests": true,
+    "prompt_compliance": true,
+    "ownership_scan": true,
+    "stable_hashes_verified": true
+  },
+  "notes": "First staging deploy. All B0-B13 batches complete. ObeGee integration wired. JWKS+Adapter paths ready."
+}
