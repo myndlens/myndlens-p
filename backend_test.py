@@ -379,7 +379,10 @@ async def test_l1_scout_ws_flow():
             # Authenticate with SSO token
             auth_msg = {
                 "type": "auth",
-                "payload": {"token": sso_token}
+                "payload": {
+                    "token": sso_token,
+                    "device_id": "cdev"  # Match the device_id from SSO request
+                }
             }
             await websocket.send(json.dumps(auth_msg))
             
