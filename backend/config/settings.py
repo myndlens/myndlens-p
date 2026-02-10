@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     OBEGEE_S2S_TOKEN: str = Field(default="obegee-s2s-dev-token-CHANGE-IN-PROD")
     ENABLE_OBEGEE_MOCK_IDP: bool = Field(default=True)  # MUST be false in prod
 
+    # ── ObeGee Shared Infrastructure ──────────────────────────
+    OBEGEE_MONGO_URL: str = Field(default="")  # ObeGee's MongoDB (read-only shared collections)
+    OBEGEE_DB_NAME: str = Field(default="obegee_production")
+    CHANNEL_ADAPTER_IP: str = Field(default="")  # 138.68.179.111 in prod
+    MYNDLENS_DISPATCH_TOKEN: str = Field(default="myndlens_dispatch_secret_2026")
+
     # ── Observability ────────────────────────────────────────────
     LOG_LEVEL: str = Field(default="INFO")
     LOG_REDACTION_ENABLED: bool = Field(default=True)
