@@ -1282,10 +1282,95 @@ agent_communication:
           agent: "testing"
           comment: "✅ TESTED MOST IMPORTANT: Soul fragments successfully integrated with L1 Scout! Complete flow working: SSO login → WebSocket auth → heartbeat → text_input 'Send a message to Sarah about the meeting' → transcript_final → draft_update → tts_audio. L1 Scout now uses Soul-powered IDENTITY_ROLE prompts from ChromaDB vector memory instead of hardcoded text. This completes the Soul Store integration with the prompt system."
 
+  # Batch 14 Backend Tasks - MyndLens Ownership Refactor (Dev Agent Contract Compliance)
+  - task: "ObeGee-owned endpoints REMOVED - tenant lifecycle APIs"
+    implemented: true
+    working: true
+    file: "server.py, tenants/registry.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED COMPREHENSIVE: ALL 5 ObeGee-owned endpoints correctly return 404 (REMOVED per Dev Agent Contract): POST /api/tenants/activate, /api/tenants/suspend, /api/tenants/deprovision, /api/tenants/rotate-key, /api/tenants/export-data. Only tenants/registry.py remains with basic CRUD operations - no lifecycle management."
+
+  - task: "Mock SSO still works (dev fixture)"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: Mock SSO endpoint /api/sso/myndlens/token working perfectly! Returns SSO token for username='contract_test', password='p', device_id='cdev' with proper JWT format including obegee_user_id and myndlens_tenant_id claims."
+
+  - task: "Compliance scan clean - rogue prompt detection"
+    implemented: true
+    working: true
+    file: "server.py (_scan_for_rogue_prompts function)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: GET /api/prompt/compliance returns rogue_prompt_scan.clean=true, violations=[] after scanning 110 files. Scanner actively checks for ownership violations: LlmChat bypass, direct OpenClaw calls, tenant lifecycle calls, SSH attempts. No rogue patterns detected in codebase."
+
+  - task: "Dispatch submits to ObeGee Adapter (NOT OpenClaw)"
+    implemented: true
+    working: true
+    file: "dispatcher/dispatcher.py, dispatcher/http_client.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED CRITICAL: Dispatch correctly uses ObeGee Adapter path! Code comments confirm 'Per Contract §7: MyndLens → Signed MIO → ObeGee Channel Adapter → OpenClaw. MyndLens NEVER calls OpenClaw directly.' HTTP client logs '[Adapter] STUB submit' instead of '[OpenClaw]' and returns status='submitted' (to adapter) not 'completed' (from OpenClaw). MIO verification security gates working correctly (blocks invalid MIOs as expected)."
+
+  - task: "MyndLens-owned functions intact - Core APIs"
+    implemented: true
+    working: true
+    file: "server.py (multiple endpoints)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED COMPREHENSIVE: All 6 MyndLens-owned core functions working perfectly: 1) Health endpoint ✅, 2) Memory store API (Digital Self) ✅, 3) Memory recall API ✅, 4) MIO signing (cryptographic functions) ✅, 5) Soul status (identity system) ✅, 6) Circuit breakers (abuse protection) ✅. Complete ownership boundary verified."
+
+  - task: "L1 Scout via WebSocket - Complete SSO Flow"
+    implemented: true
+    working: true
+    file: "gateway/ws_server.py, l1/scout.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED MOST CRITICAL: Complete SSO → WebSocket auth → heartbeat → text_input → draft_update → tts_audio flow working! L1 Scout using real Gemini Flash (MOCK_LLM=false) via LLM Gateway with prompt system integration. Backend logs confirm '[LLMGateway] Call: site=L1_SCOUT purpose=THOUGHT_TO_INTENT' and 'L1 Scout: hypotheses=2 latency=5218ms'. Full MyndLens cognitive pipeline intact after ownership refactor."
+
+  - task: "Governance backup scoped to MyndLens-owned data only"
+    implemented: true
+    working: true
+    file: "governance/backup.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTED: POST /api/governance/backup with S2S authentication returns scope='myndlens_owned_only' confirming backup is correctly scoped to MyndLens-owned data types only (graphs, entities, sessions, transcripts, commits). S2S token authentication properly enforced (returns 403 without X-OBEGEE-S2S-TOKEN header)."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 13
+  test_sequence: 14
   run_ui: false
 
 test_plan:
