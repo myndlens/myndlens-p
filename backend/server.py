@@ -99,7 +99,7 @@ async def health():
     stt_healthy = await stt.is_healthy()
     tts_healthy = await tts.is_healthy()
     return {
-        "status": "ok",
+        "status": "healthy",
         "env": settings.ENV,
         "version": "0.2.0",
         "active_sessions": get_active_session_count(),
