@@ -459,3 +459,45 @@ def run_all_tests():
     
     # Test 4: Dispatch submits to ObeGee Adapter
     print("\n4️⃣  Testing dispatch routing...")
+    results4 = test_dispatch_obegee_adapter()
+    all_results.results.extend(results4.results)
+    all_results.passed += results4.passed
+    all_results.failed += results4.failed
+    
+    # Test 5: MyndLens-owned functions intact
+    print("\n5️⃣  Testing MyndLens-owned functions...")
+    results5 = test_myndlens_owned_functions()
+    all_results.results.extend(results5.results)
+    all_results.passed += results5.passed
+    all_results.failed += results5.failed
+    
+    # Test 5g: L1 Scout WebSocket flow (async)
+    print("\n5g️⃣  Testing L1 Scout WebSocket flow...")
+    try:
+        results5g = asyncio.run(test_l1_scout_ws_flow())
+        all_results.results.extend(results5g.results)
+        all_results.passed += results5g.passed
+        all_results.failed += results5g.failed
+    except Exception as e:
+        all_results.add_result("L1 Scout WS flow", False, f"Async test error: {str(e)}")
+    
+    # Test 6: Governance backup scoped
+    print("\n6️⃣  Testing governance backup scoping...")
+    results6 = test_governance_backup_scoped()
+    all_results.results.extend(results6.results)
+    all_results.passed += results6.passed
+    all_results.failed += results6.failed
+    
+    # Print final results
+    success = all_results.print_summary()
+    
+    if success:
+        print("\n🎉 ALL TESTS PASSED - MyndLens ownership refactor is compliant with Dev Agent Contract!")
+    else:
+        print(f"\n⚠️  {all_results.failed} test(s) failed - ownership boundaries need attention")
+    
+    return success
+
+if __name__ == "__main__":
+    success = run_all_tests()
+    sys.exit(0 if success else 1)
