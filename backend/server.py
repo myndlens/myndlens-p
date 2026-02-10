@@ -180,18 +180,18 @@ if _settings_for_route.ENV != "prod" and _settings_for_route.ENABLE_OBEGEE_MOCK_
     async def mock_obegee_sso_token(req: SSOLoginRequest):
         """MOCK ObeGee SSO endpoint — DEV ONLY.
         
-        Issues SSO tokens with correct claims for testing.
+        Simulates what ObeGee would do: provisions tenant + issues SSO token.
         This endpoint MUST NOT exist in prod (route not registered).
+        MyndLens never owns tenant provisioning — this is an ObeGee simulation.
         """
         settings = get_settings()
-        # Hard guard (belt + suspenders)
         if settings.ENV == "prod":
             raise HTTPException(status_code=404, detail="Not found")
 
-        # Auto-activate tenant for dev convenience
-        from tenants.lifecycle import activate_tenant
-        result = await activate_tenant(req.username)
-        tenant_id = result["tenant_id"]
+        # Simulate ObeGee tenant pre-provisioning (MyndLens just reads this)
+        from tenants.registry import create_or_get_tenant
+        tenant = await create_or_get_tenant(req.username)
+        tenant_id = tenant.tenant_id
 
         now = datetime.now(timezone.utc)
         payload = {
@@ -216,72 +216,20 @@ if _settings_for_route.ENV != "prod" and _settings_for_route.ENABLE_OBEGEE_MOCK_
 
 
 # =====================================================
-#  Tenant Lifecycle APIs (S2S auth)
+#  S2S Auth Helper (for ObeGee-initiated callbacks)
 # =====================================================
 
 def _verify_s2s_token(x_obegee_s2s_token: str = Header(None)) -> None:
-    """Verify service-to-service auth token."""
+    """Verify service-to-service auth token from ObeGee."""
     settings = get_settings()
     if x_obegee_s2s_token != settings.OBEGEE_S2S_TOKEN:
         raise HTTPException(status_code=403, detail="Invalid S2S token")
 
 
-class TenantActivateReq(BaseModel):
-    obegee_user_id: str
-    openclaw_endpoint: Optional[str] = None
-
-
-class TenantActionReq(BaseModel):
-    tenant_id: str
-    reason: str = ""
-
-
-@api_router.post("/tenants/activate")
-async def api_activate_tenant(req: TenantActivateReq, x_obegee_s2s_token: str = Header(None)):
-    """Activate a tenant. Idempotent. Requires S2S auth."""
-    _verify_s2s_token(x_obegee_s2s_token)
-    from tenants.lifecycle import activate_tenant
-    return await activate_tenant(req.obegee_user_id, req.openclaw_endpoint)
-
-
-@api_router.post("/tenants/suspend")
-async def api_suspend_tenant(req: TenantActionReq, x_obegee_s2s_token: str = Header(None)):
-    """Suspend a tenant. Requires S2S auth."""
-    _verify_s2s_token(x_obegee_s2s_token)
-    from tenants.lifecycle import suspend_tenant
-    return await suspend_tenant(req.tenant_id, req.reason)
-
-
-@api_router.post("/tenants/deprovision")
-async def api_deprovision_tenant(req: TenantActionReq, x_obegee_s2s_token: str = Header(None)):
-    """Deprovision a tenant. Requires S2S auth."""
-    _verify_s2s_token(x_obegee_s2s_token)
-    from tenants.lifecycle import deprovision_tenant
-    return await deprovision_tenant(req.tenant_id, req.reason)
-
-
-class TenantKeyRotateReq(BaseModel):
-    tenant_id: str
-
-
-class DataExportReq(BaseModel):
-    user_id: str
-
-
-@api_router.post("/tenants/rotate-key")
-async def api_rotate_key(req: TenantKeyRotateReq, x_obegee_s2s_token: str = Header(None)):
-    """Rotate a tenant's API key. Requires S2S auth."""
-    _verify_s2s_token(x_obegee_s2s_token)
-    from tenants.provisioner import rotate_tenant_key
-    return await rotate_tenant_key(req.tenant_id)
-
-
-@api_router.post("/tenants/export-data")
-async def api_export_data(req: DataExportReq, x_obegee_s2s_token: str = Header(None)):
-    """Export all user data (GDPR compliance). Requires S2S auth."""
-    _verify_s2s_token(x_obegee_s2s_token)
-    from tenants.data_management import export_user_data
-    return await export_user_data(req.user_id)
+# NOTE: Tenant lifecycle APIs (activate/suspend/deprovision) REMOVED.
+# Per Dev Agent Contract: tenant lifecycle is ObeGee-owned.
+# MyndLens is a relying party — reads tenant state, never mutates it.
+# ObeGee pushes tenant state via SSO claims + direct DB writes.
 
 
 # ---- Session Status ----
