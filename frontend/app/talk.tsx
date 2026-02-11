@@ -320,9 +320,8 @@ const styles = StyleSheet.create({
 
   micButton: {
     width: 88, height: 88, borderRadius: 44,
+    aspectRatio: 1,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#6C5CE7', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35, shadowRadius: 16, elevation: 8,
   },
   micThinking: { opacity: 0.5 },
   micIcon: { fontSize: 32, color: '#FFFFFF' },
