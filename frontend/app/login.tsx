@@ -99,7 +99,7 @@ export default function LoginScreen() {
             style={styles.logoImage}
             resizeMode="contain"
           />
-          <Text style={styles.subtitle}>Your personal cognitive proxy</Text>
+          <Text style={styles.subtitle}>Your Personal Cognitive Proxy</Text>
         </View>
 
         <View style={styles.middle}>
