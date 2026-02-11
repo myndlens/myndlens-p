@@ -156,62 +156,80 @@ async def pair_device(req: PairRequest):
 
 
 # =====================================================
-#  ObeGee SSO Mock IDP (dev fixture only)
+#  ObeGee Mock Pairing (dev fixture only)
 # =====================================================
 
-class SSOLoginRequest(BaseModel):
-    username: str
-    password: str
+class PairRequest(BaseModel):
+    code: str
     device_id: str
+    device_name: str = "Unknown Device"
 
 
-class SSOLoginResponse(BaseModel):
-    token: str
-    obegee_user_id: str
-    myndlens_tenant_id: str
-    subscription_status: str
+class PairResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int = 2592000  # 30 days
+    tenant_id: str
+    workspace_slug: str
+    runtime_endpoint: str
+    dispatch_endpoint: str
+    session_id: str
 
 
-# Conditionally register the mock IDP route
+# Conditionally register the mock pairing route
 _settings_for_route = get_settings()
 if _settings_for_route.ENV != "prod" and _settings_for_route.ENABLE_OBEGEE_MOCK_IDP:
 
-    @api_router.post("/sso/myndlens/token", response_model=SSOLoginResponse)
-    async def mock_obegee_sso_token(req: SSOLoginRequest):
-        """MOCK ObeGee SSO endpoint — DEV ONLY.
-        
-        Simulates what ObeGee would do: provisions tenant + issues SSO token.
+    @api_router.post("/sso/myndlens/pair", response_model=PairResponse)
+    async def mock_obegee_pair(req: PairRequest):
+        """MOCK ObeGee pairing endpoint — DEV ONLY.
+
+        Simulates: ObeGee Dashboard → Generate Pairing Code → User enters in app.
+        In prod, this call goes directly to https://obegee.co.uk/api/myndlens/pair.
         This endpoint MUST NOT exist in prod (route not registered).
-        MyndLens never owns tenant provisioning — this is an ObeGee simulation.
         """
         settings = get_settings()
         if settings.ENV == "prod":
             raise HTTPException(status_code=404, detail="Not found")
 
-        # Simulate ObeGee tenant pre-provisioning (MyndLens just reads this)
+        # In dev, accept any 6-digit code
+        if len(req.code) != 6 or not req.code.isdigit():
+            raise HTTPException(status_code=400, detail="Invalid pairing code")
+
+        # Simulate ObeGee tenant pre-provisioning
         from tenants.registry import create_or_get_tenant
-        tenant = await create_or_get_tenant(req.username)
+        user_id = f"user_{req.device_id[-8:]}"
+        tenant = await create_or_get_tenant(user_id)
         tenant_id = tenant.tenant_id
 
         now = datetime.now(timezone.utc)
         payload = {
             "iss": "obegee",
             "aud": "myndlens",
-            "obegee_user_id": req.username,
+            "sub": user_id,
+            "obegee_user_id": user_id,
             "myndlens_tenant_id": tenant_id,
             "subscription_status": "ACTIVE",
             "iat": now.timestamp(),
-            "exp": (now + timedelta(hours=24)).timestamp(),
+            "exp": (now + timedelta(days=30)).timestamp(),
+            "jti": str(uuid.uuid4()),
         }
         token = jwt.encode(payload, settings.OBEGEE_SSO_HS_SECRET, algorithm="HS256")
 
-        logger.info("MOCK SSO token issued: user=%s tenant=%s", req.username, tenant_id)
+        session_id = f"mls_{uuid.uuid4().hex[:12]}"
 
-        return SSOLoginResponse(
-            token=token,
-            obegee_user_id=req.username,
-            myndlens_tenant_id=tenant_id,
-            subscription_status="ACTIVE",
+        logger.info(
+            "MOCK pair: code=%s device=%s tenant=%s",
+            req.code, req.device_id[:12], tenant_id[:12],
+        )
+
+        return PairResponse(
+            access_token=token,
+            tenant_id=tenant_id,
+            workspace_slug=f"workspace-{tenant_id[:8]}",
+            runtime_endpoint=f"http://localhost:8001",
+            dispatch_endpoint=f"http://localhost:8001/api/dispatch",
+            session_id=session_id,
         )
 
 
