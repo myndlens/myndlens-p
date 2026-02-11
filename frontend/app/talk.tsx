@@ -316,32 +316,34 @@ const styles = StyleSheet.create({
   thinkingText: { color: '#6C5CE7', fontSize: 32, letterSpacing: 4 },
 
   // Controls
-  controlArea: { alignItems: 'center', marginBottom: 10 },
+  controlArea: { alignItems: 'center', marginBottom: 16, paddingHorizontal: 20 },
 
   micButton: {
-    width: 80, height: 80, borderRadius: 40,
+    width: 88, height: 88, borderRadius: 44,
     alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#6C5CE7', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 16, elevation: 8,
   },
   micThinking: { opacity: 0.5 },
-  micIcon: { fontSize: 30, color: '#FFFFFF' },
+  micIcon: { fontSize: 32, color: '#FFFFFF' },
 
   secondaryRow: {
-    flexDirection: 'row', gap: 16, marginTop: 14,
+    flexDirection: 'row', gap: 12, marginTop: 20, width: '100%',
   },
 
   killButton: {
-    backgroundColor: '#E74C3C', borderRadius: 12,
-    paddingVertical: 10, paddingHorizontal: 20,
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    flex: 1, backgroundColor: '#E74C3C', borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   approveButton: {
-    backgroundColor: '#00D68F', borderRadius: 12,
-    paddingVertical: 10, paddingHorizontal: 20,
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    flex: 1, backgroundColor: '#00D68F', borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  approveDisabled: { opacity: 0.3 },
-  smallBtnIcon: { fontSize: 14, color: '#FFFFFF' },
-  smallBtnText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+  approveDisabled: { opacity: 0.25 },
+  smallBtnIcon: { fontSize: 16, color: '#FFFFFF', fontWeight: '700' },
+  smallBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 
   // Text fallback
   textRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
