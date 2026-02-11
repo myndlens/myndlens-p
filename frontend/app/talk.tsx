@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   micThinking: { opacity: 0.5 },
-  micIcon: { fontSize: 36, color: '#FFFFFF', fontWeight: '400' },
+  micIcon: { fontSize: 22, color: '#FFFFFF', fontWeight: '800', letterSpacing: 2 },
 
   secondaryRow: {
     flexDirection: 'row', gap: 12, marginTop: 20, width: '100%',
