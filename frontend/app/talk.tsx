@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   gear: { fontSize: 22, color: '#555568' },
 
   logoArea: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
-  logo: { width: 100, height: 100 },
+  logo: { width: 150, height: 150 },
 
   conversation: { },
   conversationContent: { paddingBottom: 8 },
