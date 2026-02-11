@@ -62,7 +62,6 @@ def decode_audio_payload(payload: dict) -> tuple[bytes, int, Optional[str]]:
     """
     audio_b64 = payload.get("audio")
     seq = payload.get("seq", -1)
-    session_id = payload.get("session_id")
 
     if not audio_b64:
         return b"", seq, "Missing audio data"
