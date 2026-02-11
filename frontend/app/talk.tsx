@@ -318,11 +318,11 @@ const styles = StyleSheet.create({
 
   micButton: {
     width: 110, height: 110, borderRadius: 55,
-    aspectRatio: 1,
+    minWidth: 110, maxWidth: 110, minHeight: 110, maxHeight: 110,
     alignItems: 'center', justifyContent: 'center',
   },
   micThinking: { opacity: 0.5 },
-  micIcon: { fontSize: 40, color: '#FFFFFF' },
+  micIcon: { fontSize: 36, color: '#FFFFFF', fontWeight: '400' },
 
   secondaryRow: {
     flexDirection: 'row', gap: 12, marginTop: 20, width: '100%',
