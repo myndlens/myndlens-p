@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   approveButton: {
-    flex: 1, backgroundColor: '#00D68F', borderRadius: 14,
+    flex: 1, backgroundColor: '#00B87A', borderRadius: 14,
     paddingVertical: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
