@@ -113,48 +113,6 @@ async def health():
     }
 
 
-# ---- Device Pairing / Auth ----
-class PairRequest(BaseModel):
-    user_id: str
-    device_id: str
-    client_version: str = "1.0.0"
-
-
-class PairResponse(BaseModel):
-    token: str
-    user_id: str
-    device_id: str
-    env: str
-
-
-@api_router.post("/auth/pair", response_model=PairResponse)
-async def pair_device(req: PairRequest):
-    """DEV ONLY: Pair a device with a simple JWT.
-    
-    Deprecated in favor of SSO login. Kept for dev/testing only.
-    """
-    settings = get_settings()
-    if settings.ENV == "prod":
-        raise HTTPException(status_code=404, detail="Not found")
-
-    session_id = str(uuid.uuid4())
-    token = generate_token(
-        user_id=req.user_id,
-        device_id=req.device_id,
-        session_id=session_id,
-        env=settings.ENV,
-    )
-
-    logger.info("DEV pair: user=%s device=%s", req.user_id, req.device_id)
-
-    return PairResponse(
-        token=token,
-        user_id=req.user_id,
-        device_id=req.device_id,
-        env=settings.ENV,
-    )
-
-
 # =====================================================
 #  ObeGee Mock Pairing (dev fixture only)
 # =====================================================
