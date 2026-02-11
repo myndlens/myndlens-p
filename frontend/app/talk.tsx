@@ -339,8 +339,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   approveDisabled: { opacity: 0.5 },
-  smallBtnIcon: { fontSize: 20, color: '#FFFFFF', fontWeight: '700' },
-  smallBtnText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  smallBtnIcon: { fontSize: 20, color: '#FFFFFF' },
+  smallBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
 
   // Text fallback
   textRow: { flexDirection: 'row', gap: 8, marginBottom: 8, paddingHorizontal: 0 },
