@@ -94,7 +94,11 @@ export default function LoginScreen() {
     >
       <View style={[styles.container, { paddingTop: insets.top + 80, paddingBottom: insets.bottom + 40 }]}>
         <View style={styles.brand}>
-          <Text style={styles.logo}>MyndLens</Text>
+          <Image
+            source={require('../assets/images/myndlens-logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <Text style={styles.subtitle}>Your personal cognitive proxy</Text>
         </View>
 
