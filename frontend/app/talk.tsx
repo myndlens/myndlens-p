@@ -316,9 +316,10 @@ const styles = StyleSheet.create({
   controlArea: { alignItems: 'center', marginBottom: 16, paddingHorizontal: 20, flex: 1, justifyContent: 'center' },
 
   micButton: {
-    width: 110, height: 110, borderRadius: 55,
-    minWidth: 110, maxWidth: 110, minHeight: 110, maxHeight: 110,
+    width: 110, height: undefined, aspectRatio: 1, borderRadius: 999,
+    minWidth: 110, maxWidth: 110,
     alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
   },
   micThinking: { opacity: 0.5 },
   micIcon: { fontSize: 22, color: '#FFFFFF', fontWeight: '800', letterSpacing: 2 },
