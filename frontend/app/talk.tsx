@@ -185,19 +185,17 @@ export default function TalkScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Logo at top */}
+        <View style={styles.logoArea}>
+          <Image
+            source={require('../assets/images/myndlens-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
+
         {/* Conversation area */}
         <ScrollView style={styles.conversation} contentContainerStyle={styles.conversationContent}>
-          {/* Logo at top when idle */}
-          {!isActive && !ttsText && !transcript ? (
-            <View style={styles.logoArea}>
-              <Image
-                source={require('../assets/images/myndlens-logo.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            </View>
-          ) : null}
-
           {ttsText ? (
             <View style={styles.assistantBubble}>
               <Text style={styles.assistantText}>{ttsText}</Text>
