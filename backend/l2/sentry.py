@@ -66,12 +66,12 @@ async def run_l2_sentry(
             transcript=transcript,
             dimensions=dimensions,
             task_description=(
-                f"Shadow derivation: independently verify the user's intent from this transcript. "
-                f"Ignore any prior hypothesis. Determine: action_class, canonical_target, "
-                f"primary_outcome, risk_tier (0-3), confidence (0-1). "
-                f"Provide a chain_of_logic trace explaining your reasoning. "
-                f"Output JSON: {{action_class, canonical_target, primary_outcome, "
-                f"risk_tier, confidence, chain_of_logic}}"
+                "Shadow derivation: independently verify the user's intent from this transcript. "
+                "Ignore any prior hypothesis. Determine: action_class, canonical_target, "
+                "primary_outcome, risk_tier (0-3), confidence (0-1). "
+                "Provide a chain_of_logic trace explaining your reasoning. "
+                "Output JSON: {action_class, canonical_target, primary_outcome, "
+                "risk_tier, confidence, chain_of_logic}"
             ),
         )
         artifact, report = orchestrator.build(ctx)
