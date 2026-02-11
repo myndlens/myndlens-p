@@ -225,9 +225,7 @@ export default function TalkScreen() {
               disabled={connectionStatus !== 'authenticated' || audioState === 'THINKING'}
               activeOpacity={0.7}
             >
-              <Text style={styles.micIcon}>
-                {audioState === 'CAPTURING' ? <StopIcon size={32} color="#FFFFFF" /> : <MicIcon size={40} color="#FFFFFF" />}
-              </Text>
+              {audioState === 'CAPTURING' ? <StopIcon size={32} color="#FFFFFF" /> : <MicIcon size={40} color="#FFFFFF" />}
             </TouchableOpacity>
           </Animated.View>
 
