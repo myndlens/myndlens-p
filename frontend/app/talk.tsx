@@ -233,7 +233,7 @@ export default function TalkScreen() {
           {/* Secondary: Kill + Approve side by side below mic */}
           <View style={styles.secondaryRow}>
             <TouchableOpacity style={styles.killButton} onPress={handleKill} activeOpacity={0.8}>
-              <Text style={styles.smallBtnIcon}>{'\u26D4'}</Text>
+              <Text style={styles.smallBtnIcon}>{'\u2716'}</Text>
               <Text style={styles.smallBtnText}>Kill</Text>
             </TouchableOpacity>
 
@@ -243,7 +243,7 @@ export default function TalkScreen() {
               disabled={!pendingAction}
               activeOpacity={0.8}
             >
-              <Text style={styles.smallBtnIcon}>{'\u2713'}</Text>
+              <Text style={styles.smallBtnIcon}>{'\u2714'}</Text>
               <Text style={styles.smallBtnText}>{pendingAction || 'Approve'}</Text>
             </TouchableOpacity>
           </View>
