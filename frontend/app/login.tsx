@@ -160,11 +160,9 @@ const styles = StyleSheet.create({
   brand: {
     alignItems: 'center',
   },
-  logo: {
-    fontSize: 44,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 3,
+  logoImage: {
+    width: 180,
+    height: 180,
     marginBottom: 12,
   },
   subtitle: {
