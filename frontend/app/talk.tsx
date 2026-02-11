@@ -225,7 +225,7 @@ export default function TalkScreen() {
               activeOpacity={0.7}
             >
               <Text style={styles.micIcon}>
-                {audioState === 'CAPTURING' ? '\u23F9' : '\uD83C\uDF99'}
+                {audioState === 'CAPTURING' ? '\u25A0' : 'MIC'}
               </Text>
             </TouchableOpacity>
           </Animated.View>
