@@ -19,6 +19,7 @@ import { useSessionStore } from '../src/state/session-store';
 import { useAudioStore, AudioState } from '../src/audio/state-machine';
 import { startRecording, stopRecording } from '../src/audio/recorder';
 import * as TTS from '../src/tts/player';
+import { MicIcon, StopIcon } from '../src/ui/icons';
 
 export default function TalkScreen() {
   const insets = useSafeAreaInsets();
