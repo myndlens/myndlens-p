@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  approveDisabled: { opacity: 0.25 },
+  approveDisabled: { opacity: 0.5 },
   smallBtnIcon: { fontSize: 20, color: '#FFFFFF', fontWeight: '700' },
   smallBtnText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
 
