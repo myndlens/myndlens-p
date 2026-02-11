@@ -234,7 +234,7 @@ export default function TalkScreen() {
           <View style={styles.secondaryRow}>
             <TouchableOpacity style={styles.killButton} onPress={handleKill} activeOpacity={0.8}>
               <Text style={styles.smallBtnIcon}>{'\u26D4'}</Text>
-              <Text style={styles.smallBtnText}>Stop</Text>
+              <Text style={styles.smallBtnText}>Kill</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
