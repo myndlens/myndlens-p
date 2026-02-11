@@ -314,15 +314,15 @@ const styles = StyleSheet.create({
   thinkingText: { color: '#6C5CE7', fontSize: 32, letterSpacing: 4 },
 
   // Controls
-  controlArea: { alignItems: 'center', marginBottom: 16, paddingHorizontal: 20 },
+  controlArea: { alignItems: 'center', marginBottom: 16, paddingHorizontal: 20, flex: 1, justifyContent: 'center' },
 
   micButton: {
-    width: 88, height: 88, borderRadius: 44,
+    width: 110, height: 110, borderRadius: 55,
     aspectRatio: 1,
     alignItems: 'center', justifyContent: 'center',
   },
   micThinking: { opacity: 0.5 },
-  micIcon: { fontSize: 32, color: '#FFFFFF' },
+  micIcon: { fontSize: 40, color: '#FFFFFF' },
 
   secondaryRow: {
     flexDirection: 'row', gap: 12, marginTop: 20, width: '100%',
