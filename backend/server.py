@@ -24,7 +24,6 @@ from config.settings import get_settings
 from core.logging_config import setup_logging
 from core.database import get_db, init_indexes, close_db
 from core.exceptions import AuthError, MyndLensError, DispatchBlockedError
-from auth.tokens import generate_token
 from auth.sso_validator import get_sso_validator, SSOClaims
 from auth.device_binding import get_session
 from gateway.ws_server import handle_ws_connection, get_active_session_count
