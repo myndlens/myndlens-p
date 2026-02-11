@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     # Separate secret from MyndLens JWT — never reuse
     OBEGEE_SSO_HS_SECRET: str = Field(default="obegee-sso-dev-secret-CHANGE-IN-PROD")
     OBEGEE_TOKEN_VALIDATION_MODE: str = Field(default="HS256")  # HS256 | JWKS
-    OBEGEE_JWKS_URL: str = Field(default="")  # For JWKS mode (future)
+    OBEGEE_JWKS_URL: str = Field(default="https://obegee.co.uk/.well-known/jwks.json")  # Production JWKS
     OBEGEE_S2S_TOKEN: str = Field(default="obegee-s2s-dev-token-CHANGE-IN-PROD")
     ENABLE_OBEGEE_MOCK_IDP: bool = Field(default=True)  # MUST be false in prod
 
