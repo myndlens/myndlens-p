@@ -65,7 +65,7 @@ async def call_llm(
 
     # ---- Hard Gate 2: Call site must be registered ----
     try:
-        site = get_call_site(call_site_id)
+        get_call_site(call_site_id)
     except ValueError as e:
         await _log_bypass(f"unregistered_site:{call_site_id}", call_site_id)
         raise PromptBypassError(str(e))
