@@ -288,15 +288,15 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#0A0A0F' },
   container: { flex: 1, paddingHorizontal: 20, backgroundColor: '#0A0A0F' },
 
-  topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 0 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   gear: { fontSize: 22, color: '#555568' },
 
-  conversation: { flex: 1 },
-  conversationContent: { flexGrow: 1, justifyContent: 'flex-end', paddingBottom: 8 },
+  logoArea: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
+  logo: { width: 100, height: 100 },
 
-  logoArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  logo: { width: 140, height: 140 },
+  conversation: { flex: 1 },
+  conversationContent: { flexGrow: 1, justifyContent: 'center', paddingBottom: 8 },
 
   assistantBubble: {
     backgroundColor: '#1A1A2E', borderRadius: 16, borderTopLeftRadius: 4,
