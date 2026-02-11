@@ -518,7 +518,7 @@ def _generate_l1_response(hypothesis, dim_state) -> str:
         return f"I understand you'd like to send a message to {who}. What would you like to say?"
     elif action == "SCHED_MODIFY":
         when = dims.when or "a time"
-        return f"I can help schedule that. When works best for you?"
+        return f"I can help schedule that for {when}. Does that work?"
     elif action == "INFO_RETRIEVE":
         return "Let me look that up for you."
     elif action == "DOC_EDIT":
@@ -526,11 +526,6 @@ def _generate_l1_response(hypothesis, dim_state) -> str:
     else:
         what = dims.what or hypothesis.hypothesis
         return f"I understand: {what}. How would you like to proceed?"
-
-    logger.info(
-        "TTS response sent: session=%s response='%s'",
-        session_id, response_text[:60],
-    )
 
 
 def _generate_mock_response(transcript: str) -> str:
