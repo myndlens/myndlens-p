@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   smallBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 
   // Text fallback
-  textRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  textRow: { flexDirection: 'row', gap: 8, marginBottom: 8, paddingHorizontal: 0 },
   textInput: {
     flex: 1, backgroundColor: '#14141E', borderRadius: 24,
     paddingHorizontal: 16, paddingVertical: 10, fontSize: 14,
