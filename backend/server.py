@@ -184,8 +184,8 @@ if _settings_for_route.ENV != "prod" and _settings_for_route.ENABLE_OBEGEE_MOCK_
             access_token=token,
             tenant_id=tenant_id,
             workspace_slug=f"workspace-{tenant_id[:8]}",
-            runtime_endpoint=f"http://localhost:8001",
-            dispatch_endpoint=f"http://localhost:8001/api/dispatch",
+            runtime_endpoint="http://localhost:8001",
+            dispatch_endpoint="http://localhost:8001/api/dispatch",
             session_id=session_id,
         )
 
