@@ -295,8 +295,8 @@ const styles = StyleSheet.create({
   logoArea: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
   logo: { width: 100, height: 100 },
 
-  conversation: { flex: 1 },
-  conversationContent: { flexGrow: 1, justifyContent: 'center', paddingBottom: 8 },
+  conversation: { },
+  conversationContent: { paddingBottom: 8 },
 
   assistantBubble: {
     backgroundColor: '#1A1A2E', borderRadius: 16, borderTopLeftRadius: 4,
