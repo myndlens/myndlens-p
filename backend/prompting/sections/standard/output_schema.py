@@ -1,51 +1,39 @@
-"""OUTPUT_SCHEMA section — stable per purpose.
+"""OUTPUT_SCHEMA section — compact, token-optimized.
 
-Defines the expected output structure.
+Defines the expected output structure using minimal notation.
 """
-import json
 from prompting.types import (
     PromptContext, PromptPurpose, SectionOutput, SectionID, CacheClass,
 )
 
 _SCHEMAS = {
-    PromptPurpose.THOUGHT_TO_INTENT: json.dumps({
-        "hypotheses": [
-            {
-                "hypothesis": "string",
-                "action_class": "COMM_SEND|SCHED_MODIFY|...",
-                "confidence": 0.0,
-                "evidence_spans": [{"text": "string", "start": 0, "end": 0}],
-                "dimension_suggestions": {},
-            }
-        ],
-        "max_hypotheses": 3,
-    }, indent=2),
-    PromptPurpose.DIMENSIONS_EXTRACT: json.dumps({
-        "a_set": {
-            "what": "string|null",
-            "who": "string|null",
-            "when": "string|null",
-            "where": "string|null",
-            "how": "string|null",
-            "constraints": "string|null",
-        },
-        "b_set": {
-            "urgency": 0.0,
-            "emotional_load": 0.0,
-            "ambiguity": 0.0,
-            "reversibility": 0.0,
-            "user_confidence": 0.0,
-        },
-    }, indent=2),
+    PromptPurpose.THOUGHT_TO_INTENT: (
+        "{hypotheses: [{hypothesis: str, action_class: str, confidence: 0-1, "
+        "evidence_spans: [{text, start, end}], dimensions: {}}]}\n"
+        "Max 3 hypotheses."
+    ),
+    PromptPurpose.DIMENSIONS_EXTRACT: (
+        "{a_set: {what, who, when, where, how, constraints}, "
+        "b_set: {urgency: 0-1, emotional_load: 0-1, ambiguity: 0-1, "
+        "reversibility: 0-1, user_confidence: 0-1}}"
+    ),
+    PromptPurpose.VERIFY: (
+        "{action_class: str, canonical_target: str, primary_outcome: str, "
+        "risk_tier: 0-3, confidence: 0-1, chain_of_logic: str}"
+    ),
+    PromptPurpose.SAFETY_GATE: (
+        "{risk_tier: 0-3, harmful: bool, policy_violation: bool, "
+        "escalation_needed: bool, reason: str}"
+    ),
 }
 
 
 def generate(ctx: PromptContext) -> SectionOutput:
     schema = _SCHEMAS.get(ctx.purpose)
     if schema:
-        content = f"You MUST respond with this JSON structure:\n```json\n{schema}\n```"
+        content = f"Output JSON: {schema}"
     else:
-        content = "Respond in structured JSON appropriate to the task."
+        content = "Output structured JSON appropriate to the task."
 
     return SectionOutput(
         section_id=SectionID.OUTPUT_SCHEMA,

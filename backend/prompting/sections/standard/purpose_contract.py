@@ -1,6 +1,7 @@
-"""PURPOSE_CONTRACT section — stable per purpose.
+"""PURPOSE_CONTRACT section — streamlined, token-optimized.
 
 Defines what the LLM is allowed to do for this specific call.
+Uses concise arrow notation for clarity.
 """
 from prompting.types import (
     PromptContext, PromptPurpose, SectionOutput, SectionID, CacheClass,
@@ -8,38 +9,29 @@ from prompting.types import (
 
 _CONTRACTS = {
     PromptPurpose.THOUGHT_TO_INTENT: (
-        "Your task: Interpret the user's spoken input and propose up to 3 candidate intents. "
-        "Output structured hypothesis objects with evidence spans referencing the transcript. "
-        "Do NOT plan, execute, or use tools. Only interpret."
+        "Task: Interpret input -> max 3 hypotheses with evidence. Interpretation only."
     ),
     PromptPurpose.DIMENSIONS_EXTRACT: (
-        "Your task: Extract structured dimensions (what, who, when, where, how, constraints) "
-        "from the provided transcript and context. Output a dimensions object only. "
-        "Do NOT plan, execute, or use tools. Do NOT infer beyond what is stated or recalled."
+        "Task: Extract dimensions (what/who/when/where/how/constraints) from transcript. "
+        "No inference beyond stated or recalled."
     ),
     PromptPurpose.PLAN: (
-        "Your task: Given hardened intent and dimensions, produce an execution plan with "
-        "sequencing, dependencies, and fallback paths. Do NOT execute."
+        "Task: Produce execution plan with sequencing, dependencies, fallbacks. No execution."
     ),
     PromptPurpose.EXECUTE: (
-        "Your task: Execute the approved plan using ONLY the tools provided. "
-        "Follow constraints strictly. Report results."
+        "Task: Execute approved plan using provided tools only. Follow constraints. Report results."
     ),
     PromptPurpose.VERIFY: (
-        "Your task: Verify the provided output for factual consistency, "
-        "policy compliance, and absence of hallucination. Flag conflicts."
+        "Task: Verify output for factual consistency, policy compliance, no hallucination. Flag conflicts."
     ),
     PromptPurpose.SAFETY_GATE: (
-        "Your task: Classify the risk tier of the proposed action. "
-        "Check for harmful intent, policy violations, and escalation needs."
+        "Task: Classify risk tier. Check harmful intent, policy violations, escalation needs."
     ),
     PromptPurpose.SUMMARIZE: (
-        "Your task: Compress the provided content for user display. "
-        "Be concise and accurate. Do not add information."
+        "Task: Compress for user display. Concise, accurate, no additions."
     ),
     PromptPurpose.SUBAGENT_TASK: (
-        "Your task: Complete the narrow sub-task described below. "
-        "Minimal mode. Do not exceed scope."
+        "Task: Complete narrow sub-task below. Minimal mode, no scope excess."
     ),
 }
 
@@ -51,6 +43,6 @@ def generate(ctx: PromptContext) -> SectionOutput:
         content=contract,
         priority=2,
         cache_class=CacheClass.STABLE,
-        tokens_est=50,
+        tokens_est=len(contract) // 4,
         included=True,
     )

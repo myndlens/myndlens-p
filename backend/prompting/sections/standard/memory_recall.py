@@ -1,9 +1,18 @@
-"""MEMORY_RECALL_SNIPPETS section — volatile.
+"""MEMORY_RECALL_SNIPPETS section — compact, token-optimized.
 
-Formats Digital Self memory recall results for inclusion in LLM prompts.
-Enables context-aware intent extraction using user history and preferences.
+Formats Digital Self memory recall results for LLM prompts.
+Uses abbreviated provenance and relevance percentage for minimal tokens.
 """
 from prompting.types import PromptContext, SectionOutput, SectionID, CacheClass
+
+_PROV_ABBREV = {
+    "ONBOARDING": "ONBOARD",
+    "ONBOARDING_AUTO": "AUTO",
+    "EXPLICIT": "USER",
+    "OBSERVED": "OBS",
+    "INFERRED": "INF",
+    "UNKNOWN": "UNK",
+}
 
 
 def generate(ctx: PromptContext) -> SectionOutput:
@@ -11,39 +20,26 @@ def generate(ctx: PromptContext) -> SectionOutput:
     if not snippets:
         return SectionOutput(
             section_id=SectionID.MEMORY_RECALL_SNIPPETS,
-            content="No relevant memories found for this context.",
+            content="No relevant memories.",
             priority=8,
             cache_class=CacheClass.VOLATILE,
-            tokens_est=10,
+            tokens_est=5,
             included=True,
         )
 
-    parts = ["Relevant memories from user's Digital Self:"]
+    parts = ["Memories:"]
     for i, s in enumerate(snippets, 1):
         text = s.get("text", "")
         prov = s.get("provenance", "UNKNOWN")
-        gtype = s.get("graph_type", "")
         dist = s.get("distance")
-        neighbors = s.get("neighbors", 0)
 
-        entry = f"  [{i}] {text}"
-        meta = []
-        if prov:
-            meta.append(f"source={prov}")
-        if gtype:
-            meta.append(f"type={gtype}")
-        if dist is not None:
-            meta.append(f"relevance={1.0 - float(dist):.2f}")
-        if neighbors > 0:
-            meta.append(f"connections={neighbors}")
-        if meta:
-            entry += f"  ({', '.join(meta)})"
-        parts.append(entry)
+        prov_short = _PROV_ABBREV.get(prov, prov[:4].upper())
+        relevance_pct = f"{(1.0 - float(dist)) * 100:.0f}%" if dist is not None else ""
+        meta = f"[{prov_short}|{relevance_pct}]" if relevance_pct else f"[{prov_short}]"
 
-    parts.append(
-        "\nUse these memories to resolve ambiguity, personalize responses, "
-        "and avoid wrong-entity execution."
-    )
+        parts.append(f"{i}. {text} {meta}")
+
+    parts.append("Use for ambiguity resolution and personalization.")
     content = "\n".join(parts)
 
     return SectionOutput(
