@@ -1021,6 +1021,54 @@ async def api_get_agent(agent_id: str):
     return agent
 
 
+# =====================================================
+#  Unhinged Demo Agent APIs (Phase 4 - DEMO_UNHINGED)
+# =====================================================
+
+@api_router.post("/agents/unhinged/create")
+async def api_create_unhinged_agent(request: Request):
+    """Create an unhinged demo agent.
+
+    Required fields: tenant.tenant_id, demo_sender (E.164 phone).
+    Optional: sandbox_mode (off/recommended/required), approved (bool), agent_id.
+    First call without approved=true returns an approval prompt.
+    """
+    from agents.builder import AgentBuilder
+    data = await request.json()
+    builder = AgentBuilder()
+    return await builder.create_unhinged_demo_agent(data)
+
+
+@api_router.post("/agents/unhinged/teardown")
+async def api_teardown_unhinged_agent(request: Request):
+    """Teardown an unhinged demo agent.
+
+    Required: agent_id.
+    Optional: mode (quick/full). Default: quick.
+    """
+    from agents.builder import AgentBuilder
+    data = await request.json()
+    builder = AgentBuilder()
+    return await builder.teardown_demo_agent(
+        agent_id=data.get("agent_id", ""),
+        mode=data.get("mode", "quick"),
+    )
+
+
+@api_router.get("/agents/unhinged/teardown-options")
+async def api_teardown_options():
+    """Get available teardown options for demo agents."""
+    from agents.unhinged import get_teardown_options
+    return get_teardown_options()
+
+
+@api_router.get("/agents/unhinged/test-suite/{agent_id}")
+async def api_unhinged_test_suite(agent_id: str, demo_sender: str = "+15555550123"):
+    """Get the 8-test validation suite for an unhinged agent."""
+    from agents.unhinged import get_test_suite
+    return {"agent_id": agent_id, "tests": get_test_suite(agent_id, demo_sender)}
+
+
 # Include REST router
 app.include_router(api_router)
 
