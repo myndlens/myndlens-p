@@ -210,9 +210,12 @@ async def bulk_import(req: BulkImportRequest):
     for r in req.routines:
         if not r.title:
             continue
-        meta = {"time": r.time, "frequency": r.frequency, "days": r.days,
+        meta = {"time": r.time, "frequency": r.frequency,
                 "duration_minutes": r.duration_minutes, "attendees": r.attendees,
                 "routine_type": r.routine_type, "import_source": r.import_source}
+        # Only include days if non-empty (ChromaDB rejects empty lists)
+        if r.days:
+            meta["days"] = r.days
         meta = {k: v for k, v in meta.items() if v}
 
         text_parts = [r.title]
@@ -231,11 +234,17 @@ async def bulk_import(req: BulkImportRequest):
 
     # Calendar patterns
     for p in req.patterns:
+        pattern_meta = {"pattern_type": p.pattern_type, "time": p.time, "frequency": p.frequency,
+                        "confidence": p.confidence}
+        # Only include days if non-empty (ChromaDB rejects empty lists)
+        if p.days:
+            pattern_meta["days"] = p.days
+        pattern_meta = {k: v for k, v in pattern_meta.items() if v or isinstance(v, (int, float))}
+        
         await store_fact(
             user_id=req.user_id, text=f"Pattern: {p.description}",
             fact_type="FACT", provenance="ONBOARDING_AUTO",
-            metadata={"pattern_type": p.pattern_type, "time": p.time, "frequency": p.frequency,
-                       "days": p.days, "confidence": p.confidence},
+            metadata=pattern_meta,
         )
         items_stored += 1
 
