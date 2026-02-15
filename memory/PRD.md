@@ -91,10 +91,24 @@
 - `GET /api/agents/list/{tenant_id}` — List tenant agents
 - `GET /api/agents/{agent_id}` — Get single agent
 
+### Prompt Versioning
+- `POST /api/prompt/versions` — Create new version
+- `GET /api/prompt/versions/{purpose}` — List versions
+- `GET /api/prompt/versions/{purpose}/active` — Active version
+- `GET /api/prompt/version/{version_id}` — Get specific version
+- `POST /api/prompt/versions/rollback` — Rollback to version
+- `POST /api/prompt/versions/compare` — Compare two versions
+
+### Per-User Optimization
+- `GET /api/user-profile/{user_id}` — Get user profile
+- `PUT /api/user-profile/{user_id}` — Update user profile
+- `POST /api/user-profile/{user_id}/learn` — Learn from outcomes
+- `GET /api/user-profile/{user_id}/adjustments` — Prompt adjustments
+
 ---
 
 ## EXISTING BLOCKERS
-- **ElevenLabs TTS**: API key lacks `text_to_speech` permission (BLOCKED)
+- ~~ElevenLabs TTS~~ — **RESOLVED** (working with valid API key)
 
 ## MOCKED COMPONENTS
 - ObeGee SSO pairing (dev mock)
