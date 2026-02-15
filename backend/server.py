@@ -953,6 +953,74 @@ async def api_policy_recommendations(days: int = 30):
     return await generate_policy_recommendations(days)
 
 
+# =====================================================
+#  Agent Builder APIs (Phase 4)
+# =====================================================
+
+@api_router.post("/agents/create")
+async def api_create_agent(request: Request):
+    """Create a new OpenClaw agent from structured intent."""
+    from agents.builder import AgentBuilder
+    data = await request.json()
+    builder = AgentBuilder()
+    return await builder.create_agent(data)
+
+
+@api_router.post("/agents/modify")
+async def api_modify_agent(request: Request):
+    """Modify an existing agent."""
+    from agents.builder import AgentBuilder
+    data = await request.json()
+    builder = AgentBuilder()
+    return await builder.modify_agent(data)
+
+
+@api_router.post("/agents/retire")
+async def api_retire_agent(request: Request):
+    """Retire an agent (soft or hard)."""
+    from agents.builder import AgentBuilder
+    data = await request.json()
+    builder = AgentBuilder()
+    return await builder.retire_agent(data)
+
+
+@api_router.post("/agents/delete")
+async def api_delete_agent(request: Request):
+    """Delete an agent (admin-only, irreversible)."""
+    from agents.builder import AgentBuilder
+    data = await request.json()
+    builder = AgentBuilder()
+    return await builder.delete_agent(data)
+
+
+@api_router.post("/agents/unretire")
+async def api_unretire_agent(request: Request):
+    """Restore a retired agent to active."""
+    from agents.builder import AgentBuilder
+    data = await request.json()
+    builder = AgentBuilder()
+    return await builder.unretire_agent(data)
+
+
+@api_router.get("/agents/list/{tenant_id}")
+async def api_list_agents(tenant_id: str, include_retired: bool = False):
+    """List agents for a tenant."""
+    from agents.builder import AgentBuilder
+    builder = AgentBuilder()
+    return await builder.list_agents(tenant_id, include_retired)
+
+
+@api_router.get("/agents/{agent_id}")
+async def api_get_agent(agent_id: str):
+    """Get a single agent by ID."""
+    from agents.builder import AgentBuilder
+    builder = AgentBuilder()
+    agent = await builder.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return agent
+
+
 # Include REST router
 app.include_router(api_router)
 
