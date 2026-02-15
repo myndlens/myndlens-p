@@ -142,6 +142,7 @@ class PromptOrchestrator:
             len(artifact.sections_excluded),
             artifact.total_tokens_est,
             stable_hash[:12],
+            adj_info,
         )
 
         return artifact, report
