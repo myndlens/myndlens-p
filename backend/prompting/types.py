@@ -92,6 +92,9 @@ class PromptContext:
     # Memory context
     memory_snippets: Optional[List[Dict[str, Any]]] = None
 
+    # Per-user optimization adjustments (from user_profiles)
+    user_adjustments: Optional[Dict[str, Any]] = None
+
 
 # ---- Prompt Artifact ----
 
