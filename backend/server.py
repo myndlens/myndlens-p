@@ -801,6 +801,140 @@ def _scan_for_rogue_prompts() -> dict:
     }
 
 
+# =====================================================
+#  Prompt Outcome Tracking & Analytics (Phase 1)
+# =====================================================
+
+class TrackOutcomeRequest(BaseModel):
+    prompt_id: str
+    purpose: str
+    session_id: str = "diagnostic"
+    user_id: str = "diagnostic"
+    result: str = "SUCCESS"
+    accuracy_score: float = 0.0
+    execution_success: bool = True
+    user_corrected: bool = False
+    latency_ms: float = 0.0
+    tokens_used: int = 0
+    sections_used: List[str] = []
+    model_name: str = ""
+
+
+@api_router.post("/prompt/track-outcome")
+async def api_track_outcome(req: TrackOutcomeRequest):
+    """Track the outcome of a prompt execution."""
+    from prompting.outcomes import PromptOutcome, OutcomeResult, track_outcome
+    outcome = PromptOutcome(
+        prompt_id=req.prompt_id,
+        purpose=req.purpose,
+        session_id=req.session_id,
+        user_id=req.user_id,
+        result=OutcomeResult(req.result),
+        accuracy_score=req.accuracy_score,
+        execution_success=req.execution_success,
+        user_corrected=req.user_corrected,
+        latency_ms=req.latency_ms,
+        tokens_used=req.tokens_used,
+        sections_used=req.sections_used,
+        model_name=req.model_name,
+    )
+    await track_outcome(outcome)
+    return {"status": "tracked", "prompt_id": req.prompt_id}
+
+
+class UserCorrectionRequest(BaseModel):
+    session_id: str
+    user_id: str
+    original_intent: str
+    corrected_intent: str
+    prompt_id: Optional[str] = None
+
+
+@api_router.post("/prompt/user-correction")
+async def api_user_correction(req: UserCorrectionRequest):
+    """Record a user correction for learning."""
+    from prompting.outcomes import track_user_correction
+    await track_user_correction(
+        session_id=req.session_id,
+        user_id=req.user_id,
+        original_intent=req.original_intent,
+        corrected_intent=req.corrected_intent,
+        prompt_id=req.prompt_id,
+    )
+    return {"status": "recorded"}
+
+
+@api_router.get("/prompt/analytics/{purpose}")
+async def api_purpose_analytics(purpose: str, days: int = 30):
+    """Get accuracy analytics for a specific purpose."""
+    from prompting.analytics import get_purpose_accuracy
+    return await get_purpose_accuracy(purpose, days)
+
+
+@api_router.get("/prompt/analytics")
+async def api_all_analytics(days: int = 30):
+    """Get optimization insights across all purposes."""
+    from prompting.analytics import get_optimization_insights
+    return await get_optimization_insights(days)
+
+
+@api_router.get("/prompt/section-effectiveness")
+async def api_section_effectiveness(days: int = 30):
+    """Get section effectiveness scores."""
+    from prompting.analytics import get_section_effectiveness
+    return await get_section_effectiveness(days)
+
+
+# =====================================================
+#  Dimension Extraction API (Phase 1)
+# =====================================================
+
+class DimensionExtractRequest(BaseModel):
+    session_id: str = "diagnostic"
+    user_id: str = "diagnostic"
+    transcript: str
+    l1_suggestions: Optional[dict] = None
+
+
+@api_router.post("/dimensions/extract")
+async def api_extract_dimensions(req: DimensionExtractRequest):
+    """Dedicated dimension extraction using DIMENSIONS_EXTRACT purpose."""
+    from dimensions.extractor import extract_dimensions_via_llm
+    result = await extract_dimensions_via_llm(
+        session_id=req.session_id,
+        user_id=req.user_id,
+        transcript=req.transcript,
+        l1_suggestions=req.l1_suggestions,
+    )
+    return result
+
+
+# =====================================================
+#  Experiment Framework APIs (Phase 2)
+# =====================================================
+
+@api_router.get("/prompt/experiments")
+async def api_list_experiments():
+    """List all prompt experiments."""
+    from prompting.experiments import list_experiments
+    return await list_experiments()
+
+
+@api_router.post("/prompt/experiments")
+async def api_create_experiment(request: Request):
+    """Create a new prompt experiment."""
+    from prompting.experiments import create_experiment
+    data = await request.json()
+    return await create_experiment(data)
+
+
+@api_router.get("/prompt/experiments/{experiment_id}/results")
+async def api_experiment_results(experiment_id: str):
+    """Get experiment results."""
+    from prompting.experiments import get_experiment_results
+    return await get_experiment_results(experiment_id)
+
+
 # Include REST router
 app.include_router(api_router)
 
