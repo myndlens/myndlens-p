@@ -105,7 +105,7 @@ async def save_onboarding_profile(profile: OnboardingProfile):
             await store_fact(
                 user_id=profile.user_id,
                 text=f"{name} is my {rel}",
-                fact_type="RELATIONSHIP",
+                fact_type="FACT",
                 provenance="ONBOARDING",
                 related_to=entity_id,
             )
