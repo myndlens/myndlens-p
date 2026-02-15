@@ -108,7 +108,10 @@ class PromptOrchestrator:
         stable_hash = compute_stable_hash(section_outputs)
         volatile_hash = compute_volatile_hash(section_outputs)
 
-        # 5. Build artifact
+        # 5. Build artifact — apply token budget modifier from user profile
+        raw_tokens = sum(s.tokens_est for s in section_outputs if s.included)
+        adjusted_tokens = int(raw_tokens * token_modifier)
+
         artifact = PromptArtifact(
             prompt_id=prompt_id,
             purpose=ctx.purpose,
@@ -121,14 +124,18 @@ class PromptOrchestrator:
             ],
             stable_hash=stable_hash,
             volatile_hash=volatile_hash,
-            total_tokens_est=sum(s.tokens_est for s in section_outputs if s.included),
+            total_tokens_est=adjusted_tokens,
         )
 
         # 6. Build report
         report = report_builder.build(stable_hash, volatile_hash)
 
+        adj_info = ""
+        if token_modifier != 1.0 or verbosity != "normal" or preferred_sections or excluded_sections:
+            adj_info = f" adj=[mod={token_modifier} verb={verbosity} pref={len(preferred_sections)} excl={len(excluded_sections)}]"
+
         logger.info(
-            "Prompt built: id=%s purpose=%s included=%d excluded=%d tokens=%d stable=%s",
+            "Prompt built: id=%s purpose=%s included=%d excluded=%d tokens=%d stable=%s%s",
             prompt_id,
             ctx.purpose.value,
             len(artifact.sections_included),
