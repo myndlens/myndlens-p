@@ -1,0 +1,86 @@
+{
+  "summary": "Comprehensive backend testing of DEMO_UNHINGED preset for MyndLens Agent Builder. All 20 tests passed with 100% success rate testing approval gates, profile creation (HOST_UNHINGED/SANDBOX_UNHINGED), soil templates, tools/channel config validation, bindings, duplicate handling, 8-test validation suite, teardown options and operations.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_demo_unhinged.py",
+    "/app/test_reports/pytest/unhinged_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POSITIVE: 2-step approval gate working correctly - returns APPROVAL_REQUIRED with warning prompt before agent creation",
+    "POSITIVE: SANDBOX_UNHINGED profile correctly includes Docker isolation config (mode=all, scope=agent)",
+    "POSITIVE: HOST_UNHINGED profile correctly has sandbox.mode=off with full tool access",
+    "POSITIVE: Soil files (SOUL.md, TOOLS.md, AGENTS.md) generated with correct content for each profile",
+    "POSITIVE: Tools config has profile=full, elevated=true with restricted allowFrom to demo_sender only",
+    "POSITIVE: Channel config has dmPolicy=allowlist with allowFrom restricted (no wildcard)",
+    "POSITIVE: Bindings correctly include agentId and peer with demo_sender",
+    "POSITIVE: Duplicate agent creation returns EXISTS status with existing_agent info",
+    "POSITIVE: Test suite endpoint returns exactly 8 tests as per spec",
+    "POSITIVE: Teardown options return both quick_disable and full_removal with steps",
+    "POSITIVE: Quick teardown disables elevated mode and clears allowFrom",
+    "POSITIVE: Full teardown retires agent with HARD_RETIRE policy",
+    "POSITIVE: Teardown validation correctly rejects non-DEMO_UNHINGED and non-existent agents"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_demo_unhinged.py"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20 tests passed)",
+    "frontend": "N/A - backend-only testing requested"
+  },
+  "seed_data_creation": "Test data created with TEST_ prefix for unhinged agents in MongoDB agents collection (tenant_id, agent_id patterns: TEST_tenant_*, TEST_sandbox_*, TEST_host_*, TEST_dup_*, TEST_tearq_*, TEST_tearf_*, etc.)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "DEMO_UNHINGED preset fully verified. Key endpoints tested: POST /api/agents/unhinged/create (approval gate, profile creation), POST /api/agents/unhinged/teardown (quick/full modes), GET /api/agents/unhinged/teardown-options, GET /api/agents/unhinged/test-suite/{agent_id}. Profiles: HOST_UNHINGED (sandbox_mode=off), SANDBOX_UNHINGED (sandbox_mode=recommended). Teardown modes: quick (disables allowFrom/elevated), full (HARD_RETIRE). All validation checks passed.",
+  "tested_features": {
+    "approval_gate": {
+      "POST /api/agents/unhinged/create without approved": "PASS - returns APPROVAL_REQUIRED with approval_prompt containing WARNING",
+      "POST /api/agents/unhinged/create without demo_sender": "PASS - returns BLOCKED",
+      "POST /api/agents/unhinged/create with empty demo_sender": "PASS - returns BLOCKED"
+    },
+    "sandbox_unhinged_profile": {
+      "Create with sandbox_mode=recommended": "PASS - creates SANDBOX_UNHINGED profile with Docker isolation",
+      "Soil files (SOUL.md, TOOLS.md, AGENTS.md)": "PASS - correct content mentioning Sandbox-Unhinged and Docker isolation",
+      "Tools config (profile=full, elevated=true, allowFrom)": "PASS - restricted to demo_sender only",
+      "Channel config (dmPolicy=allowlist, allowFrom)": "PASS - restricted to demo_sender, no wildcard",
+      "Bindings (agentId, peer with demo_sender)": "PASS - correct binding structure"
+    },
+    "host_unhinged_profile": {
+      "Create with sandbox_mode=off": "PASS - creates HOST_UNHINGED profile without sandbox",
+      "Soil files mention Host-Unhinged": "PASS - AGENTS.md mentions Host-Unhinged and Sandboxed: No"
+    },
+    "duplicate_handling": {
+      "Duplicate agent_id creation": "PASS - returns EXISTS status with existing_agent info"
+    },
+    "test_suite": {
+      "GET /api/agents/unhinged/test-suite/{agent_id}": "PASS - returns exactly 8 tests (smoke_test, tool_surface, web_research, file_operations, shell_execution, browser_automation, cron_scheduling, destructive_confirmation)"
+    },
+    "teardown_options": {
+      "GET /api/agents/unhinged/teardown-options": "PASS - returns quick_disable and full_removal with descriptions and steps"
+    },
+    "teardown_operations": {
+      "POST /api/agents/unhinged/teardown mode=quick": "PASS - disables elevated, clears allowFrom, agent still exists",
+      "POST /api/agents/unhinged/teardown mode=full": "PASS - retires agent with HARD_RETIRE, status becomes RETIRED"
+    },
+    "teardown_validation": {
+      "Teardown non-existent agent": "PASS - returns FAILURE with 'not found' message",
+      "Teardown non-DEMO_UNHINGED agent": "PASS - returns FAILURE with 'not a DEMO_UNHINGED' message"
+    },
+    "approval_prompt_content": {
+      "Sandbox prompt mentions Docker": "PASS - approval_prompt mentions Docker/sandbox/isolated",
+      "Host prompt warns higher risk": "PASS - approval_prompt mentions host/HIGHER RISK"
+    },
+    "validation_integrity": {
+      "Created agent passes validation": "PASS - validation.passed=true, checks_run > 0, no issues"
+    }
+  },
+  "mocked_apis_confirmed": {}
+}
