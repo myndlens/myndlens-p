@@ -137,6 +137,5 @@
 
 ## REMAINING BACKLOG
 - Production deployment via ObeGee DAI
-- Wire user profile adjustments into PromptOrchestrator (close feedback loop)
 - User profile decay (reduce confidence of stale data)
 - Prompt version auto-promotion from experiments
