@@ -45,26 +45,50 @@ class PromptOrchestrator:
         """Build a PromptArtifact + PromptReport from context.
         
         This is the ONLY entry point for prompt construction.
+        Applies per-user adjustments when user_adjustments is provided.
         """
         prompt_id = str(uuid.uuid4())
         report_builder = PromptReportBuilder(prompt_id, ctx.purpose, ctx.mode)
+
+        # Extract user adjustments
+        adj = ctx.user_adjustments or {}
+        preferred_sections = set(adj.get("preferred_sections", []))
+        excluded_sections = set(adj.get("excluded_sections", []))
+        token_modifier = adj.get("token_budget_modifier", 1.0)
+        verbosity = adj.get("verbosity", "normal")
 
         # 1. Resolve which sections to include/exclude
         section_outputs: List[SectionOutput] = []
 
         for section_id in SectionID:
+            # User-level exclusion overrides policy (only for optional sections)
+            if section_id.value in excluded_sections:
+                report_builder.add_excluded_section(section_id, "Excluded by user profile")
+                continue
+
             included, gating_reason = self._engine.should_include_section(
                 ctx.purpose, section_id
             )
 
+            # User-level preference: promote optional sections that the user benefits from
+            if not included and section_id.value in preferred_sections:
+                # Only promote if not banned by policy
+                policy = self._engine.get_policy(ctx.purpose)
+                if section_id not in policy.banned_sections and self._registry.has(section_id):
+                    included = True
+                    gating_reason = None
+
             if included and self._registry.has(section_id):
-                # Generate section content
                 output = self._registry.generate(section_id, ctx)
+                # Apply verbosity adjustment to token estimates
+                if verbosity == "detailed" and output.cache_class == CacheClass.VOLATILE:
+                    output.tokens_est = int(output.tokens_est * 1.3)
+                elif verbosity == "concise" and output.cache_class == CacheClass.VOLATILE:
+                    output.tokens_est = int(output.tokens_est * 0.7)
                 output.included = True
                 section_outputs.append(output)
                 report_builder.add_section(output)
             else:
-                # Section excluded or not registered
                 reason = gating_reason or "Generator not registered"
                 if included and not self._registry.has(section_id):
                     reason = f"Generator not registered for {section_id.value}"
