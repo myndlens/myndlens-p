@@ -1069,6 +1069,108 @@ async def api_unhinged_test_suite(agent_id: str, demo_sender: str = "+1555555012
     return {"agent_id": agent_id, "tests": get_test_suite(agent_id, demo_sender)}
 
 
+# =====================================================
+#  Prompt Versioning APIs
+# =====================================================
+
+class CreateVersionRequest(BaseModel):
+    purpose: str
+    config: dict
+    author: str = "system"
+    change_description: str = ""
+
+
+@api_router.post("/prompt/versions")
+async def api_create_version(req: CreateVersionRequest):
+    """Create a new version of a prompt configuration."""
+    from prompting.versioning import create_version
+    return await create_version(req.purpose, req.config, req.author, req.change_description)
+
+
+@api_router.get("/prompt/versions/{purpose}")
+async def api_list_versions(purpose: str, limit: int = 20):
+    """List all versions for a purpose."""
+    from prompting.versioning import list_versions
+    return await list_versions(purpose, limit)
+
+
+@api_router.get("/prompt/versions/{purpose}/active")
+async def api_active_version(purpose: str):
+    """Get the active version for a purpose."""
+    from prompting.versioning import get_active_version
+    result = await get_active_version(purpose)
+    if not result:
+        return {"purpose": purpose, "active": False, "message": "No active version"}
+    return result
+
+
+@api_router.get("/prompt/version/{version_id}")
+async def api_get_version(version_id: str):
+    """Get a specific version by ID."""
+    from prompting.versioning import get_version
+    result = await get_version(version_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Version not found")
+    return result
+
+
+class RollbackRequest(BaseModel):
+    version_id: str
+    author: str = "system"
+
+
+@api_router.post("/prompt/versions/rollback")
+async def api_rollback_version(req: RollbackRequest):
+    """Rollback to a specific version."""
+    from prompting.versioning import rollback_to_version
+    return await rollback_to_version(req.version_id, req.author)
+
+
+class CompareRequest(BaseModel):
+    version_id_a: str
+    version_id_b: str
+
+
+@api_router.post("/prompt/versions/compare")
+async def api_compare_versions(req: CompareRequest):
+    """Compare two versions."""
+    from prompting.versioning import compare_versions
+    return await compare_versions(req.version_id_a, req.version_id_b)
+
+
+# =====================================================
+#  Per-User Optimization Profile APIs
+# =====================================================
+
+@api_router.get("/user-profile/{user_id}")
+async def api_get_user_profile(user_id: str):
+    """Get a user's optimization profile."""
+    from prompting.user_profiles import get_user_profile
+    return await get_user_profile(user_id)
+
+
+@api_router.put("/user-profile/{user_id}")
+async def api_update_user_profile(user_id: str, request: Request):
+    """Update a user's optimization profile."""
+    from prompting.user_profiles import update_user_profile
+    data = await request.json()
+    return await update_user_profile(user_id, data)
+
+
+@api_router.post("/user-profile/{user_id}/learn")
+async def api_learn_user_profile(user_id: str, days: int = 30):
+    """Analyze outcomes and generate profile recommendations for a user."""
+    from prompting.user_profiles import learn_from_outcomes
+    return await learn_from_outcomes(user_id, days)
+
+
+@api_router.get("/user-profile/{user_id}/adjustments")
+async def api_user_adjustments(user_id: str):
+    """Get prompt adjustments for a user (used by orchestrator)."""
+    from prompting.user_profiles import get_prompt_adjustments
+    return await get_prompt_adjustments(user_id)
+
+
 # Include REST router
 app.include_router(api_router)
 
