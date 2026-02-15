@@ -105,6 +105,24 @@
 - `POST /api/user-profile/{user_id}/learn` — Learn from outcomes
 - `GET /api/user-profile/{user_id}/adjustments` — Prompt adjustments
 
+### Optimization Scheduler
+- `POST /api/optimization/run` — Manual optimization cycle
+- `POST /api/optimization/scheduler/start` — Start background scheduler
+- `POST /api/optimization/scheduler/stop` — Stop scheduler
+- `GET /api/optimization/scheduler/status` — Scheduler status
+- `GET /api/optimization/runs` — List run history
+
+### Workspace File I/O
+- `POST /api/workspace/create` — Create workspace with soil files
+- `GET /api/workspace/{id}/files` — List workspace files
+- `GET /api/workspace/{id}/file/{name}` — Read file
+- `PUT /api/workspace/{id}/file/{name}` — Write/overwrite file
+- `DELETE /api/workspace/{id}/file/{name}` — Delete file
+- `GET /api/workspace/{id}/stats` — Workspace stats
+- `POST /api/workspace/{id}/archive` — Archive workspace
+- `DELETE /api/workspace/{id}` — Delete workspace
+- `GET /api/workspace/archives` — List archives
+
 ---
 
 ## EXISTING BLOCKERS
@@ -117,10 +135,8 @@
 
 ---
 
-## REMAINING BACKLOG (P2/P3)
-- Prompt versioning with full rollback
-- Per-user optimization profiles
-- Automated optimization job (scheduled)
-- Unhinged demo agent presets (DEMO_UNHINGED)
-- Agent workspace file management (actual file I/O)
+## REMAINING BACKLOG
 - Production deployment via ObeGee DAI
+- Wire user profile adjustments into PromptOrchestrator (close feedback loop)
+- User profile decay (reduce confidence of stale data)
+- Prompt version auto-promotion from experiments
