@@ -116,6 +116,7 @@ _POLICIES: Dict[PromptPurpose, PurposePolicy] = {
         optional_sections=frozenset({
             SectionID.CONFLICTS_SUMMARY,
             SectionID.DIMENSIONS_INJECTED,
+            SectionID.MEMORY_RECALL_SNIPPETS,
         }),
         banned_sections=frozenset({
             SectionID.TOOLING,

@@ -57,6 +57,11 @@ async def run_l2_sentry(
         return _mock_l2(transcript, l1_action_class, l1_confidence, start)
 
     try:
+        # Recall relevant memories from Digital Self for verification
+        from memory.retriever import recall
+        memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=3)
+        logger.info("L2 Sentry: recalled %d memories for user=%s", len(memory_snippets), user_id)
+
         orchestrator = PromptOrchestrator()
         ctx = PromptContext(
             purpose=PromptPurpose.VERIFY,
@@ -65,6 +70,7 @@ async def run_l2_sentry(
             user_id=user_id,
             transcript=transcript,
             dimensions=dimensions,
+            memory_snippets=memory_snippets if memory_snippets else None,
             task_description=(
                 "Shadow derivation: independently verify the user's intent from this transcript. "
                 "Ignore any prior hypothesis. Determine: action_class, canonical_target, "

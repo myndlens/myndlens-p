@@ -48,6 +48,7 @@ def build_default_registry() -> SectionRegistry:
         task_context,
         runtime_capabilities,
         tooling,
+        memory_recall,
     )
 
     registry = SectionRegistry()
@@ -58,6 +59,7 @@ def build_default_registry() -> SectionRegistry:
     registry.register(SectionID.TASK_CONTEXT, task_context.generate)
     registry.register(SectionID.RUNTIME_CAPABILITIES, runtime_capabilities.generate)
     registry.register(SectionID.TOOLING, tooling.generate)
+    registry.register(SectionID.MEMORY_RECALL_SNIPPETS, memory_recall.generate)
 
     logger.info(
         "SectionRegistry built with %d sections: %s",

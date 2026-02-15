@@ -53,6 +53,11 @@ async def run_l1_scout(
         return _mock_l1(transcript, start)
 
     try:
+        # Recall relevant memories from Digital Self
+        from memory.retriever import recall
+        memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=3)
+        logger.info("L1 Scout: recalled %d memories for user=%s", len(memory_snippets), user_id)
+
         # Build prompt via orchestrator
         orchestrator = PromptOrchestrator()
         ctx = PromptContext(
@@ -61,6 +66,7 @@ async def run_l1_scout(
             session_id=session_id,
             user_id=user_id,
             transcript=transcript,
+            memory_snippets=memory_snippets if memory_snippets else None,
         )
         artifact, report = orchestrator.build(ctx)
         await save_prompt_snapshot(report)
