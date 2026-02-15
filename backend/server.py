@@ -804,6 +804,10 @@ def _scan_for_rogue_prompts() -> dict:
 # Include REST router
 app.include_router(api_router)
 
+# Include onboarding API router
+from api.onboarding import router as onboarding_router
+app.include_router(onboarding_router, prefix="/api")
+
 
 # =====================================================
 #  WebSocket Endpoint
