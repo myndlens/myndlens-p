@@ -66,6 +66,13 @@ CALL_SITES: Dict[str, CallSite] = {
         description="LLM-based memory reranking (if needed). Read-only.",
         status="reserved",
     ),
+    "DIMENSION_EXTRACTOR": CallSite(
+        call_site_id="DIMENSION_EXTRACTOR",
+        allowed_purposes=frozenset({PromptPurpose.DIMENSIONS_EXTRACT}),
+        owner_module="dimensions.extractor",
+        description="Dedicated dimension extraction with Digital Self integration.",
+        status="active",
+    ),
     "SUBAGENT_TASK": CallSite(
         call_site_id="SUBAGENT_TASK",
         allowed_purposes=frozenset({PromptPurpose.SUBAGENT_TASK}),
