@@ -58,6 +58,10 @@ async def run_l1_scout(
         memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=3)
         logger.info("L1 Scout: recalled %d memories for user=%s", len(memory_snippets), user_id)
 
+        # Fetch per-user optimization adjustments
+        from prompting.user_profiles import get_prompt_adjustments
+        user_adjustments = await get_prompt_adjustments(user_id)
+
         # Build prompt via orchestrator
         orchestrator = PromptOrchestrator()
         ctx = PromptContext(
@@ -67,6 +71,7 @@ async def run_l1_scout(
             user_id=user_id,
             transcript=transcript,
             memory_snippets=memory_snippets if memory_snippets else None,
+            user_adjustments=user_adjustments,
         )
         artifact, report = orchestrator.build(ctx)
         await save_prompt_snapshot(report)
