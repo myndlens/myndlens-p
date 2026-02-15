@@ -935,6 +935,24 @@ async def api_experiment_results(experiment_id: str):
     return await get_experiment_results(experiment_id)
 
 
+# =====================================================
+#  Adaptive Policy Engine (Phase 3)
+# =====================================================
+
+@api_router.get("/prompt/adaptive-insights")
+async def api_adaptive_insights():
+    """Get adaptive policy insights and recommendations."""
+    from prompting.policy.adaptive import get_adaptive_insights
+    return await get_adaptive_insights()
+
+
+@api_router.get("/prompt/policy-recommendations")
+async def api_policy_recommendations(days: int = 30):
+    """Get policy adjustment recommendations based on outcome data."""
+    from prompting.policy.adaptive import generate_policy_recommendations
+    return await generate_policy_recommendations(days)
+
+
 # Include REST router
 app.include_router(api_router)
 
