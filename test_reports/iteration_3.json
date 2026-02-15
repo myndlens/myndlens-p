@@ -1,0 +1,61 @@
+{
+  "summary": "Backend testing of MyndLens Prompt Versioning and Per-User Optimization Profiles. All 23 tests passed with 100% success rate. Features tested: version creation with auto-increment, previous version deactivation, version listing (newest first), active version retrieval, specific version retrieval, rollback to create new version (preserves numbering), version comparison (added/removed/changed/identical), user profile defaults for new users, profile updates with upsert, learning from outcomes (verbosity adjustment for high corrections, token budget adjustment for low accuracy, preferred sections identification), and prompt adjustments for orchestrator.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_prompt_versioning_user_profiles.py",
+    "/app/test_reports/pytest/versioning_user_profiles_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POSITIVE: Version auto-increment works correctly - each new version for a purpose gets incremented version number",
+    "POSITIVE: Previous active version is deactivated when new version is created (single active per purpose)",
+    "POSITIVE: Rollback creates NEW version with target config (does not modify existing versions) - preserves audit trail",
+    "POSITIVE: Version comparison correctly identifies added/removed/changed keys with from/to values",
+    "POSITIVE: User profile defaults are returned for new users via get_user_profile",
+    "POSITIVE: learn_from_outcomes correctly analyzes outcome data and applies profile updates (verbosity, token_budget_modifier, preferred_sections)",
+    "POSITIVE: High correction rate (>30%) triggers verbosity=detailed recommendation",
+    "POSITIVE: Low accuracy (<0.6) with low tokens (<3000) triggers token_budget_modifier=1.3 increase",
+    "POSITIVE: Section effectiveness analysis identifies preferred sections (>0.8 accuracy, >=3 uses)",
+    "POSITIVE: get_prompt_adjustments returns orchestrator-ready format with token_budget_modifier, verbosity, preferred/excluded sections, expertise_level",
+    "NOTE: User profile update returns only set fields (MongoDB upsert behavior), GET returns defaults for completely new users only - this is valid sparse document pattern"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_prompt_versioning_user_profiles.py"
+  ],
+  "success_rate": {
+    "backend": "100% (23/23 tests passed)",
+    "frontend": "N/A - backend-only testing requested"
+  },
+  "seed_data_creation": "Test data created with TEST_ prefix in MongoDB collections: prompt_versions (per-purpose with unique TEST_purpose_* and TEST_edge_* and TEST_hash_* names), user_profiles (TEST_user_*, TEST_highcorr_*, TEST_lowacc_*, TEST_sections_*, TEST_newuser_*, TEST_adjnew_*), prompt_outcomes (seeded for learn tests)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Prompt Versioning and Per-User Profiles fully verified. Key endpoints: POST /api/prompt/versions (create), GET /api/prompt/versions/{purpose} (list), GET /api/prompt/versions/{purpose}/active, GET /api/prompt/version/{version_id}, POST /api/prompt/versions/rollback, POST /api/prompt/versions/compare, GET /api/user-profile/{user_id}, PUT /api/user-profile/{user_id}, POST /api/user-profile/{user_id}/learn, GET /api/user-profile/{user_id}/adjustments. MongoDB collections: prompt_versions, user_profiles, prompt_outcomes. For learn_from_outcomes testing: first seed outcomes via POST /api/prompt/track-outcome with specific user_id, then call POST /api/user-profile/{user_id}/learn.",
+  "tested_features": {
+    "prompt_versioning": {
+      "POST /api/prompt/versions": "PASS - creates version with auto-increment, deactivates previous active",
+      "GET /api/prompt/versions/{purpose}": "PASS - lists versions newest first (descending by version number)",
+      "GET /api/prompt/versions/{purpose}/active": "PASS - returns active version or 'no active' indicator",
+      "GET /api/prompt/version/{version_id}": "PASS - returns specific version, 404 for non-existent",
+      "POST /api/prompt/versions/rollback": "PASS - creates new version from target config, preserves numbering, FAILURE for non-existent",
+      "POST /api/prompt/versions/compare": "PASS - shows diff (added/removed/changed), identical=true for same configs, FAILURE for non-existent"
+    },
+    "per_user_profiles": {
+      "GET /api/user-profile/{user_id}": "PASS - returns default profile for new users",
+      "PUT /api/user-profile/{user_id}": "PASS - updates specific fields, upserts if not exists",
+      "POST /api/user-profile/{user_id}/learn": "PASS - analyzes outcomes, generates recommendations, applies profile updates",
+      "Verbosity adjustment": "PASS - high correction rate (>30%) triggers verbosity=detailed",
+      "Token budget adjustment": "PASS - low accuracy (<0.6) + low tokens (<3000) triggers modifier=1.3",
+      "Preferred sections": "PASS - identifies sections with >0.8 accuracy and >=3 uses",
+      "GET /api/user-profile/{user_id}/adjustments": "PASS - returns orchestrator-ready prompt adjustments"
+    }
+  },
+  "mocked_apis_confirmed": {}
+}
