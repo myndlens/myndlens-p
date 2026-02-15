@@ -46,6 +46,10 @@
 - **State Machine**: ACTIVE ↔ RETIRED → DELETED (irreversible).
 - **Safety Gates**: Sensitive tools require explicit approval, DELETE requires admin_only flag.
 - **Archive on Delete**: Workspace archived by default, not destroyed.
+- **DEMO_UNHINGED Presets**: Two profiles per ObeGee spec:
+  - Profile A (HOST_UNHINGED): Full tool access, runs on host
+  - Profile B (SANDBOX_UNHINGED): Docker-isolated, recommended
+  - 2-step approval gate, soil templates, 8-test validation suite, teardown options
 
 ---
 
