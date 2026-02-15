@@ -139,3 +139,4 @@
 - Production deployment via ObeGee DAI
 - User profile decay (reduce confidence of stale data)
 - Prompt version auto-promotion from experiments
+- On-device LLM upgrade (ONNX Runtime) if heuristics insufficient
