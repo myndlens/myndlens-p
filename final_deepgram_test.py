@@ -13,7 +13,7 @@ import struct
 import websocket
 import threading
 
-BACKEND_URL = "https://voice-assistant-dev.preview.emergentagent.com"
+BACKEND_URL = "https://myndlens-preview.preview.emergentagent.com"
 
 class DeepgramTester:
     def __init__(self):

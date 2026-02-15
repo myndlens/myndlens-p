@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Backend URL from frontend .env
-BASE_URL = "https://voice-assistant-dev.preview.emergentagent.com"
+BASE_URL = "https://myndlens-preview.preview.emergentagent.com"
 API_URL = f"{BASE_URL}/api"
 WS_URL = f"wss://voice-assistant-dev.preview.emergentagent.com/api/ws"
 

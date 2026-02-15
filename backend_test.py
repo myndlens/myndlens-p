@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 # Test Configuration
-BACKEND_URL = "https://voice-assistant-dev.preview.emergentagent.com"
+BACKEND_URL = "https://myndlens-preview.preview.emergentagent.com"
 WS_URL = "wss://voice-assistant-dev.preview.emergentagent.com/api/ws"
 API_BASE = f"{BACKEND_URL}/api"
 
