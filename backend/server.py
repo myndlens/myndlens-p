@@ -1171,6 +1171,131 @@ async def api_user_adjustments(user_id: str):
     return await get_prompt_adjustments(user_id)
 
 
+# =====================================================
+#  Optimization Scheduler APIs
+# =====================================================
+
+@api_router.post("/optimization/run")
+async def api_run_optimization(days: int = 7):
+    """Trigger a manual optimization cycle."""
+    from prompting.optimizer_job import run_optimization_cycle
+    return await run_optimization_cycle(days)
+
+
+@api_router.post("/optimization/scheduler/start")
+async def api_start_scheduler(interval_seconds: int = 3600):
+    """Start the background optimization scheduler."""
+    from prompting.optimizer_job import start_scheduler
+    return start_scheduler(interval_seconds)
+
+
+@api_router.post("/optimization/scheduler/stop")
+async def api_stop_scheduler():
+    """Stop the background optimization scheduler."""
+    from prompting.optimizer_job import stop_scheduler
+    return stop_scheduler()
+
+
+@api_router.get("/optimization/scheduler/status")
+async def api_scheduler_status():
+    """Get scheduler status."""
+    from prompting.optimizer_job import get_scheduler_status
+    return get_scheduler_status()
+
+
+@api_router.get("/optimization/runs")
+async def api_optimization_runs(limit: int = 10):
+    """List recent optimization runs."""
+    from prompting.optimizer_job import list_runs
+    return await list_runs(limit)
+
+
+# =====================================================
+#  Agent Workspace File I/O APIs
+# =====================================================
+
+class WorkspaceCreateRequest(BaseModel):
+    agent_id: str
+    soil: dict
+
+
+@api_router.post("/workspace/create")
+async def api_create_workspace(req: WorkspaceCreateRequest):
+    """Create a workspace with soil files."""
+    from agents.workspace import create_workspace
+    return create_workspace(req.agent_id, req.soil)
+
+
+@api_router.get("/workspace/{agent_id}/files")
+async def api_list_workspace_files(agent_id: str):
+    """List files in an agent's workspace."""
+    from agents.workspace import list_files
+    return list_files(agent_id)
+
+
+@api_router.get("/workspace/{agent_id}/file/{filename}")
+async def api_read_workspace_file(agent_id: str, filename: str):
+    """Read a file from an agent's workspace."""
+    from agents.workspace import read_file
+    content = read_file(agent_id, filename)
+    if content is None:
+        raise HTTPException(status_code=404, detail=f"File '{filename}' not found")
+    return {"agent_id": agent_id, "filename": filename, "content": content}
+
+
+class WriteFileRequest(BaseModel):
+    content: str
+
+
+@api_router.put("/workspace/{agent_id}/file/{filename}")
+async def api_write_workspace_file(agent_id: str, filename: str, req: WriteFileRequest):
+    """Write or overwrite a file in an agent's workspace."""
+    from agents.workspace import write_file
+    return write_file(agent_id, filename, req.content)
+
+
+@api_router.delete("/workspace/{agent_id}/file/{filename}")
+async def api_delete_workspace_file(agent_id: str, filename: str):
+    """Delete a file from an agent's workspace."""
+    from agents.workspace import delete_file
+    if not delete_file(agent_id, filename):
+        raise HTTPException(status_code=404, detail=f"File '{filename}' not found")
+    return {"status": "deleted", "agent_id": agent_id, "filename": filename}
+
+
+@api_router.get("/workspace/{agent_id}/stats")
+async def api_workspace_stats(agent_id: str):
+    """Get workspace statistics."""
+    from agents.workspace import get_workspace_stats
+    return get_workspace_stats(agent_id)
+
+
+@api_router.post("/workspace/{agent_id}/archive")
+async def api_archive_workspace(agent_id: str):
+    """Archive a workspace."""
+    from agents.workspace import archive_workspace
+    path = archive_workspace(agent_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    return {"status": "archived", "agent_id": agent_id, "archive_path": path}
+
+
+@api_router.delete("/workspace/{agent_id}")
+async def api_delete_workspace(agent_id: str):
+    """Permanently delete a workspace."""
+    from agents.workspace import delete_workspace
+    if not delete_workspace(agent_id):
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    return {"status": "deleted", "agent_id": agent_id}
+
+
+@api_router.get("/workspace/archives")
+async def api_list_archives():
+    """List archived workspaces."""
+    from agents.workspace import list_archived_workspaces
+    return list_archived_workspaces()
+
+
 # Include REST router
 app.include_router(api_router)
 
