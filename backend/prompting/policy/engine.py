@@ -38,12 +38,12 @@ _POLICIES: Dict[PromptPurpose, PurposePolicy] = {
         }),
         optional_sections=frozenset({
             SectionID.MEMORY_RECALL_SNIPPETS,
-            SectionID.SAFETY_GUARDRAILS,
         }),
         banned_sections=frozenset({
             SectionID.TOOLING,
             SectionID.SKILLS_INDEX,
             SectionID.WORKSPACE_BOOTSTRAP,
+            SectionID.SAFETY_GUARDRAILS,
         }),
         allowed_tools=frozenset(),
         token_budget=4096,
@@ -65,6 +65,7 @@ _POLICIES: Dict[PromptPurpose, PurposePolicy] = {
             SectionID.RUNTIME_CAPABILITIES,
             SectionID.DIMENSIONS_INJECTED,
             SectionID.CONFLICTS_SUMMARY,
+            SectionID.SAFETY_GUARDRAILS,
         }),
         allowed_tools=frozenset(),  # NO tools for extraction
         token_budget=4096,
@@ -121,6 +122,7 @@ _POLICIES: Dict[PromptPurpose, PurposePolicy] = {
         banned_sections=frozenset({
             SectionID.TOOLING,
             SectionID.SKILLS_INDEX,
+            SectionID.SAFETY_GUARDRAILS,
         }),
         allowed_tools=frozenset(),
         token_budget=4096,
@@ -153,6 +155,7 @@ _POLICIES: Dict[PromptPurpose, PurposePolicy] = {
         banned_sections=frozenset({
             SectionID.TOOLING,
             SectionID.SKILLS_INDEX,
+            SectionID.SAFETY_GUARDRAILS,
         }),
         allowed_tools=frozenset(),
         token_budget=2048,
