@@ -96,6 +96,138 @@ class AgentBuilder:
         logger.info("Agent created: %s (%s)", agent_id, agent["name"])
         return report
 
+    async def create_unhinged_demo_agent(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        """Create an unhinged demo agent using preset profiles.
+
+        Requires explicit approval and a demo_sender phone number.
+        Supports two profiles: HOST_UNHINGED and SANDBOX_UNHINGED (recommended).
+        """
+        from agents.unhinged import (
+            build_host_unhinged_config,
+            build_sandbox_unhinged_config,
+            generate_approval_prompt,
+            validate_unhinged_config,
+            get_test_suite,
+        )
+
+        db = get_db()
+        tenant = intent.get("tenant", {})
+        tenant_id = tenant.get("tenant_id", "")
+        demo_sender = intent.get("demo_sender", "")
+        profile = intent.get("sandbox_mode", "recommended")
+        approved = intent.get("approved", False)
+        agent_id = intent.get("agent_id", "unhinged")
+
+        if not demo_sender:
+            return {"status": "BLOCKED", "message": "demo_sender phone number is required (E.164 format)"}
+
+        # Generate approval prompt if not yet approved
+        if not approved:
+            use_profile = "SANDBOX_UNHINGED" if profile in ("recommended", "required", "SANDBOX_UNHINGED") else "HOST_UNHINGED"
+            return {
+                "status": "APPROVAL_REQUIRED",
+                "approval_prompt": generate_approval_prompt(use_profile),
+                "profile": use_profile,
+                "demo_sender": demo_sender,
+                "message": "Explicit approval required before creating unhinged agent. Resend with approved=true.",
+            }
+
+        # Build config based on profile
+        if profile in ("off", "HOST_UNHINGED"):
+            config = build_host_unhinged_config(agent_id, demo_sender, tenant_id)
+        else:
+            config = build_sandbox_unhinged_config(agent_id, demo_sender, tenant_id)
+
+        # Validate
+        validation = validate_unhinged_config(config)
+        if not validation["passed"]:
+            return {"status": "BLOCKED", "message": "Validation failed", "validation": validation}
+
+        # Check if agent already exists
+        existing = await db.agents.find_one({"agent_id": agent_id}, {"_id": 0})
+        if existing:
+            return {
+                "status": "EXISTS",
+                "message": f"Agent '{agent_id}' already exists. Delete or use a different ID.",
+                "existing_agent": {"agent_id": existing["agent_id"], "status": existing.get("status")},
+            }
+
+        # Persist
+        await db.agents.insert_one(config)
+        config.pop("_id", None)
+
+        # Build report
+        test_suite = get_test_suite(agent_id, demo_sender)
+        report = {
+            "status": "SUCCESS",
+            "agent_id": agent_id,
+            "operation": "CREATE_UNHINGED",
+            "profile": config.get("profile"),
+            "sandbox": config.get("sandbox"),
+            "writes": [
+                f"{config['workspace']}/SOUL.md",
+                f"{config['workspace']}/TOOLS.md",
+                f"{config['workspace']}/AGENTS.md",
+            ],
+            "validation": validation,
+            "test_suite": test_suite,
+            "teardown_info": "Use POST /api/agents/unhinged/teardown to disable or remove after demo",
+            "agent": config,
+        }
+
+        logger.info(
+            "Unhinged demo agent created: %s profile=%s sender=%s",
+            agent_id, config.get("profile"), demo_sender,
+        )
+        return report
+
+    async def teardown_demo_agent(self, agent_id: str, mode: str = "quick") -> Dict[str, Any]:
+        """Teardown an unhinged demo agent.
+
+        Modes:
+          - quick: Remove sender from allowlist (agent stays but is unreachable)
+          - full: Retire + archive the agent completely
+        """
+        db = get_db()
+        agent = await db.agents.find_one({"agent_id": agent_id}, {"_id": 0})
+        if not agent:
+            return {"status": "FAILURE", "message": f"Agent '{agent_id}' not found"}
+        if agent.get("preset") != "DEMO_UNHINGED":
+            return {"status": "FAILURE", "message": f"Agent '{agent_id}' is not a DEMO_UNHINGED agent"}
+
+        if mode == "quick":
+            # Remove sender from allowlist
+            await db.agents.update_one(
+                {"agent_id": agent_id},
+                {"$set": {
+                    "channels.whatsapp.allowFrom": [],
+                    "tools.elevated.enabled": False,
+                    "updated_at": datetime.now(timezone.utc),
+                }},
+            )
+            logger.info("Unhinged agent quick-disabled: %s", agent_id)
+            return {
+                "status": "SUCCESS",
+                "agent_id": agent_id,
+                "operation": "TEARDOWN_QUICK",
+                "message": "Sender removed from allowlist, elevated mode disabled",
+            }
+        else:
+            # Full removal: retire then archive
+            retire_result = await self.retire_agent({
+                "agent_ref": {"id": agent_id},
+                "retire_policy": {"mode": "HARD_RETIRE", "stop_cron": True, "remove_bindings": True, "tool_lockdown": True},
+                "reason": "Demo completed — teardown",
+            })
+            logger.info("Unhinged agent fully torn down: %s", agent_id)
+            return {
+                "status": "SUCCESS",
+                "agent_id": agent_id,
+                "operation": "TEARDOWN_FULL",
+                "retire_result": retire_result,
+                "message": "Agent retired, tools locked, bindings removed",
+            }
+
     async def modify_agent(self, intent: Dict[str, Any]) -> Dict[str, Any]:
         """Modify an existing agent."""
         db = get_db()
