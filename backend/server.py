@@ -1307,6 +1307,10 @@ app.include_router(onboarding_router, prefix="/api")
 from api.dashboard_mock import router as dashboard_router
 app.include_router(dashboard_router, prefix="/api")
 
+# Include setup wizard API router (dev only)
+from api.setup_wizard import router as setup_router
+app.include_router(setup_router, prefix="/api")
+
 
 # =====================================================
 #  WebSocket Endpoint
