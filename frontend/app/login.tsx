@@ -144,6 +144,9 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
           <Text style={styles.footerHint}>Secure sign-in via ObeGee</Text>
+          <TouchableOpacity onPress={() => router.push('/setup')} style={{ marginTop: 16, paddingVertical: 8 }} data-testid="new-user-setup-btn">
+            <Text style={{ color: '#6C63FF', fontSize: 15, textAlign: 'center' }}>New User? Set up your workspace</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </KeyboardAvoidingView>
