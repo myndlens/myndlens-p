@@ -38,6 +38,7 @@ export default function TalkScreen() {
   const [textInput, setTextInput] = React.useState('');
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
   const [pendingDraftId, setPendingDraftId] = React.useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = React.useState(false);
   const micAnim = useRef(new Animated.Value(1)).current;
 
   // Mic pulse
@@ -181,10 +182,36 @@ export default function TalkScreen() {
         <View style={styles.topBar}>
           <View style={[styles.dot, { backgroundColor: connectionDot }]} />
           <View style={{ flex: 1 }} />
-          <TouchableOpacity onPress={() => router.push('/settings')} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
-            <Text style={styles.gear}>{'\u2699'}</Text>
+          <TouchableOpacity onPress={() => setMenuOpen(!menuOpen)} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }} data-testid="hamburger-menu-btn">
+            <Text style={styles.gear}>{'\u2630'}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Hamburger Menu Overlay */}
+        {menuOpen && (
+          <View style={styles.menuOverlay} data-testid="hamburger-menu">
+            <TouchableOpacity style={styles.menuBackdrop} onPress={() => setMenuOpen(false)} activeOpacity={1} />
+            <View style={styles.menuPanel}>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); router.push('/dashboard'); }} data-testid="menu-dashboard">
+                <Text style={styles.menuIcon}>{'\u{1F4CA}'}</Text>
+                <Text style={styles.menuText}>Dashboard</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); router.push('/settings'); }} data-testid="menu-settings">
+                <Text style={styles.menuIcon}>{'\u2699'}</Text>
+                <Text style={styles.menuText}>Settings</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); router.push('/onboarding'); }} data-testid="menu-onboarding">
+                <Text style={styles.menuIcon}>{'\u{1F464}'}</Text>
+                <Text style={styles.menuText}>Edit Profile</Text>
+              </TouchableOpacity>
+              <View style={styles.menuDivider} />
+              <TouchableOpacity style={styles.menuItem} onPress={() => setMenuOpen(false)} data-testid="menu-close">
+                <Text style={styles.menuIcon}>{'\u2715'}</Text>
+                <Text style={styles.menuText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Logo at top */}
         <View style={styles.logoArea}>
