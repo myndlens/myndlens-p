@@ -125,8 +125,8 @@ export class MyndLensWSClient {
         };
 
         this.ws.onerror = (error) => {
-          console.error('[WS] Error:', error);
-          reject(error);
+          console.warn('[WS] Connection error (non-fatal):', error?.type || 'unknown');
+          // Don't reject - let onclose handle reconnection
         };
 
       } catch (err) {
