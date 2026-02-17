@@ -318,6 +318,14 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   gear: { fontSize: 22, color: '#555568' },
 
+  menuOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 },
+  menuBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
+  menuPanel: { position: 'absolute', top: 56, right: 16, backgroundColor: '#1A1A2E', borderRadius: 14, paddingVertical: 8, minWidth: 200, borderWidth: 1, borderColor: '#2A2A3E', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 10 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20 },
+  menuIcon: { fontSize: 18, marginRight: 14, width: 24, textAlign: 'center' },
+  menuText: { color: '#D0D0E0', fontSize: 16 },
+  menuDivider: { height: 1, backgroundColor: '#2A2A3E', marginVertical: 4, marginHorizontal: 16 },
+
   logoArea: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
   logo: { width: 150, height: 150 },
 

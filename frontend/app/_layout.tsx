@@ -19,6 +19,7 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         <Stack.Screen name="loading" options={{ animation: 'fade' }} />
         <Stack.Screen name="talk" options={{ animation: 'fade' }} />
+        <Stack.Screen name="dashboard" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="softblock" options={{ animation: 'fade', presentation: 'modal' }} />
         <Stack.Screen name="settings" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
       </Stack>
