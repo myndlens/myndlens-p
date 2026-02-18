@@ -239,6 +239,63 @@ def _verify_s2s_token(x_obegee_s2s_token: str = Header(None)) -> None:
 # ObeGee pushes tenant state via SSO claims + direct DB writes.
 
 
+# =====================================================
+#  Delivery Webhook (ObeGee → MyndLens)
+# =====================================================
+
+class DeliveryWebhookPayload(BaseModel):
+    execution_id: str
+    status: str
+    delivered_to: List[str] = []
+    summary: str = ""
+    completed_at: Optional[str] = None
+    error: Optional[str] = None
+
+
+@api_router.post("/dispatch/delivery-webhook")
+async def delivery_webhook(payload: DeliveryWebhookPayload):
+    """Webhook: ObeGee calls this after OpenClaw executes and delivers results.
+
+    Flow: MyndLens sends mandate → ObeGee executes → ObeGee delivers to channels
+    → ObeGee calls this webhook → MyndLens updates UI.
+    """
+    db = get_db()
+
+    # Store delivery record
+    doc = {
+        "execution_id": payload.execution_id,
+        "status": payload.status,
+        "delivered_to": payload.delivered_to,
+        "summary": payload.summary,
+        "completed_at": payload.completed_at,
+        "error": payload.error,
+        "received_at": datetime.now(timezone.utc),
+    }
+    await db.delivery_events.insert_one(doc)
+
+    # Broadcast to connected WS clients via pipeline_stage
+    from gateway.ws_server import broadcast_to_session
+    stage_index = 9 if payload.status == "COMPLETED" else 8
+    await broadcast_to_session(
+        execution_id=payload.execution_id,
+        message_type="pipeline_stage",
+        payload={
+            "stage_id": "delivered" if payload.status == "COMPLETED" else "executing",
+            "stage_index": stage_index,
+            "total_stages": 10,
+            "status": "done" if payload.status == "COMPLETED" else "active",
+            "summary": payload.summary,
+            "delivered_to": payload.delivered_to,
+        },
+    )
+
+    logger.info(
+        "Delivery webhook: exec=%s status=%s channels=%s",
+        payload.execution_id, payload.status, payload.delivered_to,
+    )
+    return {"received": True, "execution_id": payload.execution_id}
+
+
 # ---- Session Status ----
 class SessionStatus(BaseModel):
     session_id: str
