@@ -58,7 +58,7 @@ export async function startRecording(onChunk: OnChunkCallback): Promise<void> {
       // Emit simulated chunks for now (expo-av doesn't stream directly)
       _startSimulatedRecording(onChunk);
     } catch (err) {
-      console.error('[Recorder] Native recording failed:', err);
+      console.warn('[Recorder] Native recording unavailable, using simulated:', (err as Error)?.message || err);
       _startSimulatedRecording(onChunk);
     }
   }
