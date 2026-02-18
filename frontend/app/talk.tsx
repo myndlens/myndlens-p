@@ -418,8 +418,8 @@ const styles = StyleSheet.create({
   pipelineLabelDone: { color: '#00D68F' },
   pipelineLabelActive: { color: '#D0D0E0', fontWeight: '600' },
 
-  conversation: { },
-  conversationContent: { paddingBottom: 8 },
+  conversation: { flex: 1 },
+  conversationContent: { paddingBottom: 4 },
 
   assistantBubble: {
     backgroundColor: '#1A1A2E', borderRadius: 16, borderTopLeftRadius: 4,
