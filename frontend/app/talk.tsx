@@ -439,6 +439,7 @@ const styles = StyleSheet.create({
   pipelineActiveInner: { alignItems: 'center' },
   pipelineTextBlock: { flex: 1 },
   pipelineActiveText: { color: '#E0E0F0', fontSize: 15, fontWeight: '600', textAlign: 'center', lineHeight: 22 },
+  pipelineSubStatus: { color: '#6C63FF', fontSize: 13, textAlign: 'center', marginTop: 2, fontStyle: 'italic' },
   pipelineStepNum: { color: '#555568', fontSize: 12, marginTop: 4, textAlign: 'center' },
   pipelineBarBg: { height: 3, backgroundColor: '#1A1A28', borderRadius: 2, marginTop: 10, overflow: 'hidden', width: '100%' },
   pipelineBarFill: { height: '100%', backgroundColor: '#6C63FF', borderRadius: 2 },
