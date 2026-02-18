@@ -287,8 +287,8 @@ export default function TalkScreen() {
                 <View style={[styles.pipelineCard, isIdle && styles.pipelineCardIdle]}>
                   {isIdle ? (
                     <View style={styles.pipelineIdleInner}>
-                      <View style={styles.pipelineReadyDot} />
-                      <Text style={styles.pipelineIdleText}>Ready. Tap the mic to begin.</Text>
+                      <Text style={styles.pipelineIdleTitle}>What's on Your Mind Right Now?</Text>
+                      <Text style={styles.pipelineIdleSubtext}>Tap the mic to instruct me.</Text>
                     </View>
                   ) : (
                     <View style={styles.pipelineActiveInner}>
