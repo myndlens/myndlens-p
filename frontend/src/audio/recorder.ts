@@ -42,9 +42,18 @@ export async function startRecording(onChunk: OnChunkCallback): Promise<void> {
       _startSimulatedRecording(onChunk);
     }
   } else {
-    // Native: Use expo-av
+    // Native: Use expo-av with permission request
     try {
       const { Audio } = require('expo-av');
+
+      // Request microphone permission first
+      const { granted } = await Audio.requestPermissionsAsync();
+      if (!granted) {
+        console.warn('[Recorder] Microphone permission denied, using simulated recording');
+        _startSimulatedRecording(onChunk);
+        return;
+      }
+
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
