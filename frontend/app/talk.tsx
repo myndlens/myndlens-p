@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   thinkingText: { color: '#6C5CE7', fontSize: 32, letterSpacing: 4 },
 
   // Controls
-  controlArea: { alignItems: 'center', paddingHorizontal: 20 },
+  controlArea: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
 
   micButton: {
     width: 90, height: undefined, aspectRatio: 1, borderRadius: 999,
