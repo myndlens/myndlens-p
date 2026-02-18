@@ -34,6 +34,7 @@ class WSMessageType(str, Enum):
     TTS_AUDIO = "tts_audio"
     EXECUTE_BLOCKED = "execute_blocked"
     EXECUTE_OK = "execute_ok"
+    PIPELINE_STAGE = "pipeline_stage"
     ERROR = "error"
     SESSION_TERMINATED = "session_terminated"
 
