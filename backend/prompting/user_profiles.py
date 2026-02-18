@@ -172,12 +172,20 @@ async def get_prompt_adjustments(user_id: str) -> Dict[str, Any]:
     """Get prompt adjustments to apply for a specific user.
 
     Called by the orchestrator to personalize prompt construction.
+    Includes the user's chosen nickname for the proxy.
     """
     profile = await get_user_profile(user_id)
+
+    # Fetch nickname
+    db = get_db()
+    nick_doc = await db.nicknames.find_one({"user_id": user_id}, {"_id": 0})
+    nickname = nick_doc.get("nickname", "MyndLens") if nick_doc else "MyndLens"
+
     return {
         "token_budget_modifier": profile.get("token_budget_modifier", 1.0),
         "verbosity": profile.get("verbosity", "normal"),
         "preferred_sections": profile.get("preferred_sections", []),
         "excluded_sections": profile.get("excluded_sections", []),
         "expertise_level": profile.get("expertise_level", "intermediate"),
+        "nickname": nickname,
     }
