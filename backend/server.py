@@ -113,6 +113,34 @@ async def health():
 
 
 # =====================================================
+#  Proxy Nickname API
+# =====================================================
+
+class NicknameRequest(BaseModel):
+    user_id: str
+    nickname: str
+
+
+@api_router.get("/nickname/{user_id}")
+async def get_nickname(user_id: str):
+    db = get_db()
+    doc = await db.nicknames.find_one({"user_id": user_id}, {"_id": 0})
+    return {"user_id": user_id, "nickname": doc.get("nickname", "MyndLens") if doc else "MyndLens"}
+
+
+@api_router.put("/nickname")
+async def set_nickname(req: NicknameRequest):
+    db = get_db()
+    nick = req.nickname.strip()[:30] or "MyndLens"
+    await db.nicknames.update_one(
+        {"user_id": req.user_id},
+        {"$set": {"user_id": req.user_id, "nickname": nick}},
+        upsert=True,
+    )
+    return {"user_id": req.user_id, "nickname": nick}
+
+
+# =====================================================
 #  ObeGee Mock Pairing (dev fixture only)
 # =====================================================
 
