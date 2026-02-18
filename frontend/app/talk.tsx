@@ -308,9 +308,12 @@ export default function TalkScreen() {
                   ) : (
                     <View style={styles.pipelineActiveInner}>
                       <Text style={styles.pipelineActiveText}>{stage.activeText}</Text>
+                      {pipelineSubStatus ? (
+                        <Text style={styles.pipelineSubStatus}>{pipelineSubStatus}</Text>
+                      ) : null}
                       <Text style={styles.pipelineStepNum}>Step {activeIndex + 1} of {PIPELINE_STAGES.length}</Text>
                       <View style={styles.pipelineBarBg}>
-                        <View style={[styles.pipelineBarFill, { width: `${((activeIndex + 1) / PIPELINE_STAGES.length) * 100}%` }]} />
+                        <View style={[styles.pipelineBarFill, { width: `${pipelineProgress > 0 ? pipelineProgress : ((activeIndex + 1) / PIPELINE_STAGES.length) * 100}%` }]} />
                       </View>
                     </View>
                   )}
