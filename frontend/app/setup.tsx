@@ -261,8 +261,51 @@ export default function SetupWizardScreen() {
           </View>
         )}
 
-        {/* Step 8: Complete */}
+        {/* Step 8: Delivery Channels */}
         {step === 8 && (
+          <View style={styles.stepBox} data-testid="setup-delivery">
+            <Text style={styles.title}>Where should we deliver results?</Text>
+            <Text style={styles.desc}>Choose where OpenClaw sends reports, artefacts, and task results after execution. You can select multiple.</Text>
+            {DELIVERY_CHANNELS.map(ch => {
+              const selected = deliveryChannels.includes(ch.id);
+              return (
+                <TouchableOpacity key={ch.id} style={[styles.channelCard, selected && styles.channelCardActive]}
+                  onPress={() => {
+                    if (selected) setDeliveryChannels(deliveryChannels.filter(c => c !== ch.id));
+                    else setDeliveryChannels([...deliveryChannels, ch.id]);
+                  }} data-testid={`channel-${ch.id}`}>
+                  <View style={styles.channelRow}>
+                    <View style={[styles.channelCheck, selected && styles.channelCheckActive]}>
+                      {selected && <Text style={styles.channelCheckMark}>{'\u2713'}</Text>}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.channelLabel, selected && styles.channelLabelActive]}>{ch.label}</Text>
+                      <Text style={styles.channelDesc}>{ch.desc}</Text>
+                    </View>
+                  </View>
+                  {selected && ch.id !== 'in_app' && (
+                    <TextInput
+                      style={styles.channelInput}
+                      placeholder={ch.id === 'email' ? 'your@email.com' : ch.id === 'whatsapp' || ch.id === 'sms' ? '+44 7XXX XXXXXX' : ch.id === 'telegram' ? '@username' : '#channel'}
+                      placeholderTextColor="#444"
+                      value={channelDetails[ch.id] || ''}
+                      onChangeText={(v) => setChannelDetails({ ...channelDetails, [ch.id]: v })}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity style={styles.primaryBtn} onPress={async () => {
+              await api('/preferences', { method: 'PATCH', body: JSON.stringify({ delivery_channels: deliveryChannels, channel_details: channelDetails }) });
+              setStep(9);
+            }} data-testid="setup-save-channels">
+              <Text style={styles.primaryBtnText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Step 9: Complete */}
+        {step === 9 && (
           <View style={[styles.stepBox, styles.centerBox]} data-testid="setup-complete">
             <Text style={styles.successBig}>All Set!</Text>
             <Text style={styles.title}>Your AI workspace is ready</Text>
