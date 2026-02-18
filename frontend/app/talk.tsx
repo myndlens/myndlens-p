@@ -174,6 +174,7 @@ export default function TalkScreen() {
       return;
     }
     if (audioState === 'IDLE') {
+      setPipelineStageIndex(-1);
       transition('LISTENING');
       transition('CAPTURING');
       await startRecording((chunk) => {
