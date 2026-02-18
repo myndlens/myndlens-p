@@ -428,21 +428,43 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     """Process transcript through L1 Scout → Dimensions → generate response → TTS.
 
     Flow: transcript → L1 hypotheses → dimension update → contextual response → TTS
+    Emits pipeline_stage events to the client for real-time progress tracking.
     """
     import base64
+
+    async def _emit_stage(stage_id: str, stage_index: int, status: str = "active"):
+        data = _make_envelope(WSMessageType.PIPELINE_STAGE, {
+            "stage_id": stage_id, "stage_index": stage_index,
+            "total_stages": 10, "status": status,
+        })
+        await ws.send_text(data)
+
+    # Stage 0: Intent captured
+    await _emit_stage("capture", 0, "done")
+
+    # Stage 1: Enriching with Digital Self (happens inside L1 scout)
+    await _emit_stage("digital_self", 1)
 
     # 1. Run L1 Scout
     l1_draft = await run_l1_scout(
         session_id=session_id,
-        user_id="",  # resolved from session if needed
+        user_id="",
         transcript=transcript,
     )
+    await _emit_stage("digital_self", 1, "done")
+
+    # Stage 2: Dimensions extraction
+    await _emit_stage("dimensions", 2)
 
     # 2. Update dimensions from top hypothesis
     dim_state = get_dimension_state(session_id)
     if l1_draft.hypotheses:
         top = l1_draft.hypotheses[0]
         dim_state.update_from_suggestions(top.dimension_suggestions)
+    await _emit_stage("dimensions", 2, "done")
+
+    # Stage 3: Mandate creation
+    await _emit_stage("mandate", 3)
 
     # 2.5. Run guardrails check (continuous, per spec §13A)
     guardrail = check_guardrails(transcript, dim_state, l1_draft)
