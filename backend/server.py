@@ -1098,6 +1098,56 @@ async def api_unhinged_test_suite(agent_id: str, demo_sender: str = "+1555555012
 
 
 # =====================================================
+#  Skills Library APIs (Spec 7)
+# =====================================================
+
+@api_router.post("/skills/index")
+async def api_index_skills():
+    """Load and index the skills library from JSON."""
+    from skills.library import load_and_index_library
+    return await load_and_index_library()
+
+
+@api_router.get("/skills/search")
+async def api_search_skills(q: str, limit: int = 10):
+    """Search skills by keyword."""
+    from skills.library import search_skills
+    return await search_skills(q, limit)
+
+
+@api_router.get("/skills/match")
+async def api_match_skills(intent: str, top_n: int = 5):
+    """Match skills to a user intent."""
+    from skills.library import match_skills_to_intent
+    return await match_skills_to_intent(intent, top_n)
+
+
+@api_router.post("/skills/build")
+async def api_build_skill(request: Request):
+    """Build a custom skill from matched skills + device data."""
+    from skills.library import match_skills_to_intent, build_skill
+    data = await request.json()
+    intent = data.get("intent", "")
+    device_data = data.get("device_data", {})
+    matched = await match_skills_to_intent(intent)
+    return await build_skill(matched, intent, device_data)
+
+
+@api_router.get("/skills/stats")
+async def api_skills_stats():
+    """Get skills library statistics."""
+    from skills.library import get_library_stats
+    return await get_library_stats()
+
+
+@api_router.get("/skills/classify-risk")
+async def api_classify_risk(description: str):
+    """Classify risk level of a skill description."""
+    from skills.library import classify_risk
+    return {"description": description, "risk": classify_risk(description)}
+
+
+# =====================================================
 #  Prompt Versioning APIs
 # =====================================================
 
