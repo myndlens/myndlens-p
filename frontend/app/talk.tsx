@@ -157,6 +157,10 @@ export default function TalkScreen() {
         setConnectionStatus('disconnected');
         router.replace('/loading');
       }),
+      wsClient.on('pipeline_stage', (env: WSEnvelope) => {
+        const idx = env.payload.stage_index ?? -1;
+        setPipelineStageIndex(idx);
+      }),
     ];
     return () => unsubs.forEach((u) => u());
   }, []);
