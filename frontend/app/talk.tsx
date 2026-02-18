@@ -271,31 +271,35 @@ export default function TalkScreen() {
           />
         </View>
 
-        {/* Intent Pipeline Progress Card */}
-        <View style={styles.pipelineCard} data-testid="pipeline-progress">
-          {PIPELINE_STAGES.map((stage, i) => {
-            const state = getPipelineState(i, audioState, pendingAction, transcript);
-            return (
-              <View key={stage.id} style={styles.pipelineRow}>
-                <View style={[styles.pipelineDot,
-                  state === 'done' && styles.pipelineDotDone,
-                  state === 'active' && styles.pipelineDotActive,
-                ]}>
-                  {state === 'done' && <Text style={styles.pipelineCheck}>{'\u2713'}</Text>}
-                  {state === 'active' && <View style={styles.pipelinePulse} />}
-                  {state === 'pending' && <Text style={styles.pipelineNum}>{i + 1}</Text>}
+        {/* Intent Pipeline — Current Stage Card */}
+        {(() => {
+          const activeIndex = PIPELINE_STAGES.findIndex((_, i) => getPipelineState(i, audioState, pendingAction, transcript) === 'active');
+          const stage = activeIndex >= 0 ? PIPELINE_STAGES[activeIndex] : null;
+          const isIdle = !stage;
+          return (
+            <View style={[styles.pipelineCard, isIdle && styles.pipelineCardIdle]} data-testid="pipeline-progress">
+              {isIdle ? (
+                <View style={styles.pipelineIdleInner}>
+                  <View style={styles.pipelineReadyDot} />
+                  <Text style={styles.pipelineIdleText}>Ready. Tap the mic to begin.</Text>
                 </View>
-                {i < PIPELINE_STAGES.length - 1 && (
-                  <View style={[styles.pipelineLine, state === 'done' && styles.pipelineLineDone]} />
-                )}
-                <Text style={[styles.pipelineLabel,
-                  state === 'done' && styles.pipelineLabelDone,
-                  state === 'active' && styles.pipelineLabelActive,
-                ]}>{state === 'active' ? stage.activeText : stage.label}</Text>
-              </View>
-            );
-          })}
-        </View>
+              ) : (
+                <View style={styles.pipelineActiveInner}>
+                  <ActivityIndicator size="small" color="#6C63FF" />
+                  <View style={styles.pipelineTextBlock}>
+                    <Text style={styles.pipelineActiveText}>{stage.activeText}</Text>
+                    <Text style={styles.pipelineStepNum}>Step {activeIndex + 1} of {PIPELINE_STAGES.length}</Text>
+                  </View>
+                </View>
+              )}
+              {!isIdle && (
+                <View style={styles.pipelineBarBg}>
+                  <View style={[styles.pipelineBarFill, { width: `${((activeIndex + 1) / PIPELINE_STAGES.length) * 100}%` }]} />
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         {/* Conversation area */}
         <ScrollView style={styles.conversation} contentContainerStyle={styles.conversationContent}>
