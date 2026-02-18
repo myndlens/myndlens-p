@@ -222,6 +222,32 @@ export default function TalkScreen() {
           />
         </View>
 
+        {/* Intent Pipeline Progress Card */}
+        <View style={styles.pipelineCard} data-testid="pipeline-progress">
+          {PIPELINE_STAGES.map((stage, i) => {
+            const state = getPipelineState(i, audioState, pendingAction, transcript);
+            return (
+              <View key={stage.id} style={styles.pipelineRow}>
+                <View style={[styles.pipelineDot,
+                  state === 'done' && styles.pipelineDotDone,
+                  state === 'active' && styles.pipelineDotActive,
+                ]}>
+                  {state === 'done' && <Text style={styles.pipelineCheck}>{'\u2713'}</Text>}
+                  {state === 'active' && <View style={styles.pipelinePulse} />}
+                  {state === 'pending' && <Text style={styles.pipelineNum}>{i + 1}</Text>}
+                </View>
+                {i < PIPELINE_STAGES.length - 1 && (
+                  <View style={[styles.pipelineLine, state === 'done' && styles.pipelineLineDone]} />
+                )}
+                <Text style={[styles.pipelineLabel,
+                  state === 'done' && styles.pipelineLabelDone,
+                  state === 'active' && styles.pipelineLabelActive,
+                ]}>{state === 'active' ? stage.activeText : stage.label}</Text>
+              </View>
+            );
+          })}
+        </View>
+
         {/* Conversation area */}
         <ScrollView style={styles.conversation} contentContainerStyle={styles.conversationContent}>
           {ttsText ? (
