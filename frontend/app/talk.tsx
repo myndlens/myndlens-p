@@ -90,6 +90,8 @@ export default function TalkScreen() {
   const [pendingDraftId, setPendingDraftId] = React.useState<string | null>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [pipelineStageIndex, setPipelineStageIndex] = React.useState<number>(-1);
+  const [pipelineSubStatus, setPipelineSubStatus] = React.useState<string>('');
+  const [pipelineProgress, setPipelineProgress] = React.useState<number>(0);
   const micAnim = useRef(new Animated.Value(1)).current;
 
   // Mic pulse
@@ -159,7 +161,11 @@ export default function TalkScreen() {
       }),
       wsClient.on('pipeline_stage', (env: WSEnvelope) => {
         const idx = env.payload.stage_index ?? -1;
+        const sub = env.payload.sub_status || '';
+        const prog = env.payload.progress || 0;
         setPipelineStageIndex(idx);
+        setPipelineSubStatus(sub);
+        setPipelineProgress(prog);
       }),
     ];
     return () => unsubs.forEach((u) => u());
@@ -175,6 +181,8 @@ export default function TalkScreen() {
     }
     if (audioState === 'IDLE') {
       setPipelineStageIndex(-1);
+      setPipelineSubStatus('');
+      setPipelineProgress(0);
       transition('LISTENING');
       transition('CAPTURING');
       await startRecording((chunk) => {
