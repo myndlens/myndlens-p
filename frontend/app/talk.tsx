@@ -89,6 +89,7 @@ export default function TalkScreen() {
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
   const [pendingDraftId, setPendingDraftId] = React.useState<string | null>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [pipelineStageIndex, setPipelineStageIndex] = React.useState<number>(-1);
   const micAnim = useRef(new Animated.Value(1)).current;
 
   // Mic pulse
