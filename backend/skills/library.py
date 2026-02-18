@@ -134,7 +134,11 @@ async def build_skill(
     intent: str,
     device_data: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Build a custom skill by combining hub skills with MyndLens capabilities."""
+    """Build a custom skill by combining hub skills with MyndLens capabilities.
+
+    Includes view_url references so the LLM can fetch source code from
+    ClawHub to understand how the base skill works before generating.
+    """
     base = matched_skills[0] if matched_skills else {"name": "custom", "description": "Generated skill"}
     device_data = device_data or {}
 
@@ -150,21 +154,75 @@ async def build_skill(
 
     risk = classify_risk(desc, base.get("required_tools", ""))
 
+    # Collect source code references from all matched skills
+    source_refs = [
+        {"name": s.get("name"), "view_url": s.get("view_url"), "install_command": s.get("install_command")}
+        for s in matched_skills if s.get("view_url")
+    ]
+
     skill = {
         "name": name,
         "description": desc,
         "baseHubSkill": base.get("name", "custom"),
         "baseCategory": base.get("category", ""),
+        "baseViewUrl": base.get("view_url", ""),
         "install_command": base.get("install_command", "custom-build"),
         "required_tools": base.get("required_tools", ""),
         "risk": risk,
         "enhancements": enhancements,
         "intent_source": intent,
-        "skill_md": _generate_skill_md(name, desc, risk, base.get("required_tools", ""), enhancements),
+        "source_references": source_refs,
+        "skill_md": _generate_skill_md(
+            name, desc, risk, base.get("required_tools", ""),
+            enhancements, base.get("view_url", ""), source_refs,
+        ),
+        "llm_context": _build_llm_context(base, matched_skills, intent, enhancements),
     }
 
-    logger.info("Skill built: %s (base=%s, risk=%s)", name, base.get("name"), risk)
+    logger.info("Skill built: %s (base=%s, risk=%s, refs=%d)", name, base.get("name"), risk, len(source_refs))
     return skill
+
+
+def _build_llm_context(
+    base: Dict[str, Any],
+    matched: List[Dict[str, Any]],
+    intent: str,
+    enhancements: List[str],
+) -> str:
+    """Build context string for LLM to understand how to generate the skill.
+
+    Includes source code URLs the LLM can reference/fetch to understand
+    how existing hub skills work before creating a custom one.
+    """
+    lines = [
+        f"Generate a custom OpenClaw skill for intent: \"{intent}\"",
+        f"\nBase skill: {base.get('name', 'custom')}",
+        f"Description: {base.get('description', '')}",
+    ]
+
+    if base.get("view_url"):
+        lines.append(f"Source code reference: {base['view_url']}")
+        lines.append("  ^ Fetch this URL to see the base skill's implementation, then adapt it.")
+
+    if base.get("required_tools"):
+        lines.append(f"Required tools: {base['required_tools']}")
+
+    if base.get("install_command"):
+        lines.append(f"Install: {base['install_command']}")
+
+    if len(matched) > 1:
+        lines.append("\nAdditional reference skills (can chain/combine):")
+        for s in matched[1:]:
+            ref = f"  - {s.get('name', '')}: {s.get('description', '')[:60]}"
+            if s.get("view_url"):
+                ref += f"\n    Code: {s['view_url']}"
+            lines.append(ref)
+
+    if enhancements:
+        lines.append(f"\nMyndLens enhancements to integrate: {', '.join(enhancements)}")
+
+    lines.append("\nOutput: Generate SKILL.md with description, tools, and implementation notes.")
+    return "\n".join(lines)
 
 
 def _generate_skill_md(name: str, desc: str, risk: str, tools: str, enhancements: List[str]) -> str:
