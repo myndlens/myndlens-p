@@ -281,9 +281,10 @@ export default function TalkScreen() {
         <View style={styles.middleZone}>
           {/* Intent Pipeline — Current Stage Card */}
           {(() => {
-            const activeIndex = PIPELINE_STAGES.findIndex((_, i) => getPipelineState(i, audioState, pendingAction, transcript) === 'active');
+            const wsIdx = pipelineStageIndex;
+            const activeIndex = wsIdx >= 0 ? wsIdx : PIPELINE_STAGES.findIndex((_, i) => getPipelineState(i, audioState, pendingAction, transcript) === 'active');
             const stage = activeIndex >= 0 ? PIPELINE_STAGES[activeIndex] : null;
-            const isIdle = !stage;
+            const isIdle = !stage && audioState === 'IDLE';
             return (
               <View style={styles.pipelineWrapper} data-testid="pipeline-progress">
                 {!isIdle && (
