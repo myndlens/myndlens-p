@@ -430,9 +430,6 @@ const styles = StyleSheet.create({
   pipelineSpinner: { marginBottom: 12 },
   conversationOverlay: { marginTop: 16, width: '100%', paddingHorizontal: 8 },
 
-  conversation: { flex: 1 },
-  conversationContent: { paddingBottom: 4 },
-
   assistantBubble: {
     backgroundColor: '#1A1A2E', borderRadius: 16, borderTopLeftRadius: 4,
     padding: 16, marginBottom: 10, maxWidth: '85%',
