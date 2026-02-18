@@ -122,9 +122,13 @@ async def mock_generate_code():
 @router.patch("/preferences")
 async def mock_preferences(req: PreferencesRequest):
     db = get_db()
+    update_fields = {"phone_number": req.phone_number, "timezone": req.timezone,
+                     "notifications_enabled": req.notifications_enabled,
+                     "delivery_channels": req.delivery_channels, "channel_details": req.channel_details,
+                     "updated_at": datetime.now(timezone.utc)}
     await db.setup_users.update_one(
         {"user_id": req.user_id} if req.user_id else {},
-        {"$set": {"phone_number": req.phone_number, "timezone": req.timezone, "notifications_enabled": req.notifications_enabled, "updated_at": datetime.now(timezone.utc)}},
+        {"$set": update_fields},
         upsert=True,
     )
-    return {"message": "Preferences updated"}
+    return {"message": "Preferences updated", "delivery_channels": req.delivery_channels}
