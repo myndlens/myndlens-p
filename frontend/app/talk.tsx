@@ -21,6 +21,55 @@ import { startRecording, stopRecording } from '../src/audio/recorder';
 import * as TTS from '../src/tts/player';
 import { MicIcon, StopIcon } from '../src/ui/icons';
 
+const PIPELINE_STAGES = [
+  { id: 'capture', label: 'Intent captured', activeText: 'Capturing your intent...' },
+  { id: 'digital_self', label: 'Enriched with Digital Self', activeText: 'Expanding with your Digital Self...' },
+  { id: 'dimensions', label: 'Dimensions extracted', activeText: 'Extracting dimensions...' },
+  { id: 'mandate', label: 'Mandate created', activeText: 'Creating mandate artefact...' },
+  { id: 'approval', label: 'Oral approval received', activeText: 'Waiting for your approval...' },
+  { id: 'agents', label: 'Agents assigned', activeText: 'Assigning agents & skills...' },
+  { id: 'skills', label: 'Skills & tools defined', activeText: 'Defining skills & tools...' },
+  { id: 'auth', label: 'Authorization granted', activeText: 'Awaiting authorization...' },
+  { id: 'executing', label: 'OpenClaw executing', activeText: 'OpenClaw executing your intent...' },
+  { id: 'delivered', label: 'Results delivered', activeText: 'Delivering results...' },
+];
+
+function getPipelineState(
+  stageIndex: number, audioState: string, pendingAction: string | null, transcript: string | null,
+): 'pending' | 'active' | 'done' {
+  // Idle state — nothing active
+  if (audioState === 'IDLE' && !pendingAction && !transcript) return 'pending';
+
+  // Map audio states to pipeline progress
+  if (audioState === 'CAPTURING') {
+    if (stageIndex === 0) return 'active';
+    return 'pending';
+  }
+  if (audioState === 'THINKING') {
+    if (stageIndex < 2) return 'done';
+    if (stageIndex === 2) return 'active';
+    return 'pending';
+  }
+  if (audioState === 'RESPONDING') {
+    if (stageIndex < 4) return 'done';
+    if (stageIndex === 4) return 'active';
+    return 'pending';
+  }
+  // If pending action exists — waiting for approval
+  if (pendingAction) {
+    if (stageIndex < 4) return 'done';
+    if (stageIndex === 4) return 'active';
+    return 'pending';
+  }
+  // If we have a transcript but idle — first stages done
+  if (transcript && audioState === 'IDLE') {
+    if (stageIndex < 1) return 'done';
+    if (stageIndex === 1) return 'active';
+    return 'pending';
+  }
+  return 'pending';
+}
+
 export default function TalkScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
