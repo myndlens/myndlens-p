@@ -50,6 +50,9 @@ export default function SetupWizardScreen() {
   const [phone, setPhone] = useState('');
   const [tz, setTz] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
   const [notifs, setNotifs] = useState(true);
+  // Delivery channel
+  const [deliveryChannels, setDeliveryChannels] = useState<string[]>(['in_app']);
+  const [channelDetails, setChannelDetails] = useState<Record<string, string>>({});
 
   async function handleRegister() {
     if (!name.trim() || !email.trim() || !password.trim()) return;
