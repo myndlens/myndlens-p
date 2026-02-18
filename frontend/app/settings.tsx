@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -12,23 +13,35 @@ import { useRouter } from 'expo-router';
 import { useSessionStore } from '../src/state/session-store';
 import { clearAuth } from '../src/ws/auth';
 import { wsClient } from '../src/ws/client';
+import { ENV } from '../src/config/env';
 
-/**
- * Settings — secondary screen.
- *
- * Sections:
- * 1. Account (read-only)
- * 2. Privacy & Control
- * 3. Diagnostics (collapsed, deemphasized)
- * 4. Sign Out
- *
- * Never shows: tokens, IDs, counters.
- */
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { userId, connectionStatus, presenceOk, clearAuth: clearStoreAuth } = useSessionStore();
   const [diagOpen, setDiagOpen] = useState(false);
+  const [nickname, setNickname] = useState('MyndLens');
+  const [nickSaved, setNickSaved] = useState(false);
+
+  useEffect(() => {
+    if (userId) {
+      fetch(`${ENV.API_URL}/nickname/${userId}`)
+        .then(r => r.json())
+        .then(d => setNickname(d.nickname || 'MyndLens'))
+        .catch(() => {});
+    }
+  }, [userId]);
+
+  async function saveNickname() {
+    const nick = nickname.trim() || 'MyndLens';
+    await fetch(`${ENV.API_URL}/nickname`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId || 'anon', nickname: nick }),
+    }).catch(() => {});
+    setNickSaved(true);
+    setTimeout(() => setNickSaved(false), 2000);
+  }
 
   async function handleSignOut() {
     wsClient.disconnect();
@@ -47,6 +60,27 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView style={styles.scroll}>
+        {/* Proxy Nickname */}
+        <Text style={styles.section}>Assistant Name</Text>
+        <View style={styles.card}>
+          <Text style={styles.nickHint}>Give your assistant a name</Text>
+          <View style={styles.nickRow}>
+            <TextInput
+              style={styles.nickInput}
+              value={nickname}
+              onChangeText={setNickname}
+              placeholder="MyndLens"
+              placeholderTextColor="#444"
+              maxLength={30}
+              data-testid="nickname-input"
+            />
+            <TouchableOpacity style={styles.nickSaveBtn} onPress={saveNickname} data-testid="nickname-save-btn">
+              <Text style={styles.nickSaveText}>{nickSaved ? 'Saved' : 'Save'}</Text>
+            </TouchableOpacity>
+          </View>
+          {nickSaved && <Text style={styles.nickConfirm}>Your assistant will now respond as "{nickname.trim() || 'MyndLens'}"</Text>}
+        </View>
+
         {/* Account */}
         <Text style={styles.section}>Account</Text>
         <View style={styles.card}>
@@ -102,10 +136,17 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
 
   section: { fontSize: 12, fontWeight: '600', color: '#6C5CE7', textTransform: 'uppercase', letterSpacing: 1, marginTop: 20, marginBottom: 8 },
-  card: { backgroundColor: '#12121E', borderRadius: 12, overflow: 'hidden' },
+  card: { backgroundColor: '#12121E', borderRadius: 12, overflow: 'hidden', padding: 0 },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#1A1A2E' },
   rowLabel: { fontSize: 14, color: '#8B8B9E' },
   rowValue: { fontSize: 14, color: '#FFFFFF' },
+
+  nickHint: { fontSize: 13, color: '#777', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
+  nickRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
+  nickInput: { flex: 1, backgroundColor: '#0A0A14', borderWidth: 1, borderColor: '#2A2A3A', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: '#F0F0F5' },
+  nickSaveBtn: { backgroundColor: '#6C63FF', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 12 },
+  nickSaveText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  nickConfirm: { color: '#00D68F', fontSize: 13, paddingHorizontal: 16, paddingBottom: 12 },
 
   actionRow: { paddingVertical: 14, paddingHorizontal: 16 },
   actionText: { fontSize: 14, color: '#E74C3C' },
