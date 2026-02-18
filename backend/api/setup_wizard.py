@@ -46,6 +46,8 @@ class PreferencesRequest(BaseModel):
     phone_number: str = ""
     timezone: str = "UTC"
     notifications_enabled: bool = True
+    delivery_channels: list = []
+    channel_details: dict = {}
 
 
 @router.post("/register")
