@@ -111,14 +111,13 @@ export default function SetupWizardScreen() {
   }
 
   async function handlePreferences() {
-    await api('/preferences', { method: 'PATCH', body: JSON.stringify({ phone_number: phone, timezone: tz, notifications_enabled: notifs }) });
+    await api('/preferences', { method: 'PATCH', body: JSON.stringify({ phone_number: phone, timezone: tz, notifications_enabled: notifs, delivery_channels: deliveryChannels, channel_details: channelDetails }) });
     setStep(8);
   }
 
   async function handleComplete() {
-    await setItem('setup_complete', 'true');
-    // Use mock pairing to enter the app
-    router.replace('/login');
+    await setItem('setup_wizard_complete', 'true');
+    router.replace('/talk');
   }
 
   useEffect(() => { if (step === 3) loadPlans(); }, [step]);
