@@ -61,6 +61,10 @@ async def lifespan(app: FastAPI):
     # Initialize base soul in vector memory
     from soul.store import initialize_base_soul
     await initialize_base_soul()
+    # Auto-index skills library into MongoDB
+    from skills.library import load_and_index_library
+    skills_result = await load_and_index_library()
+    logger.info("Skills library: %s (%s skills)", skills_result.get("status"), skills_result.get("skills_indexed", 0))
     logger.info("MyndLens BE ready")
     yield
     await close_db()
