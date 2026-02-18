@@ -272,56 +272,60 @@ export default function TalkScreen() {
           />
         </View>
 
-        {/* Intent Pipeline — Current Stage Card */}
-        {(() => {
-          const activeIndex = PIPELINE_STAGES.findIndex((_, i) => getPipelineState(i, audioState, pendingAction, transcript) === 'active');
-          const stage = activeIndex >= 0 ? PIPELINE_STAGES[activeIndex] : null;
-          const isIdle = !stage;
-          return (
-            <View style={[styles.pipelineCard, isIdle && styles.pipelineCardIdle]} data-testid="pipeline-progress">
-              {isIdle ? (
-                <View style={styles.pipelineIdleInner}>
-                  <View style={styles.pipelineReadyDot} />
-                  <Text style={styles.pipelineIdleText}>Ready. Tap the mic to begin.</Text>
+        {/* Middle zone — card centered between logo and controls */}
+        <View style={styles.middleZone}>
+          {/* Intent Pipeline — Current Stage Card */}
+          {(() => {
+            const activeIndex = PIPELINE_STAGES.findIndex((_, i) => getPipelineState(i, audioState, pendingAction, transcript) === 'active');
+            const stage = activeIndex >= 0 ? PIPELINE_STAGES[activeIndex] : null;
+            const isIdle = !stage;
+            return (
+              <View style={styles.pipelineWrapper} data-testid="pipeline-progress">
+                {!isIdle && (
+                  <ActivityIndicator size={28} color="#6C63FF" style={styles.pipelineSpinner} />
+                )}
+                <View style={[styles.pipelineCard, isIdle && styles.pipelineCardIdle]}>
+                  {isIdle ? (
+                    <View style={styles.pipelineIdleInner}>
+                      <View style={styles.pipelineReadyDot} />
+                      <Text style={styles.pipelineIdleText}>Ready. Tap the mic to begin.</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.pipelineActiveInner}>
+                      <Text style={styles.pipelineActiveText}>{stage.activeText}</Text>
+                      <Text style={styles.pipelineStepNum}>Step {activeIndex + 1} of {PIPELINE_STAGES.length}</Text>
+                      <View style={styles.pipelineBarBg}>
+                        <View style={[styles.pipelineBarFill, { width: `${((activeIndex + 1) / PIPELINE_STAGES.length) * 100}%` }]} />
+                      </View>
+                    </View>
+                  )}
                 </View>
-              ) : (
-                <View style={styles.pipelineActiveInner}>
-                  <ActivityIndicator size="small" color="#6C63FF" />
-                  <View style={styles.pipelineTextBlock}>
-                    <Text style={styles.pipelineActiveText}>{stage.activeText}</Text>
-                    <Text style={styles.pipelineStepNum}>Step {activeIndex + 1} of {PIPELINE_STAGES.length}</Text>
-                  </View>
-                </View>
-              )}
-              {!isIdle && (
-                <View style={styles.pipelineBarBg}>
-                  <View style={[styles.pipelineBarFill, { width: `${((activeIndex + 1) / PIPELINE_STAGES.length) * 100}%` }]} />
-                </View>
-              )}
-            </View>
-          );
-        })()}
+              </View>
+            );
+          })()}
 
-        {/* Conversation area */}
-        <ScrollView style={styles.conversation} contentContainerStyle={styles.conversationContent}>
-          {ttsText ? (
-            <View style={styles.assistantBubble}>
-              <Text style={styles.assistantText}>{ttsText}</Text>
+          {/* Conversation bubbles overlay */}
+          {(ttsText || transcript || partialTranscript) && (
+            <View style={styles.conversationOverlay}>
+              {ttsText ? (
+                <View style={styles.assistantBubble}>
+                  <Text style={styles.assistantText}>{ttsText}</Text>
+                </View>
+              ) : null}
+              {(transcript || partialTranscript) ? (
+                <View style={styles.userBubble}>
+                  <Text style={styles.userText}>{partialTranscript || transcript}</Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
-
-          {(transcript || partialTranscript) ? (
-            <View style={styles.userBubble}>
-              <Text style={styles.userText}>{partialTranscript || transcript}</Text>
-            </View>
-          ) : null}
+          )}
 
           {audioState === 'THINKING' ? (
             <View style={styles.thinkingDots}>
               <Text style={styles.thinkingText}>{'\u2026'}</Text>
             </View>
           ) : null}
-        </ScrollView>
+        </View>
 
         {/* PRIMARY: Large mic button */}
         <View style={styles.controlArea}>
