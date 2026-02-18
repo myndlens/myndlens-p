@@ -401,20 +401,20 @@ const styles = StyleSheet.create({
   menuText: { color: '#D0D0E0', fontSize: 16 },
   menuDivider: { height: 1, backgroundColor: '#2A2A3E', marginVertical: 4, marginHorizontal: 16 },
 
-  logoArea: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
-  logo: { width: 150, height: 150 },
+  logoArea: { alignItems: 'center', paddingTop: 4, paddingBottom: 0 },
+  logo: { width: 100, height: 100 },
 
-  pipelineCard: { backgroundColor: 'rgba(20,20,30,0.7)', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 8, borderWidth: 1, borderColor: '#1E1E2E' },
-  pipelineRow: { flexDirection: 'row', alignItems: 'center', minHeight: 28 },
-  pipelineDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#2A2A3E', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0A0A14' },
+  pipelineCard: { backgroundColor: 'rgba(20,20,30,0.65)', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 14, marginBottom: 4, borderWidth: 1, borderColor: '#1E1E2E' },
+  pipelineRow: { flexDirection: 'row', alignItems: 'center', minHeight: 22 },
+  pipelineDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: '#2A2A3E', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0A0A14' },
   pipelineDotDone: { borderColor: '#00D68F', backgroundColor: '#00D68F22' },
   pipelineDotActive: { borderColor: '#6C63FF', backgroundColor: '#6C63FF22' },
-  pipelineCheck: { color: '#00D68F', fontSize: 12, fontWeight: '700' },
-  pipelinePulse: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#6C63FF' },
-  pipelineNum: { color: '#3A3A4E', fontSize: 10, fontWeight: '600' },
-  pipelineLine: { position: 'absolute', left: 10, top: 23, width: 1.5, height: 6, backgroundColor: '#1E1E2E' },
+  pipelineCheck: { color: '#00D68F', fontSize: 10, fontWeight: '700' },
+  pipelinePulse: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#6C63FF' },
+  pipelineNum: { color: '#3A3A4E', fontSize: 9, fontWeight: '600' },
+  pipelineLine: { position: 'absolute', left: 8, top: 19, width: 1.5, height: 4, backgroundColor: '#1E1E2E' },
   pipelineLineDone: { backgroundColor: '#00D68F44' },
-  pipelineLabel: { color: '#444455', fontSize: 12, marginLeft: 10, flex: 1 },
+  pipelineLabel: { color: '#444455', fontSize: 11, marginLeft: 8, flex: 1 },
   pipelineLabelDone: { color: '#00D68F' },
   pipelineLabelActive: { color: '#D0D0E0', fontWeight: '600' },
 
@@ -437,11 +437,11 @@ const styles = StyleSheet.create({
   thinkingText: { color: '#6C5CE7', fontSize: 32, letterSpacing: 4 },
 
   // Controls
-  controlArea: { alignItems: 'center', marginBottom: 16, paddingHorizontal: 20, flex: 1, justifyContent: 'center' },
+  controlArea: { alignItems: 'center', paddingHorizontal: 20 },
 
   micButton: {
-    width: 110, height: undefined, aspectRatio: 1, borderRadius: 999,
-    minWidth: 110, maxWidth: 110,
+    width: 90, height: undefined, aspectRatio: 1, borderRadius: 999,
+    minWidth: 90, maxWidth: 90,
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
   },
@@ -449,25 +449,25 @@ const styles = StyleSheet.create({
   micIcon: { fontSize: 22, color: '#FFFFFF', fontWeight: '800', letterSpacing: 2 },
 
   secondaryRow: {
-    flexDirection: 'row', gap: 12, marginTop: 20, width: '100%',
+    flexDirection: 'row', gap: 12, marginTop: 12, width: '100%',
   },
 
   killButton: {
     flex: 1, backgroundColor: '#E74C3C', borderRadius: 14,
-    paddingVertical: 14,
+    paddingVertical: 12,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   approveButton: {
     flex: 1, backgroundColor: '#00B87A', borderRadius: 14,
-    paddingVertical: 14,
+    paddingVertical: 12,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   approveDisabled: { opacity: 0.5 },
-  smallBtnIcon: { fontSize: 20, color: '#FFFFFF' },
-  smallBtnText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
+  smallBtnIcon: { fontSize: 16, color: '#FFFFFF' },
+  smallBtnText: { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
 
   // Text fallback
-  textRow: { flexDirection: 'row', gap: 8, marginBottom: 8, paddingHorizontal: 0 },
+  textRow: { flexDirection: 'row', gap: 8, marginTop: 12, marginBottom: 8, paddingHorizontal: 0 },
   textInput: {
     flex: 1, backgroundColor: '#14141E', borderRadius: 24,
     paddingHorizontal: 16, paddingVertical: 10, fontSize: 14,
