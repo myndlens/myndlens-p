@@ -411,13 +411,13 @@ const styles = StyleSheet.create({
   menuDivider: { height: 1, backgroundColor: '#2A2A3E', marginVertical: 4, marginHorizontal: 16 },
 
   logoArea: { alignItems: 'center', paddingTop: 4, paddingBottom: 0 },
-  logo: { width: 100, height: 100 },
+  logo: { width: 150, height: 150 },
 
   pipelineCard: { backgroundColor: 'rgba(20, 20, 34, 0.75)', borderRadius: 16, paddingVertical: 18, paddingHorizontal: 22, marginHorizontal: 16, borderWidth: 1, borderColor: '#1E1E2E' },
   pipelineCardIdle: { borderColor: '#1A1A28' },
   pipelineIdleInner: { alignItems: 'center', paddingVertical: 4 },
   pipelineIdleTitle: { color: '#D0D0E0', fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  pipelineIdleSubtext: { color: '#555568', fontSize: 13, textAlign: 'center', marginTop: 4 },
+  pipelineIdleSubtext: { color: '#555568', fontSize: 15, textAlign: 'center', marginTop: 4, lineHeight: 22 },
   pipelineActiveInner: { alignItems: 'center' },
   pipelineTextBlock: { flex: 1 },
   pipelineActiveText: { color: '#E0E0F0', fontSize: 15, fontWeight: '600', textAlign: 'center', lineHeight: 22 },
