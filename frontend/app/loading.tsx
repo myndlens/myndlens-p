@@ -41,7 +41,15 @@ export default function LoadingScreen() {
       setConnectionStatus('authenticated');
       setSessionId(wsClient.currentSessionId);
       setPresenceOk(true);
-      router.replace('/talk');
+
+      // Check if first-time setup is needed
+      const { getItem } = require('../src/utils/storage');
+      const setupDone = await getItem('setup_wizard_complete');
+      if (setupDone === 'true') {
+        router.replace('/talk');
+      } else {
+        router.replace('/setup');
+      }
     } catch (err: any) {
       // Check if subscription issue
       if (err?.message?.includes('SUSPENDED')) {
