@@ -296,6 +296,49 @@ async def delivery_webhook(payload: DeliveryWebhookPayload):
     return {"received": True, "execution_id": payload.execution_id}
 
 
+# =====================================================
+#  Mandate Execution API
+# =====================================================
+
+class MandateExecuteRequest(BaseModel):
+    session_id: str
+    mandate_id: str = ""
+    tenant_id: str = ""
+    intent: str = ""
+    dimensions: dict = {}
+    generated_skills: List[dict] = []
+    delivery_channels: List[str] = []
+    channel_details: dict = {}
+    mio_signature: str = ""
+
+
+@api_router.post("/mandate/execute")
+async def api_execute_mandate(req: MandateExecuteRequest):
+    """Execute an approved mandate — sends to ObeGee and tracks progress."""
+    from dispatcher.mandate_dispatch import dispatch_mandate
+    mandate = {
+        "mandate_id": req.mandate_id or f"mio_{req.session_id[:8]}",
+        "tenant_id": req.tenant_id,
+        "intent": req.intent,
+        "dimensions": req.dimensions,
+        "generated_skills": req.generated_skills,
+        "delivery_channels": req.delivery_channels,
+        "channel_details": req.channel_details,
+        "mio_signature": req.mio_signature,
+    }
+    return await dispatch_mandate(req.session_id, mandate)
+
+
+@api_router.get("/mandate/progress/{session_id}")
+async def api_mandate_progress(session_id: str):
+    """Get current pipeline progress for a session."""
+    db = get_db()
+    doc = await db.pipeline_progress.find_one({"session_id": session_id}, {"_id": 0})
+    if not doc:
+        return {"session_id": session_id, "current_stage": -1, "stages": {}}
+    return doc
+
+
 # ---- Session Status ----
 class SessionStatus(BaseModel):
     session_id: str
