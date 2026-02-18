@@ -122,7 +122,7 @@ export default function SetupWizardScreen() {
 
   useEffect(() => { if (step === 3) loadPlans(); }, [step]);
 
-  const STEP_LABELS = ['Welcome', 'Account', 'Workspace', 'Plan', 'Payment', 'Activating', 'Pairing', 'Preferences', 'Complete'];
+  const STEP_LABELS = ['Welcome', 'Account', 'Workspace', 'Plan', 'Payment', 'Activating', 'Pairing', 'Preferences', 'Delivery', 'Complete'];
 
   return (
     <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top + 12 }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
