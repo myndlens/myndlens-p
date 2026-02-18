@@ -55,6 +55,8 @@ logger = logging.getLogger(__name__)
 
 # Active connections: session_id -> WebSocket
 active_connections: Dict[str, WebSocket] = {}
+# Execution ID -> session_id mapping (for webhook→WS broadcast)
+execution_sessions: Dict[str, str] = {}
 
 
 def _make_envelope(msg_type: WSMessageType, payload: dict) -> str:
@@ -67,6 +69,37 @@ async def _send(ws: WebSocket, msg_type: WSMessageType, payload_model) -> None:
     """Send a typed message to the client."""
     data = _make_envelope(msg_type, payload_model.model_dump())
     await ws.send_text(data)
+
+
+async def broadcast_to_session(
+    execution_id: str, message_type: str, payload: dict
+) -> bool:
+    """Broadcast a message to the WS client associated with an execution.
+
+    Called by the delivery webhook to push pipeline_stage updates to the mobile app.
+    """
+    session_id = execution_sessions.get(execution_id)
+    if not session_id:
+        # Try broadcasting to all active connections
+        for sid, ws in active_connections.items():
+            try:
+                data = _make_envelope(WSMessageType.PIPELINE_STAGE, payload)
+                await ws.send_text(data)
+                return True
+            except Exception:
+                continue
+        return False
+
+    ws = active_connections.get(session_id)
+    if not ws:
+        return False
+
+    try:
+        data = _make_envelope(WSMessageType.PIPELINE_STAGE, payload)
+        await ws.send_text(data)
+        return True
+    except Exception:
+        return False
 
 
 async def handle_ws_connection(websocket: WebSocket) -> None:
