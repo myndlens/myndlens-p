@@ -9,8 +9,17 @@ import { ENV } from '../src/config/env';
 import { setItem } from '../src/utils/storage';
 import { useSessionStore } from '../src/state/session-store';
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 const api = (path: string, opts?: RequestInit) => fetch(`${ENV.API_URL}/setup${path}`, { headers: { 'Content-Type': 'application/json' }, ...opts }).then(r => r.json());
+
+const DELIVERY_CHANNELS = [
+  { id: 'whatsapp', label: 'WhatsApp', desc: 'Receive reports via WhatsApp messages' },
+  { id: 'email', label: 'Email', desc: 'Reports delivered to your inbox' },
+  { id: 'telegram', label: 'Telegram', desc: 'Get updates in Telegram chat' },
+  { id: 'slack', label: 'Slack', desc: 'Post to a Slack channel' },
+  { id: 'sms', label: 'SMS', desc: 'Text message notifications' },
+  { id: 'in_app', label: 'In-App Only', desc: 'View results only within MyndLens' },
+];
 
 export default function SetupWizardScreen() {
   const insets = useSafeAreaInsets();
