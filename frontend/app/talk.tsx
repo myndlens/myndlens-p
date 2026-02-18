@@ -404,6 +404,20 @@ const styles = StyleSheet.create({
   logoArea: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
   logo: { width: 150, height: 150 },
 
+  pipelineCard: { backgroundColor: 'rgba(20,20,30,0.7)', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 8, borderWidth: 1, borderColor: '#1E1E2E' },
+  pipelineRow: { flexDirection: 'row', alignItems: 'center', minHeight: 28 },
+  pipelineDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#2A2A3E', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0A0A14' },
+  pipelineDotDone: { borderColor: '#00D68F', backgroundColor: '#00D68F22' },
+  pipelineDotActive: { borderColor: '#6C63FF', backgroundColor: '#6C63FF22' },
+  pipelineCheck: { color: '#00D68F', fontSize: 12, fontWeight: '700' },
+  pipelinePulse: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#6C63FF' },
+  pipelineNum: { color: '#3A3A4E', fontSize: 10, fontWeight: '600' },
+  pipelineLine: { position: 'absolute', left: 10, top: 23, width: 1.5, height: 6, backgroundColor: '#1E1E2E' },
+  pipelineLineDone: { backgroundColor: '#00D68F44' },
+  pipelineLabel: { color: '#444455', fontSize: 12, marginLeft: 10, flex: 1 },
+  pipelineLabelDone: { color: '#00D68F' },
+  pipelineLabelActive: { color: '#D0D0E0', fontWeight: '600' },
+
   conversation: { },
   conversationContent: { paddingBottom: 8 },
 
