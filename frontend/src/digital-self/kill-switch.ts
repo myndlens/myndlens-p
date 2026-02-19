@@ -1,29 +1,32 @@
 /**
  * Kill Switch — "Delete my Digital Self."
  *
- * Wipes the entire on-device PKG and all associated local data.
+ * Wipes the entire on-device PKG, encrypted data, and the AES key from SecureStore.
  * Irreversible. User must re-onboard after this.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
-const PKG_KEY_PREFIX = 'myndlens_digital_self_pkg';
+const PKG_STORAGE_KEY_PREFIX = 'myndlens_ds_encrypted';
+const AES_KEY_PREFIX = 'myndlens_ds_aes_key';
 
 export async function deleteDigitalSelf(userId: string): Promise<void> {
-  // Remove this user's PKG
-  await AsyncStorage.removeItem(`${PKG_KEY_PREFIX}_${userId}`);
+  // 1. Delete encrypted PKG from AsyncStorage
+  await AsyncStorage.removeItem(`${PKG_STORAGE_KEY_PREFIX}_${userId}`);
 
-  // Remove any other Digital Self keys for this user
+  // 2. Delete any other Digital Self keys for this user
   const allKeys = await AsyncStorage.getAllKeys();
   const dsKeys = allKeys.filter(k => k.startsWith('myndlens_ds_') && k.includes(userId));
-  if (dsKeys.length > 0) {
-    await AsyncStorage.multiRemove(dsKeys);
-  }
+  if (dsKeys.length > 0) await AsyncStorage.multiRemove(dsKeys);
 
-  console.log(`[KillSwitch] Digital Self wiped for user: ${userId}`);
+  // 3. Delete AES encryption key from hardware-backed SecureStore (Secure Enclave / StrongBox)
+  await SecureStore.deleteItemAsync(`${AES_KEY_PREFIX}_${userId}`);
+
+  console.log(`[KillSwitch] Digital Self fully wiped for user: ${userId}`);
 }
 
 export async function getDigitalSelfSize(userId: string): Promise<number> {
-  const raw = await AsyncStorage.getItem(`${PKG_KEY_PREFIX}_${userId}`);
-  return raw ? new Blob([raw]).size : 0;
+  const raw = await AsyncStorage.getItem(`${PKG_STORAGE_KEY_PREFIX}_${userId}`);
+  return raw ? raw.length : 0;
 }
