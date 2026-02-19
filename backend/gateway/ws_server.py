@@ -521,7 +521,7 @@ async def _handle_stream_end(ws: WebSocket, session_id: str) -> None:
         logger.error("Stream end error: session=%s error=%s", session_id, str(e))
 
 
-async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict) -> None:
+async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user_id: str = "") -> None:
     """Handle text input as an alternative to voice (STT fallback)."""
     text = payload.get("text", "").strip()
     if not text:
