@@ -105,6 +105,10 @@ async def init_indexes() -> None:
     # Transcripts: session_id lookup
     await db.transcripts.create_index("session_id")
 
+    # Vector store: doc_id lookup for persistence layer
+    await db.vector_store.create_index("doc_id", unique=True)
+    await db.vector_store.create_index([("metadata.user_id", 1)])
+
     # Rate limits: TTL auto-cleanup
     await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
     await db.rate_limits.create_index([("bucket", 1), ("timestamp", -1)])
