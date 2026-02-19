@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     OBEGEE_DB_NAME: str = Field(default="obegee_production")
     CHANNEL_ADAPTER_IP: str = Field(default="")  # 138.68.179.111 in prod
     MYNDLENS_DISPATCH_TOKEN: str = Field(default="myndlens_dispatch_secret_2026")
-    OBEGEE_API_URL: str = Field(default="")  # https://api.obegee.co.uk in prod
+    OBEGEE_API_URL: str = Field(default="")  # https://obegee.co.uk/api in prod
 
     # ── Self-referential URL (used in pairing response) ──────
     MYNDLENS_BASE_URL: str = Field(default="https://app.myndlens.com")  # Override in .env if needed
