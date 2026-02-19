@@ -184,8 +184,20 @@ class TestExecuteGates:
         """[E02] Execute allowed when heartbeat is fresh (<16s)."""
         async def _test():
             from presence.heartbeat import record_heartbeat, check_presence
+            from core.database import get_db
+            from datetime import datetime, timezone
             
             session_id = f"test-fresh-{uuid.uuid4().hex[:8]}"
+            
+            # Create an active session first (required before heartbeat)
+            db = get_db()
+            await db.sessions.insert_one({
+                "session_id": session_id,
+                "user_id": "test-user",
+                "active": True,
+                "created_at": datetime.now(timezone.utc),
+                "last_heartbeat_at": datetime.now(timezone.utc),
+            })
             
             # Record fresh heartbeat
             await record_heartbeat(session_id, seq=1, client_ts=int(time.time() * 1000))
