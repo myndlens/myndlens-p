@@ -35,7 +35,7 @@ class AuditEvent(BaseModel):
     event_type: AuditEventType
     session_id: Optional[str] = None
     user_id: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     details: Dict[str, Any] = Field(default_factory=dict)
     env: str = "dev"
 
