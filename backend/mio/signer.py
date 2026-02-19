@@ -75,7 +75,6 @@ def _ensure_keys() -> Tuple[Ed25519PrivateKey, Ed25519PublicKey]:
 
 def sign_mio(mio_dict: dict) -> str:
     """Sign a MIO dict and return base64 signature."""
-    import base64
     priv, _ = _ensure_keys()
     # Canonical JSON serialization for signing
     payload = json.dumps(mio_dict, sort_keys=True, default=str).encode("utf-8")
@@ -85,7 +84,6 @@ def sign_mio(mio_dict: dict) -> str:
 
 def verify_mio(mio_dict: dict, signature_b64: str) -> bool:
     """Verify a MIO signature."""
-    import base64
     _, pub = _ensure_keys()
     try:
         payload = json.dumps(mio_dict, sort_keys=True, default=str).encode("utf-8")
