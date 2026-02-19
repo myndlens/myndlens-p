@@ -48,7 +48,6 @@ async def dispatch(
     # 1. Env guard removed — MIO dispatch is allowed in all environments.
     # The envguard `assert_dispatch_allowed` was a dead gate that blocked dev dispatch
     # without providing actual security. Real security is in MIO verification (step 2).
-    settings = get_settings()
 
     # 2. Verify MIO (6-gate pipeline)
     valid, reason = await verify_mio_for_execution(
