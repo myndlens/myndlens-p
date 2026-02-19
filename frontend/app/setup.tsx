@@ -56,7 +56,7 @@ export default function SetupWizardScreen() {
     setLoading(true);
     try {
       const res = await api('/register', { method: 'POST', body: JSON.stringify({ email, password, name }) });
-      if (res.access_token) { setAuthToken(res.access_token); setStep(2); }
+      if (res.access_token) { setStep(2); }
       else if (res.detail?.includes('already registered')) { Alert.alert('Account Exists', 'Try logging in instead.'); }
       else { Alert.alert('Error', res.detail || 'Registration failed'); }
     } catch { Alert.alert('Error', 'Connection failed'); }
