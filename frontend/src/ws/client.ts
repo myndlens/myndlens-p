@@ -34,9 +34,6 @@ export class MyndLensWSClient {
   private handlers: Map<WSMessageType, WSMessageHandler[]> = new Map();
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private heartbeatSeq: number = 0;
-  private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 5;
-  private reconnectDelay: number = 2000;
   private _isConnected: boolean = false;
   private _isAuthenticated: boolean = false;
   private _userId: string | null = null;
