@@ -133,7 +133,7 @@ class DeepgramSTTProvider(STTProvider):
             audio_buffer = io.BytesIO(buffer_data)
             
             # Run in executor to avoid blocking the event loop
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             response = await loop.run_in_executor(
                 None,
                 lambda: self._client.listen.v1.media.transcribe_file(

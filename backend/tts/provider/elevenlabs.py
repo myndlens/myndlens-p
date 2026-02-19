@@ -46,7 +46,7 @@ class ElevenLabsTTSProvider(TTSProvider):
         start = time.monotonic()
 
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             audio_iter = await loop.run_in_executor(
                 None,
                 lambda: self._client.text_to_speech.convert(
