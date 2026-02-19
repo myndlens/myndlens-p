@@ -102,7 +102,6 @@ def _get_user_id(authorization: Optional[str]) -> str:
 # ── Entity extraction helpers ──────────────────────────────────────────────────────────
 
 def _node_id_from_email(addr: str) -> str:
-    """Generate collision-resistant node ID from email address.
 
     Uses a 6-char hash suffix so 'bob.smith@a.com' and 'bob_smith@a.com'
     produce different IDs despite identical slug output.
