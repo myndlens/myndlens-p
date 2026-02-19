@@ -556,7 +556,7 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
     await _send_mock_tts_response(ws, session_id, text, user_id=user_id)
 
 
-async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: str) -> None:
+async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: str, user_id: str = "") -> None:
     """Process transcript through L1 Scout → Dimensions → Guardrails → TTS.
 
     Flow: transcript → L1 hypotheses → dimension update → guardrails → response → TTS
