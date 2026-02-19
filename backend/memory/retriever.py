@@ -22,8 +22,8 @@ async def recall(
     n_results: int = 3,
 ) -> List[Dict[str, Any]]:
     """Retrieve relevant memory for a query. Read-only, side-effect free."""
-    # 1. Semantic search in vector store
-    vector_results = vector.query(query_text, n_results=n_results)
+    # 1. Semantic search in vector store — scoped to this user only
+    vector_results = vector.query(query_text, n_results=n_results, where={"user_id": user_id})
 
     # 2. Enrich with graph context
     enriched = []
