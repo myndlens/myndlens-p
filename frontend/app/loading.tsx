@@ -75,9 +75,16 @@ export default function LoadingScreen() {
       }
 
       // SOFT failure — network error, timeout, backend unavailable
-      // Do NOT send to login. Token is still valid. Show retry.
+      // Token is still valid. Retry with backoff up to MAX_RETRIES.
       setConnectionStatus('disconnected');
-      // Retry after 3 seconds automatically
+      retryCount.current += 1;
+      if (retryCount.current >= MAX_RETRIES) {
+        // Give up — send to login so user can re-pair
+        const { clearAuth } = require('../src/ws/auth');
+        await clearAuth();
+        router.replace('/login');
+        return;
+      }
       setTimeout(() => activate(), 3000);
     }
   }
