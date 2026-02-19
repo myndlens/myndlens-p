@@ -98,7 +98,7 @@ async def dispatch_mandate(
     Raises DispatchBlockedError for any missing config — no silent fallback.
     """
     settings = get_settings()
-    obegee_url = getattr(settings, 'OBEGEE_API_URL', '')
+    obegee_url = settings.OBEGEE_API_URL
 
     if not obegee_url:
         raise DispatchBlockedError(
@@ -106,8 +106,7 @@ async def dispatch_mandate(
             "Set OBEGEE_API_URL=https://obegee.co.uk/api/myndlens in backend/.env."
         )
 
-    # Use the service-to-service token — not the user session JWT.
-    service_token = getattr(settings, 'OBEGEE_API_TOKEN', '')
+    service_token = settings.OBEGEE_API_TOKEN
     if not service_token:
         raise DispatchBlockedError(
             "OBEGEE_API_TOKEN is not configured. "
