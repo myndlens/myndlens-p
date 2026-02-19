@@ -1,5 +1,5 @@
 """Audit event schemas."""
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
