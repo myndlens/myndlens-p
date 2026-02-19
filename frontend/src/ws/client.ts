@@ -161,7 +161,6 @@ export class MyndLensWSClient {
    * Disconnect and cleanup.
    */
   disconnect(): void {
-    this.maxReconnectAttempts = 0; // Prevent auto-reconnect
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect');
     }
