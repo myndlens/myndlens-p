@@ -282,8 +282,14 @@ async def sync_imap_email(
         user_id=user_id,
         details={"action": "email_sync", "nodes": len(nodes), "edges": len(edges)},
     )
+    person_count = sum(1 for n in nodes if n.type == "Person")
+    interest_count = sum(1 for n in nodes if n.type == "Interest")
     logger.info("[EmailSync] User=%s nodes=%d edges=%d", user_id, len(nodes), len(edges))
-    return PKGDiff(nodes=nodes, edges=edges, stats={"nodes": len(nodes), "edges": len(edges)})
+    return PKGDiff(
+        nodes=nodes, edges=edges,
+        stats={"nodes": len(nodes), "edges": len(edges),
+               "persons": person_count, "interests": interest_count},
+    )
 
 
 # ── LinkedIn Sync ───────────────────────────────────────────────────────────────
