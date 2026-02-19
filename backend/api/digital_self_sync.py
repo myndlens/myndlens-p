@@ -227,7 +227,7 @@ async def sync_imap_email(
     for i, (addr, freq) in enumerate(top_contacts):
         name = contact_names.get(addr, addr.split("@")[0].replace(".", " ").title())
         domain = _domain_from_email(addr)
-        node_id = f"person_{re.sub(r'[^a-z0-9]', '_', addr)}"
+        node_id = _node_id_from_email(addr)  # H1: collision-resistant ID
         rel_label, confidence = _infer_relationship_strength(freq, total_messages)
 
         nodes.append(PKGNodeOut(
