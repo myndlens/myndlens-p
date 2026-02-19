@@ -39,5 +39,3 @@ yarn-error.*
 app-example
 
 # Native build output (managed by EAS/Prebuild)
-/android
-/ios
