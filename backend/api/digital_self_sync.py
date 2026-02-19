@@ -145,7 +145,7 @@ async def _embed_texts(texts: List[str]) -> List[List[float]]:
 
 
 def _run_imap_sync(req: "IMAPRequest") -> tuple[dict, dict, list]:
-    """Synchronous IMAP extraction — runs in a thread via asyncio.to_thread."""
+    """Synchronous IMAP extraction -- runs in a thread via asyncio.to_thread."""
     contact_freq: Dict[str, int] = defaultdict(int)
     contact_names: Dict[str, str] = {}
     subject_tokens: List[str] = []
