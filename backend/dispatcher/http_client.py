@@ -14,6 +14,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
+from core.exceptions import DispatchBlockedError
 from config.settings import get_settings
 from tenants.obegee_reader import resolve_tenant_endpoint
 
