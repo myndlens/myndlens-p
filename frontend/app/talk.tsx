@@ -96,6 +96,8 @@ export default function TalkScreen() {
   const [pipelineSubStatus, setPipelineSubStatus] = React.useState<string>('');
   const [pipelineProgress, setPipelineProgress] = React.useState<number>(0);
   const [liveEnergy, setLiveEnergy] = useState(0);
+  const [chatOpen, setChatOpen] = useState(false);
+  const chatBubbleAnim = useRef(new Animated.Value(1)).current;
   const micAnim = useRef(new Animated.Value(1)).current;
 
   // Poll VAD energy during CAPTURING for visual indicator
