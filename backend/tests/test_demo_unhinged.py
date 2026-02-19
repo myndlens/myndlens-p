@@ -19,7 +19,7 @@ import pytest
 import requests
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://myndlens-preview.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://mandate-executor.preview.emergentagent.com').rstrip('/')
 
 
 class TestUnhingedApprovalGate:

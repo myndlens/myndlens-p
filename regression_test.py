@@ -9,7 +9,7 @@ import json
 import sys
 
 # Backend URL from environment
-BACKEND_URL = "https://myndlens-preview.preview.emergentagent.com"
+BACKEND_URL = "https://mandate-executor.preview.emergentagent.com"
 
 def test_quick_regression():
     """Run quick regression test of critical endpoints"""
