@@ -296,7 +296,7 @@ export default function TalkScreen() {
     // Build on-device context capsule from local Digital Self PKG
     let context_capsule: string | undefined;
     try {
-      const userId = wsClient._userId ?? '';
+      const userId = wsClient.userId ?? '';
       if (userId) {
         const capsule = await buildContextCapsule(userId, text);
         if (capsule.summary) context_capsule = JSON.stringify(capsule);
