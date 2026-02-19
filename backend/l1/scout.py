@@ -193,3 +193,52 @@ def _extract_name(text: str) -> str:
             after = text.lower().split(word, 1)[1].split()[0] if word in text.lower() else ""
             return after.capitalize()
     return ""
+
+
+async def store_draft(draft: L1DraftObject) -> None:
+    """Persist L1 draft to MongoDB so execute_request can retrieve it."""
+    from core.database import get_db
+    db = get_db()
+    doc = {
+        "draft_id": draft.draft_id,
+        "transcript": draft.transcript,
+        "hypotheses": [
+            {
+                "hypothesis": h.hypothesis,
+                "action_class": h.action_class,
+                "confidence": h.confidence,
+                "dimension_suggestions": h.dimension_suggestions,
+            }
+            for h in draft.hypotheses
+        ],
+        "is_mock": draft.is_mock,
+        "latency_ms": draft.latency_ms,
+        "created_at": datetime.now(timezone.utc),
+    }
+    await db.l1_drafts.replace_one({"draft_id": draft.draft_id}, doc, upsert=True)
+    logger.debug("L1 draft stored: draft_id=%s", draft.draft_id)
+
+
+async def get_draft(draft_id: str) -> Optional[L1DraftObject]:
+    """Retrieve a stored L1 draft by ID."""
+    from core.database import get_db
+    db = get_db()
+    doc = await db.l1_drafts.find_one({"draft_id": draft_id}, {"_id": 0})
+    if not doc:
+        return None
+    hypotheses = [
+        Hypothesis(
+            hypothesis=h["hypothesis"],
+            action_class=h["action_class"],
+            confidence=h["confidence"],
+            dimension_suggestions=h.get("dimension_suggestions", {}),
+        )
+        for h in doc.get("hypotheses", [])
+    ]
+    return L1DraftObject(
+        draft_id=doc["draft_id"],
+        transcript=doc["transcript"],
+        hypotheses=hypotheses,
+        is_mock=doc.get("is_mock", True),
+        latency_ms=doc.get("latency_ms", 0),
+    )
