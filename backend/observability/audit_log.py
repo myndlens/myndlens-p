@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from config.settings import get_settings
 from core.database import get_db
 from schemas.audit import AuditEvent, AuditEventType
 from observability.redaction import redact_dict
@@ -15,7 +16,6 @@ async def log_audit_event(
     session_id: Optional[str] = None,
     user_id: Optional[str] = None,
     details: Optional[Dict[str, Any]] = None,
-    env: str = "dev",
 ) -> str:
     """Create and persist an audit event. Returns event_id."""
     event = AuditEvent(
@@ -23,7 +23,7 @@ async def log_audit_event(
         session_id=session_id,
         user_id=user_id,
         details=details or {},
-        env=env,
+        env=get_settings().ENV,
     )
     doc = event.to_doc()
     db = get_db()
