@@ -89,11 +89,13 @@ async function _encrypt(data: string, key: CryptoKey): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(data);
   const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
-  // Pack: iv (12 bytes) + ciphertext → base64
+  // Safe base64 encoding — avoid spread operator to prevent stack overflow on large PKGs
   const combined = new Uint8Array(iv.byteLength + cipher.byteLength);
   combined.set(iv, 0);
   combined.set(new Uint8Array(cipher), iv.byteLength);
-  return btoa(String.fromCharCode(...combined));
+  let binary = '';
+  for (let i = 0; i < combined.length; i++) binary += String.fromCharCode(combined[i]);
+  return btoa(binary);
 }
 
 async function _decrypt(encrypted: string, key: CryptoKey): Promise<string> {
