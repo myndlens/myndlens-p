@@ -72,6 +72,39 @@ async def init_indexes() -> None:
     await db.l1_drafts.create_index("draft_id", unique=True)
     await db.l1_drafts.create_index("created_at", expireAfterSeconds=86400)
 
+    # Agents: tenant+status (list_agents), agent_id (get_agent)
+    await db.agents.create_index("agent_id", unique=True)
+    await db.agents.create_index([("tenant_id", 1), ("status", 1)])
+
+    # Entity Registry: user+refs (resolve_entity)
+    await db.entity_registry.create_index([("user_id", 1), ("human_refs", 1)])
+    await db.entity_registry.create_index([("user_id", 1), ("canonical_id", 1)], unique=True)
+
+    # User Profiles, Nicknames, Onboarding: user_id lookup
+    await db.user_profiles.create_index("user_id", unique=True)
+    await db.nicknames.create_index("user_id", unique=True)
+    await db.onboarding.create_index("user_id", unique=True)
+
+    # Pipeline Progress: session_id lookup
+    await db.pipeline_progress.create_index("session_id")
+
+    # Mandate Dispatches: execution_id lookup
+    await db.mandate_dispatches.create_index("execution_id")
+    await db.mandate_dispatches.create_index("session_id")
+
+    # Prompt Outcomes: user + time analytics
+    await db.prompt_outcomes.create_index([("user_id", 1), ("created_at", -1)])
+
+    # Prompt Versions: purpose + active lookup
+    await db.prompt_versions.create_index([("purpose", 1), ("is_active", 1)])
+    await db.prompt_versions.create_index([("purpose", 1), ("version", -1)])
+
+    # Graphs: user_id lookup
+    await db.graphs.create_index("user_id", unique=True)
+
+    # Transcripts: session_id lookup
+    await db.transcripts.create_index("session_id")
+
     # Rate limits: TTL auto-cleanup
     await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
     await db.rate_limits.create_index([("bucket", 1), ("timestamp", -1)])
