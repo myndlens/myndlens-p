@@ -17,7 +17,6 @@ from typing import Any, Dict
 
 from core.exceptions import DispatchBlockedError
 from config.settings import get_settings
-from envguard.env_separation import assert_dispatch_allowed
 from mio.verify import verify_mio_for_execution
 from dispatcher.idempotency import check_idempotency, record_dispatch
 from dispatcher.http_client import submit_mio_to_adapter
