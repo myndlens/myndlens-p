@@ -423,6 +423,12 @@ async def _handle_execute_request(
             session_id, req.draft_id, l2.action_class, result.get("execution_id"),
         )
 
+    except DispatchBlockedError as e:
+        logger.error("Execute blocked: session=%s reason=%s", session_id, str(e))
+        await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
+            reason=str(e),
+            code="DISPATCH_BLOCKED",
+        ))
     except Exception as e:
         logger.error("Execute request error: session=%s error=%s", session_id, str(e), exc_info=True)
         await _send(ws, WSMessageType.ERROR, ErrorPayload(
