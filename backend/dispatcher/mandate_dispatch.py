@@ -140,6 +140,9 @@ async def dispatch_mandate(
     )
 
     return {"execution_id": execution_id, "status": "QUEUED"}
+
+
+async def _poll_execution(
     session_id: str,
     execution_id: str,
     api_token: str,
