@@ -402,9 +402,11 @@ class TestE2EWorkflow:
 
         try:
             # Send heartbeat first to ensure presence is fresh
+            session_id = getattr(self.__class__, 'session_id', "unknown")
             heartbeat_msg = {
                 "type": "heartbeat",
                 "payload": {
+                    "session_id": session_id,
                     "seq": 2,
                     "client_ts": int(time.time() * 1000)
                 }
