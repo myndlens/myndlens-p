@@ -1,0 +1,18 @@
+{
+  "cli": {
+    "version": ">= 18.0.0"
+  },
+  "build": {
+    "production": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://app.myndlens.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
