@@ -537,6 +537,7 @@ async def _handle_stream_end(ws: WebSocket, session_id: str) -> None:
 async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user_id: str = "") -> None:
     """Handle text input as an alternative to voice (STT fallback)."""
     text = payload.get("text", "").strip()
+    context_capsule = payload.get("context_capsule")  # on-device Digital Self PKG context
     if not text:
         return
     # Guard: reject oversized inputs (prevents DoS through LLM/TTS cost)
@@ -547,7 +548,7 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
         ))
         return
 
-    logger.info("Text input: session=%s text='%s'", session_id, text[:50])
+    logger.info("Text input: session=%s text='%s' has_capsule=%s", session_id, text[:50], bool(context_capsule))
 
     # Create a synthetic transcript fragment
     from stt.provider.interface import TranscriptFragment
@@ -573,10 +574,10 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
     ))
 
     await save_transcript(state)
-    await _send_mock_tts_response(ws, session_id, text, user_id=user_id)
+    await _send_mock_tts_response(ws, session_id, text, user_id=user_id, context_capsule=context_capsule)
 
 
-async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: str, user_id: str = "") -> None:
+async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: str, user_id: str = "", context_capsule: str | None = None) -> None:
     """Process transcript through L1 Scout → Dimensions → Guardrails → TTS.
 
     Flow: transcript → L1 hypotheses → dimension update → guardrails → response → TTS
