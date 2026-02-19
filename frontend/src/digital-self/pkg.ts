@@ -116,7 +116,10 @@ export async function loadPKG(userId: string): Promise<PKG> {
       const json = await _decrypt(raw, key);
       return JSON.parse(json) as PKG;
     }
-  } catch { /* fresh start or key rotation */ }
+  } catch (e) {
+    // Log decryption failures so they can be debugged (e.g., corrupt storage, key mismatch)
+    if ((e as Error)?.message) console.warn('[PKG] Load failed, returning empty PKG:', (e as Error).message);
+  }
   return { version: PKG_VERSION, user_id: userId, nodes: {}, edges: {}, last_updated: new Date().toISOString() };
 }
 
