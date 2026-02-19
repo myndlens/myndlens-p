@@ -283,12 +283,16 @@ class DeliveryWebhookPayload(BaseModel):
 
 
 @api_router.post("/dispatch/delivery-webhook")
-async def delivery_webhook(payload: DeliveryWebhookPayload):
+async def delivery_webhook(
+    payload: DeliveryWebhookPayload,
+    x_obegee_s2s_token: str = Header(None),
+):
     """Webhook: ObeGee calls this after OpenClaw executes and delivers results.
 
     Flow: MyndLens sends mandate → ObeGee executes → ObeGee delivers to channels
     → ObeGee calls this webhook → MyndLens updates UI.
     """
+    _verify_s2s_token(x_obegee_s2s_token)
     db = get_db()
 
     # Store delivery record
