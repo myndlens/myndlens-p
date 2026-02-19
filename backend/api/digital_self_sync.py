@@ -323,9 +323,19 @@ async def sync_linkedin_csv(
     logger.info("[LinkedInSync] User=%s", user_id)
 
     try:
-        import base64
         csv_bytes = base64.b64decode(req.csv_base64)
-        reader = csv.DictReader(io.StringIO(csv_bytes.decode("utf-8", errors="replace")))
+        text = csv_bytes.decode("utf-8", errors="replace")
+
+        # H3: LinkedIn's export has 3 introductory header rows before the real CSV.
+        # Skip lines until we find one starting with "First Name" — that is the real header.
+        lines = text.splitlines()
+        data_start = 0
+        for idx, line in enumerate(lines):
+            if line.strip().lower().startswith("first name"):
+                data_start = idx
+                break
+        csv_text = "\n".join(lines[data_start:])
+        reader = csv.DictReader(io.StringIO(csv_text))
         rows = list(reader)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid CSV: {str(e)}")
