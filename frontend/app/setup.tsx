@@ -19,8 +19,15 @@ const obegee = (path: string, opts?: RequestInit, token?: string) =>
     },
     ...opts,
   }).then(async r => {
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+    const text = await r.text();
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // ObeGee returned non-JSON (HTML error page, plain text)
+      throw new Error(`Server error (${r.status}): ${text.slice(0, 120)}`);
+    }
+    if (!r.ok) throw new Error(data.detail || data.message || `HTTP ${r.status}`);
     return data;
   });
 
