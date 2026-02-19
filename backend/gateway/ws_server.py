@@ -23,7 +23,7 @@ from auth.tokens import validate_token, TokenClaims
 from auth.sso_validator import get_sso_validator, SSOClaims
 from auth.device_binding import create_session, get_session, terminate_session
 from config.settings import get_settings
-from core.exceptions import AuthError, PresenceError, MyndLensError
+from core.exceptions import AuthError, PresenceError, MyndLensError, DispatchBlockedError
 from observability.audit_log import log_audit_event
 from observability.redaction import redact_dict
 from presence.heartbeat import record_heartbeat, check_presence
