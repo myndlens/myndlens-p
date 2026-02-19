@@ -92,7 +92,9 @@ async def call_llm(
         elif m.get("role") == "user":
             user_msg = m["content"]
 
-    chat_session_id = session_id or f"{call_site_id}-{artifact.prompt_id[:8]}"
+    # Each prompt gets a unique session ID — prevents conversation history
+    # from one mandate bleeding into the next within the same WS session.
+    chat_session_id = f"{call_site_id}-{artifact.prompt_id}"
 
     chat = LlmChat(
         api_key=settings.EMERGENT_LLM_KEY,
