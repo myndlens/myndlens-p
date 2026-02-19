@@ -85,6 +85,10 @@ async def lifespan(app: FastAPI):
     # Pre-load MIO signing keys from DB (persists across restarts)
     from mio.signer import _load_or_generate_keys
     await _load_or_generate_keys()
+    # Reload Digital Self vectors from MongoDB (fixes restart-wipe bug)
+    from memory.client.vector import reload_from_mongodb
+    reloaded = await reload_from_mongodb()
+    logger.info("Digital Self vectors reloaded: %d", reloaded)
     # Auto-index skills library into MongoDB
     from skills.library import load_and_index_library
     skills_result = await load_and_index_library()
