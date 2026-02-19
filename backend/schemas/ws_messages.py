@@ -6,7 +6,7 @@ All WS communication flows through these typed envelopes.
 FROZEN: Any changes require an ADR + schema compatibility test.
 All message types and payload models MUST be defined here.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, List, Optional
 from pydantic import BaseModel, Field
@@ -45,7 +45,7 @@ class WSEnvelope(BaseModel):
     """Every WS message is wrapped in this envelope."""
     type: WSMessageType
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     payload: dict = Field(default_factory=dict)
 
 
@@ -62,7 +62,7 @@ class AuthPayload(BaseModel):
 class HeartbeatPayload(BaseModel):
     session_id: str
     seq: int  # monotonic sequence number
-    client_ts: datetime = Field(default_factory=datetime.utcnow)
+    client_ts: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AudioChunkPayload(BaseModel):
@@ -101,7 +101,7 @@ class AuthOkPayload(BaseModel):
     session_id: str
     user_id: str
     heartbeat_interval_ms: int
-    server_ts: datetime = Field(default_factory=datetime.utcnow)
+    server_ts: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AuthFailPayload(BaseModel):
@@ -111,7 +111,7 @@ class AuthFailPayload(BaseModel):
 
 class HeartbeatAckPayload(BaseModel):
     seq: int
-    server_ts: datetime = Field(default_factory=datetime.utcnow)
+    server_ts: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TranscriptPayload(BaseModel):
