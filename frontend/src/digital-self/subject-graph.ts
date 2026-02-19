@@ -7,7 +7,7 @@
  * No network calls. Everything is local.
  */
 
-import { loadPKG, PKGNode, PKG } from './pkg';
+import { loadPKG, PKGNode } from './pkg';
 
 export interface ResolvedEntity {
   node: PKGNode;
