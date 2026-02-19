@@ -99,6 +99,14 @@ export default function TalkScreen() {
   const [chatOpen, setChatOpen] = useState(false);
   const chatBubbleAnim = useRef(new Animated.Value(1)).current;
   const micAnim = useRef(new Animated.Value(1)).current;
+  // 5 waveform bars — heights driven by liveEnergy
+  const waveAnims = useRef([
+    new Animated.Value(4),
+    new Animated.Value(4),
+    new Animated.Value(4),
+    new Animated.Value(4),
+    new Animated.Value(4),
+  ]).current;
 
   // Poll VAD energy during CAPTURING for visual indicator
   useEffect(() => {
