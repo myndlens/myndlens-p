@@ -809,7 +809,25 @@ test_plan:
 agent_communication:
     - agent: "main"
       message: |
-        CRITICAL: Intent Capture Pipeline testing required.
+        VAD + STT + TTS Pipeline testing required.
+
+        CHANGES MADE:
+        1. Added step logs to stt/orchestrator.py: [STT:ORCHESTRATOR], [STT:DECODE]
+        2. Added step logs to tts/orchestrator.py: [TTS:ORCHESTRATOR]
+        3. Upgraded tts/provider/mock.py MockTTS from debug to info level: [TTS:MOCK]
+        4. CREATED: /app/backend/tests/test_vad_stt_tts.py with 52 test cases
+
+        Run: cd /app/backend && python -m pytest tests/test_vad_stt_tts.py -v -s 2>&1
+
+        Test groups:
+        - Group V (V01-V14): VAD algorithm — RMS energy, speech detection, dBFS conversion
+        - Group S (S01-S16): STT — audio validation, mock provider, Deepgram health
+        - Group T (T01-T12): TTS — mock provider, ElevenLabs health + synthesis, orchestrator
+        - Group I (I01-I10): Integration — WS text_input full flow, audio chunks, harmful input
+
+        IMPORTANT: Integration tests (Group I, I01-I10) require websocket-client package.
+        Install if needed: pip install websocket-client
+        EXPO_PUBLIC_BACKEND_URL env var should be set, else defaults to preview URL.
         
         Changes made this session:
         1. FIXED BUG: Ambiguity default was 0.5 (above 0.30 guardrail threshold) — changed to 0.0 in dimensions/engine.py
