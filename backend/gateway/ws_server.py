@@ -363,9 +363,7 @@ async def _handle_execute_request(
             logger.warning("EXECUTE_BLOCKED: QC failed: session=%s reason=%s", session_id, qc.block_reason)
             return
 
-        await broadcast_stage(session_id, 5, "done", "Intent verified")
-
-        # Stage 5: Agent assignment
+        # Stage 5: Agent assignment (L2/QC complete, now assign agent)
         assigned_agent_id = None
         if tenant_id:
             from agents.builder import AgentBuilder
