@@ -127,8 +127,9 @@ def _decode_subject(raw_subj: str) -> str:
 
 
 def _node_id_from_email(addr: str) -> str:
+    """Generate collision-resistant node ID from email address.
 
-    Uses a 6-char hash suffix so 'bob.smith@a.com' and 'bob_smith@a.com'
+    Uses a 6-char hash suffix so bob.smith@a.com and bob_smith@a.com
     produce different IDs despite identical slug output.
     """
     import hashlib
