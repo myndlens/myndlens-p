@@ -115,7 +115,13 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
 
     try:
         # ---- Phase 1: Authentication ----
-        raw = await websocket.receive_text()
+        # 30-second timeout on initial AUTH — prevents zombie connections
+        try:
+            raw = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+        except asyncio.TimeoutError:
+            await websocket.close(code=4008, reason="Auth timeout")
+            logger.warning("WS auth timeout: no AUTH received within 30s")
+            return
         msg = json.loads(raw)
 
         if msg.get("type") != WSMessageType.AUTH.value:
