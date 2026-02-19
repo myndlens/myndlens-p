@@ -44,7 +44,7 @@ export async function stop(): Promise<void> {
     try {
       const Speech = require('expo-speech');
       await Speech.stop();
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
