@@ -1,10 +1,12 @@
 /**
- * Audio Recorder — cross-platform audio capture.
+ * Audio Recorder — cross-platform audio capture with VAD auto-stop.
  *
- * Uses expo-av on native, simulated chunks on web (for preview).
+ * Uses expo-av on native, MediaRecorder on web.
  * Outputs ~250ms audio chunks as base64 for WS streaming.
+ * VAD drives auto-stop after silence detected (Siri-like behaviour).
  */
 import { Platform } from 'react-native';
+import { vad } from './vad/local-vad';
 
 export type AudioChunk = {
   data: string; // base64
