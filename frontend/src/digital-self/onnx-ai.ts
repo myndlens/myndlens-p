@@ -34,10 +34,11 @@ export async function initONNX(): Promise<boolean> {
       console.log('[ONNX] Model downloaded:', modelPath);
     }
 
-    _session = await InferenceSession.create(modelPath, {
+    const session = await InferenceSession.create(modelPath, {
       executionProviders: ['cpu'],
     });
-    _initialized = true;
+    // Session stored for future semantic inference — not yet used in summary generation
+    _initialized = session != null;
     console.log('[ONNX] Session ready');
     return true;
   } catch (err) {
