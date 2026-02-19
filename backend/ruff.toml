@@ -1,0 +1,29 @@
+# ruff.toml — MyndLens backend lint rules
+# These rules catch the patterns that caused repeated bugs across 5 code review passes.
+
+[lint]
+select = [
+    "F",        # Pyflakes: unused imports, undefined names, unused variables
+    "E",        # pycodestyle errors
+    "W",        # pycodestyle warnings
+    "DTZ",      # flake8-datetimez: ban datetime.utcnow() and naive datetimes
+    "ASYNC",    # flake8-async: missing await, deprecated async patterns
+]
+
+ignore = [
+    "E501",     # Line too long (handled by formatter)
+    "E402",     # Module level import not at top (needed for env loading)
+    "ASYNC109", # asyncio.timeout (not needed yet)
+]
+
+# DTZ rules enforce timezone-aware datetimes — prevents datetime.utcnow() regression
+# DTZ001 = datetime.datetime.utcnow() banned
+# DTZ002 = datetime.datetime.utcfromtimestamp() banned
+# DTZ003 = datetime.datetime.utcnow().date() banned
+# DTZ005 = datetime.datetime.now() without tz= banned
+# DTZ006 = datetime.datetime.fromtimestamp() without tz= banned
+# DTZ007 = datetime.datetime.strptime() without tz= banned
+
+[lint.per-file-ignores]
+"tests/*" = ["F401", "F811", "F841", "DTZ"]  # Tests are looser
+"server.py" = ["E501"]
