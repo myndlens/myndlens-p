@@ -118,9 +118,8 @@ export async function buildContextCapsule(
   if (people.length > 0) {
     const personSummaries = people.map(p => {
       const rel = p.data.relationship ? ` (${p.data.relationship})` : '';
-      const email = p.data.email ? `, email: ${p.data.email}` : '';
-      const phone = p.data.phone ? `, phone: ${p.data.phone}` : '';
-      return `${p.label}${rel}${email}${phone}`;
+      // Email/phone are PII — never included in the context capsule sent to backend
+      return `${p.label}${rel}`;
     });
     parts.push(`Contacts: ${personSummaries.join('; ')}`);
   }
