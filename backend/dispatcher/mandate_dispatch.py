@@ -122,7 +122,13 @@ async def dispatch_mandate(
 
         logger.info("Mandate dispatched to ObeGee: exec=%s session=%s", execution_id, session_id)
     else:
-        # Dev mode: simulate execution stages
+        # Dev mode: OBEGEE_API_URL not set — simulating execution stages locally.
+        # In production, set OBEGEE_API_URL to dispatch to the live ObeGee endpoint.
+        logger.warning(
+            "MANDATE DISPATCH: SIMULATED (no OBEGEE_API_URL configured). "
+            "exec=%s session=%s — set OBEGEE_API_URL in .env for live dispatch.",
+            execution_id, session_id,
+        )
         asyncio.create_task(_simulate_execution(session_id, execution_id))
         logger.info("Mandate dispatched (simulated): exec=%s session=%s", execution_id, session_id)
 
