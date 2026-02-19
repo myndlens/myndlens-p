@@ -154,7 +154,12 @@ export async function storeFact(
   userId: string,
   params: { label: string; type: NodeType; data?: Record<string, any>; confidence?: number; provenance?: string },
 ): Promise<PKGNode> {
-  const id = `${params.type.toLowerCase()}_${params.label.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
+  const slug = params.label.toLowerCase().replace(/\s+/g, '_');
+  // Trait/Place/Event nodes use stable IDs so repeated ingestion updates rather than duplicates.
+  // FACT nodes use Date.now() because each observation is genuinely unique.
+  const id = params.type === 'Trait' || params.type === 'Place' || params.type === 'Event'
+    ? `${params.type.toLowerCase()}_${slug}`
+    : `${params.type.toLowerCase()}_${slug}_${Date.now()}`;
   return upsertNode(userId, {
     id, type: params.type, label: params.label,
     data: params.data ?? {}, confidence: params.confidence ?? 0.8,
