@@ -30,7 +30,13 @@ export default function PersonaScreen() {
   async function load() {
     setLoading(true);
     try {
-      const userId = await getStoredUserId() ?? 'local';
+      const userId = await getStoredUserId();
+      if (!userId) {
+        // Not authenticated — don't load someone else's PKG under 'local'
+        setSummary('Please log in to access your Digital Self.');
+        setLoading(false);
+        return;
+      }
       const p = await loadPKG(userId);
       setPkg(p);
       setSummary(await generatePersonaSummary(p));
@@ -43,7 +49,8 @@ export default function PersonaScreen() {
   async function handleImport() {
     setImporting(true);
     try {
-      const userId = await getStoredUserId() ?? 'local';
+      const userId = await getStoredUserId();
+      if (!userId) { Alert.alert('Not logged in', 'Please log in first.'); return; }
       const result = await runTier1Ingestion(userId);
       Alert.alert(
         'Import Complete',
