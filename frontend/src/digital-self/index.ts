@@ -10,3 +10,4 @@ export { resolve, getAttribute, buildContextCapsule, getStats } from './subject-
 export type { ResolvedEntity, ContextCapsule } from './subject-graph';
 export { deleteDigitalSelf, getDigitalSelfSize } from './kill-switch';
 export { runTier1Ingestion, ingestContacts, ingestCalendar } from './ingester';
+export { generatePersonaSummary, getPKGStats, initONNX } from './onnx-ai';
