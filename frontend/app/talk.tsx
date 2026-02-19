@@ -93,7 +93,18 @@ export default function TalkScreen() {
   const [pipelineStageIndex, setPipelineStageIndex] = React.useState<number>(-1);
   const [pipelineSubStatus, setPipelineSubStatus] = React.useState<string>('');
   const [pipelineProgress, setPipelineProgress] = React.useState<number>(0);
+  const [liveEnergy, setLiveEnergy] = useState(0);
   const micAnim = useRef(new Animated.Value(1)).current;
+
+  // Poll VAD energy during CAPTURING for visual indicator
+  useEffect(() => {
+    if (audioState !== 'CAPTURING') {
+      setLiveEnergy(0);
+      return;
+    }
+    const poll = setInterval(() => setLiveEnergy(vad.lastEnergy), 80);
+    return () => clearInterval(poll);
+  }, [audioState]);
 
   // Mic pulse
   useEffect(() => {
