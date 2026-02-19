@@ -297,9 +297,14 @@ async def sync_imap_email(
 class LinkedInCSVRequest(BaseModel):
     """LinkedIn Connections export CSV (Base64 encoded).
 
-    User downloads from: LinkedIn → Settings → Data Privacy → Get a copy of your data→ Connections.csv
+    User downloads from: LinkedIn → Settings → Data Privacy → Get a copy of your data → Connections.csv
+    LinkedIn's export includes 3 introductory header rows before the actual CSV data.
     """
-    csv_base64: str = Field(..., description="Base64-encoded Connections.csv from LinkedIn data export")
+    csv_base64: str = Field(
+        ...,
+        max_length=2_000_000,  # H2: ~1.5MB base64 ≈ 500KB CSV ≈ ~5000 connections
+        description="Base64-encoded Connections.csv from LinkedIn data export",
+    )
 
 
 @router.post("/linkedin/sync", response_model=PKGDiff)
