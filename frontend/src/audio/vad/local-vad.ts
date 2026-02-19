@@ -99,7 +99,7 @@ export class LocalVAD {
     if (!this._analyser || !this._dataArray) {
       return 'none';
     }
-    this._analyser.getFloatTimeDomainData(this._dataArray);
+    this._analyser.getFloatTimeDomainData(this._dataArray as Float32Array<ArrayBuffer>);
     const rms = computeRMS(this._dataArray);
     return this.processEnergy(rms);
   }
