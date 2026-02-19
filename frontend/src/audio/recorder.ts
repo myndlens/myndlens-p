@@ -21,7 +21,6 @@ let _recording = false;
 let _seq = 0;
 let _chunkInterval: ReturnType<typeof setInterval> | null = null;
 let _vadInterval: ReturnType<typeof setInterval> | null = null;
-let _onChunk: OnChunkCallback | null = null;
 let _onSpeechEnd: (() => void) | null = null;
 
 // For native, we'd use expo-av Audio.Recording
