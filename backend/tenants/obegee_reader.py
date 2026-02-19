@@ -51,7 +51,7 @@ async def resolve_tenant_endpoint(tenant_id: str) -> Optional[Dict[str, Any]]:
             return {
                 "port": doc.get("port"),
                 "status": doc.get("status"),
-                "endpoint": f"http://{get_settings().CHANNEL_ADAPTER_IP}:{doc.get('port')}/v1/dispatch",
+                "endpoint": f"http://{get_settings().CHANNEL_ADAPTER_IP}:8080/v1/dispatch",
             }
     except Exception as e:
         logger.error("[ObeGeeDB] Tenant resolution failed: %s", str(e))
