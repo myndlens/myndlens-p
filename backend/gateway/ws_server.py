@@ -484,9 +484,10 @@ async def _handle_audio_chunk(ws: WebSocket, session_id: str, payload: dict) -> 
                     confidence=fragment.confidence,
                     span_ids=[s.span_id for s in state.get_spans()],
                 ))
-                # Save transcript to DB
+                # Save transcript to DB and clean up in-memory state
                 await save_transcript(state)
-                # Send a mock TTS response
+                transcript_assembler.cleanup(session_id)
+                # Send TTS response
                 await _send_mock_tts_response(ws, session_id, state.get_current_text())
 
     except Exception as e:
