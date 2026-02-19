@@ -13,17 +13,24 @@ Tests the features from the code review fixes:
 import asyncio
 import json
 import os
+import sys
 import pytest
 import requests
 import time
 import uuid
 from datetime import datetime, timezone
 
+# Add backend to path for direct imports
+sys.path.insert(0, "/app/backend")
+
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
     BASE_URL = "https://mandate-executor.preview.emergentagent.com"
 
 PAIR_CODE = "123456"
+
+# Configure pytest-asyncio
+pytest_plugins = ('pytest_asyncio',)
 
 
 # ============================================================================
@@ -36,6 +43,15 @@ def event_loop():
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+def run_async(coro):
+    """Helper to run async functions in sync tests."""
+    loop = asyncio.get_event_loop()
+    if loop.is_closed():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(coro)
 
 
 class TestDraftPersistence:
