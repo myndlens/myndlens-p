@@ -20,7 +20,7 @@
       "package": "com.myndlens.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000"
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": false,
       "permissions": ["RECORD_AUDIO"]
