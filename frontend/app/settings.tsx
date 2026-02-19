@@ -15,7 +15,14 @@ import {
 } from '../src/state/settings-prefs';
 import { deleteDigitalSelf } from '../src/digital-self/kill-switch';
 import { runTier1Ingestion } from '../src/digital-self/ingester';
-import { getStoredUserId } from '../src/ws/auth';
+import { getStoredUserId, getStoredToken } from '../src/ws/auth';
+import {
+  saveIMAPCredentials, loadIMAPCredentials, deleteIMAPCredentials,
+  saveGmailToken, loadGmailToken,
+  saveLinkedInCredentials, loadLinkedInCredentials,
+  revokeAllCredentials,
+  IMAPCredentials,
+} from '../src/digital-self/credentials';
 
 // ── Reusable sub-components ────────────────────────────────────────────────
 
