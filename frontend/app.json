@@ -2,19 +2,22 @@
   "expo": {
     "name": "MyndLens",
     "slug": "myndlens",
+    "owner": "myndlens-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "myndlens",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.myndlens.app",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Record voice commands for your assistant"
       }
     },
     "android": {
+      "package": "com.myndlens.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000"
