@@ -9,7 +9,7 @@
  * Falls back gracefully if permissions denied or libraries not installed.
  */
 
-import { registerPerson, storeFact, upsertEdge } from './pkg';
+import { registerPerson, storeFact } from './pkg';
 import { scoreAndFilterContacts, extractCalendarPatterns } from '../onboarding/smart-processing';
 
 /**
