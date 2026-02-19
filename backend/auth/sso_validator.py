@@ -147,8 +147,15 @@ class JWKSValidator(SSOTokenValidator):
 
 
 def get_sso_validator() -> SSOTokenValidator:
-    """Get the configured SSO validator based on OBEGEE_TOKEN_VALIDATION_MODE."""
+    """Get the SSO validator.
+
+    Production rule: ENV=prod always uses JWKS (RS256 from obegee.co.uk).
+    Dev rule: uses OBEGEE_TOKEN_VALIDATION_MODE setting (default HS256 for mock IDP).
+    This ensures production is never silently downgraded to HS256.
+    """
     settings = get_settings()
+    if settings.ENV == "prod":
+        return JWKSValidator()
     mode = settings.OBEGEE_TOKEN_VALIDATION_MODE.upper()
     if mode == "HS256":
         return HS256Validator()
