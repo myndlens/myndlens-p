@@ -99,7 +99,7 @@ async def dispatch_mandate(
     if not obegee_url:
         raise DispatchBlockedError(
             "OBEGEE_API_URL is not configured. "
-            "Set OBEGEE_API_URL=https://api.obegee.co.uk in backend/.env to enable mandate dispatch."
+            "Set OBEGEE_API_URL=https://obegee.co.uk/api in backend/.env to enable mandate dispatch."
         )
 
     execution_id = f"exec_{mandate.get('mandate_id', 'unknown')}"
