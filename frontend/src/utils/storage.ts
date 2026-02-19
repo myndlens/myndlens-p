@@ -10,7 +10,7 @@ let SecureStore: any = null;
 if (Platform.OS !== 'web') {
   try {
     SecureStore = require('expo-secure-store');
-  } catch (e) {
+  } catch {
     console.warn('expo-secure-store not available, using fallback');
   }
 }
