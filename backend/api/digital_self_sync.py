@@ -48,11 +48,7 @@ logger = logging.getLogger(__name__)
 
 IMAP_TIMEOUT_SECONDS = 20
 
-TRAVEL_KEYWORDS = [
-    "booking", "reservation", "flight", "hotel", "itinerary", "check-in",
-    "e-ticket", "boarding", "confirmation", "travel", "trip", "airline",
-    "airbnb", "expedia", "booking.com", "hilton", "marriott", "hyatt",
-]
+# TRAVEL_KEYWORDS removed — no longer needed after redesign to vector extraction
 
 
 # ── Shared PKG output schema ──────────────────────────────────────────────────────────
