@@ -57,9 +57,14 @@ const PKG_KEY_PREFIX = 'myndlens_ds_encrypted';
 const SECURE_KEY_NAME_PREFIX = 'myndlens_ds_aes_key';
 const PKG_VERSION = 1;
 
-// ── Hardware-backed AES key management ──────────────────────────────────────
+// ── AES key cache (avoids SecureStore round-trips on every read/write) ────────
+
+const _keyCache = new Map<string, CryptoKey>();
 
 async function _getOrCreateAESKey(userId: string): Promise<CryptoKey> {
+  // Return cached key if available (valid for the lifetime of the app session)
+  if (_keyCache.has(userId)) return _keyCache.get(userId)!;
+
   const keyName = `${SECURE_KEY_NAME_PREFIX}_${userId}`;
   const stored = await SecureStore.getItemAsync(keyName, {
     keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
@@ -67,7 +72,9 @@ async function _getOrCreateAESKey(userId: string): Promise<CryptoKey> {
 
   if (stored) {
     const jwk = JSON.parse(stored);
-    return crypto.subtle.importKey('jwk', jwk, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+    _keyCache.set(userId, key);
+    return key;
   }
 
   // Generate new hardware-locked AES-256-GCM key
@@ -77,11 +84,10 @@ async function _getOrCreateAESKey(userId: string): Promise<CryptoKey> {
     ['encrypt', 'decrypt'],
   );
   const exported = await crypto.subtle.exportKey('jwk', key);
-  // Store key in Secure Enclave (iOS) / StrongBox (Android) — hardware-backed
   await SecureStore.setItemAsync(keyName, JSON.stringify(exported), {
     keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   });
-
+  _keyCache.set(userId, key);
   return key;
 }
 
