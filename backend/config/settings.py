@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     MYNDLENS_DISPATCH_TOKEN: str = Field(default="myndlens_dispatch_secret_2026")
     OBEGEE_API_URL: str = Field(default="")  # https://obegee.co.uk/api in prod
 
+    # Service-to-service token for ObeGee API calls (NOT the user session token).
+    # Must be an RS256 JWT or API key issued by ObeGee to MyndLens as a service.
+    # Obtain from ObeGee team. Leave empty in dev — dispatch will fail gracefully.
+    OBEGEE_API_TOKEN: str = Field(default="")
+
     # ── MIO Key Encryption ───────────────────────────────────
     # 32-byte hex key used to AES-256-GCM encrypt the ED25519 private key at rest.
     # Generate with: python3 -c "import secrets; print(secrets.token_hex(32))"
