@@ -20,6 +20,7 @@ def can_write(trigger: str) -> bool:
         "post_execution",       # Action completed successfully
         "user_confirmation",    # User explicitly approved
         "onboarding",           # Initial setup
+        "ONBOARDING_AUTO",      # Automated onboarding data import
     }
 
     DENIED_TRIGGERS = {
