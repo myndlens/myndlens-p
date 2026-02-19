@@ -90,8 +90,12 @@ async def dispatch_mandate(
 ) -> Dict[str, Any]:
     """Send mandate to ObeGee and start tracking execution progress.
 
-    Requires OBEGEE_API_URL in environment. No silent fallback — a missing
-    URL is a configuration error that must be resolved before production use.
+    Authentication uses OBEGEE_API_TOKEN (service-to-service token) from settings —
+    NOT the user session JWT (api_token), which ObeGee rejects with 401.
+    api_token param is retained for API compatibility but not used for auth.
+
+    Requires OBEGEE_API_URL and OBEGEE_API_TOKEN in environment.
+    Raises DispatchBlockedError for any missing config — no silent fallback.
     """
     settings = get_settings()
     obegee_url = getattr(settings, 'OBEGEE_API_URL', '')
@@ -99,19 +103,27 @@ async def dispatch_mandate(
     if not obegee_url:
         raise DispatchBlockedError(
             "OBEGEE_API_URL is not configured. "
-            "Set OBEGEE_API_URL=https://obegee.co.uk/api in backend/.env to enable mandate dispatch."
+            "Set OBEGEE_API_URL=https://obegee.co.uk/api/myndlens in backend/.env."
+        )
+
+    # Use the service-to-service token — not the user session JWT.
+    service_token = getattr(settings, 'OBEGEE_API_TOKEN', '')
+    if not service_token:
+        raise DispatchBlockedError(
+            "OBEGEE_API_TOKEN is not configured. "
+            "Obtain a service token from the ObeGee team and set OBEGEE_API_TOKEN in backend/.env."
         )
 
     execution_id = f"exec_{mandate.get('mandate_id', 'unknown')}"
 
-    # Dispatch to ObeGee
+    # Dispatch to ObeGee using service token
     import httpx
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
             f"{obegee_url}/dispatch/mandate",
             json=mandate,
             headers={
-                "Authorization": f"Bearer {api_token}",
+                "Authorization": f"Bearer {service_token}",
                 "Content-Type": "application/json",
             },
         )
@@ -125,8 +137,8 @@ async def dispatch_mandate(
     # Stage 8: OpenClaw executing
     await broadcast_stage(session_id, 8, "active", "Queued for execution", 10, execution_id)
 
-    # Poll execution status in background
-    asyncio.create_task(_poll_execution(session_id, execution_id, api_token, obegee_url))
+    # Poll execution status in background using service token
+    asyncio.create_task(_poll_execution(session_id, execution_id, service_token, obegee_url))
 
     # Persist dispatch record
     db = get_db()
