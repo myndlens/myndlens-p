@@ -80,7 +80,7 @@ export default function TalkScreen() {
     setConnectionStatus, setHeartbeatSeq, setExecuteBlocked,
   } = useSessionStore();
   const {
-    state: audioState, transcript, partialTranscript, ttsText, chunksSent,
+    state: audioState, transcript, partialTranscript, ttsText,
     transition, setTranscript, setPartialTranscript, setTtsText,
     setIsSpeaking, incrementChunks, reset: resetAudio,
   } = useAudioStore();
