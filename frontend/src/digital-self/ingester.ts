@@ -82,6 +82,13 @@ export async function ingestCalendar(userId: string): Promise<number> {
     const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
     const calendarIds = calendars.map((c: any) => c.id);
+
+    // Guard: no calendars granted — nothing to ingest
+    if (calendarIds.length === 0) {
+      console.log('[Ingester] No calendars available');
+      return 0;
+    }
+
     const events = await Calendar.getEventsAsync(calendarIds, start, end);
 
     const { routines, patterns } = extractCalendarPatterns(events);
