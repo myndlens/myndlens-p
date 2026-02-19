@@ -107,6 +107,40 @@ export default function TalkScreen() {
     return () => clearInterval(poll);
   }, [audioState]);
 
+  // AppState: detect background → foreground transition
+  useEffect(() => {
+    const appStateSub = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'active') {
+        // App came back to foreground — check if WS is still alive
+        if (!wsClient.isAuthenticated) {
+          // WS dropped while in background — clean up stale state and reconnect
+          if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
+            await stopRecording().catch(() => {});
+          }
+          await TTS.stop().catch(() => {});
+          resetAudio();
+          setPendingAction(null);
+          setPendingDraftId(null);
+          setPipelineStageIndex(-1);
+          setPipelineSubStatus('');
+          setPipelineProgress(0);
+          setConnectionStatus('disconnected');
+          router.replace('/loading');
+        }
+      } else if (nextState === 'background') {
+        // App going to background — stop any active recording/TTS to free resources
+        if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
+          await stopRecording().catch(() => {});
+          transition('IDLE');
+        }
+        if (audioState === 'RESPONDING') {
+          await TTS.stop().catch(() => {});
+        }
+      }
+    });
+    return () => appStateSub.remove();
+  }, [audioState]);
+
   // Mic pulse
   useEffect(() => {
     if (audioState === 'CAPTURING') {
