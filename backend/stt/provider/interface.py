@@ -5,7 +5,7 @@ STT does NOT provide: intent inference, VAD, emotion inference.
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
