@@ -586,7 +586,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
 
     l1_draft = await run_l1_scout(
         session_id=session_id,
-        user_id="",
+        user_id=user_id,
         transcript=transcript,
     )
 
