@@ -17,7 +17,7 @@ const STATUS_MESSAGES = [
  */
 export default function LoadingScreen() {
   const router = useRouter();
-  const { setConnectionStatus, setSessionId, setPresenceOk } = useSessionStore();
+  const { setConnectionStatus } = useSessionStore();
   const [statusIdx, setStatusIdx] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const retryCount = useRef(0);
