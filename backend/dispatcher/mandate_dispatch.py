@@ -90,66 +90,56 @@ async def dispatch_mandate(
 ) -> Dict[str, Any]:
     """Send mandate to ObeGee and start tracking execution progress.
 
-    In dev mode (no OBEGEE_API_URL), simulates the dispatch with mock stages.
-    In production, sends to ObeGee and polls for status.
+    Requires OBEGEE_API_URL in environment. No silent fallback — a missing
+    URL is a configuration error that must be resolved before production use.
     """
     settings = get_settings()
     obegee_url = getattr(settings, 'OBEGEE_API_URL', '')
+
+    if not obegee_url:
+        raise DispatchBlockedError(
+            "OBEGEE_API_URL is not configured. "
+            "Set OBEGEE_API_URL=https://api.obegee.co.uk in backend/.env to enable mandate dispatch."
+        )
+
     execution_id = f"exec_{mandate.get('mandate_id', 'unknown')}"
 
-    # Stage 5: Agents assigned
-    await broadcast_stage(session_id, 5, "done", execution_id=execution_id)
-
-    # Stage 6: Skills & tools defined
-    await broadcast_stage(session_id, 6, "done", execution_id=execution_id)
-
-    # Stage 7: Authorization granted
-    await broadcast_stage(session_id, 7, "done", execution_id=execution_id)
-
-    if obegee_url:
-        # Production: send to ObeGee
-        import httpx
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(
-                f"{obegee_url}/dispatch/mandate",
-                json=mandate,
-                headers={"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"},
-            )
-            result = response.json()
-            execution_id = result.get("execution_id", execution_id)
-
-        # Stage 8: OpenClaw executing
-        await broadcast_stage(session_id, 8, "active", "Queued for execution", 10, execution_id)
-
-        # Start polling in background
-        asyncio.create_task(_poll_execution(session_id, execution_id, api_token, obegee_url))
-
-        logger.info("Mandate dispatched to ObeGee: exec=%s session=%s", execution_id, session_id)
-    else:
-        # Dev mode: OBEGEE_API_URL not set — simulating execution stages locally.
-        # In production, set OBEGEE_API_URL to dispatch to the live ObeGee endpoint.
-        logger.warning(
-            "MANDATE DISPATCH: SIMULATED (no OBEGEE_API_URL configured). "
-            "exec=%s session=%s — set OBEGEE_API_URL in .env for live dispatch.",
-            execution_id, session_id,
+    # Dispatch to ObeGee
+    import httpx
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            f"{obegee_url}/dispatch/mandate",
+            json=mandate,
+            headers={
+                "Authorization": f"Bearer {api_token}",
+                "Content-Type": "application/json",
+            },
         )
-        asyncio.create_task(_simulate_execution(session_id, execution_id))
-        logger.info("Mandate dispatched (simulated): exec=%s session=%s", execution_id, session_id)
+        result = response.json()
+        execution_id = result.get("execution_id", execution_id)
 
-    # Store mandate dispatch
+    # Stage 8: OpenClaw executing
+    await broadcast_stage(session_id, 8, "active", "Queued for execution", 10, execution_id)
+
+    # Poll execution status in background
+    asyncio.create_task(_poll_execution(session_id, execution_id, api_token, obegee_url))
+
+    # Persist dispatch record
     db = get_db()
     await db.mandate_dispatches.insert_one({
         "execution_id": execution_id,
         "session_id": session_id,
         "mandate": mandate,
         "dispatched_at": datetime.now(timezone.utc),
-        "mode": "production" if obegee_url else "simulated",
+        "mode": "production",
     })
 
+    logger.info(
+        "Mandate dispatched to ObeGee: exec=%s session=%s url=%s",
+        execution_id, session_id, obegee_url,
+    )
+
     return {"execution_id": execution_id, "status": "QUEUED"}
-
-
-async def _poll_execution(
     session_id: str,
     execution_id: str,
     api_token: str,
