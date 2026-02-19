@@ -368,7 +368,10 @@ export default function SetupWizardScreen() {
               );
             })}
             <TouchableOpacity style={styles.primaryBtn} onPress={async () => {
-              await api('/preferences', { method: 'PATCH', body: JSON.stringify({ delivery_channels: deliveryChannels, channel_details: channelDetails }) });
+              await obegee('/tenants/preferences', {
+              method: 'PATCH',
+              body: JSON.stringify({ delivery_channels: deliveryChannels, channel_details: channelDetails }),
+            }, authToken);
               setStep(9);
             }} data-testid="setup-save-channels">
               <Text style={styles.primaryBtnText}>Continue</Text>
