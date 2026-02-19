@@ -3,6 +3,9 @@
 Implements real-time progress updates via WebSocket pipeline_stage events.
 Stages 1-5 are MyndLens-internal, stages 6-8 fire on dispatch,
 stage 9 is active during execution, stage 10 on webhook delivery.
+
+Requires OBEGEE_API_URL to be configured. No simulation fallback — a missing
+URL is a configuration error, not a silent no-op.
 """
 import asyncio
 import logging
@@ -10,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from core.database import get_db
+from core.exceptions import DispatchBlockedError
 from config.settings import get_settings
 
 logger = logging.getLogger(__name__)
