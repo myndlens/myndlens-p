@@ -135,7 +135,7 @@ export default function PersonaScreen() {
                 .map(p => (
                   <View key={p.id} style={styles.personRow}>
                     <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{p.label[0].toUpperCase()}</Text>
+                      <Text style={styles.avatarText}>{(p.label[0] ?? '?').toUpperCase()}</Text>
                     </View>
                     <View>
                       <Text style={styles.personName}>{p.label}</Text>
