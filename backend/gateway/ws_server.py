@@ -692,27 +692,27 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
 
 
 def _generate_l1_response(hypothesis, dim_state) -> str:
-    """Generate response based on L1 hypothesis and dimensions."""
+    """Generate TTS confirmation based on L1 hypothesis. Never asks for clarification."""
     action = hypothesis.action_class
-    confidence = hypothesis.confidence
     dims = dim_state.a_set
 
-    if confidence < 0.5:
-        return "I'm not quite sure what you'd like to do. Could you tell me more?"
-
     if action == "COMM_SEND":
-        who = dims.who or "someone"
-        return f"I understand you'd like to send a message to {who}. What would you like to say?"
+        who = dims.who or "the recipient"
+        return f"Got it. I'll prepare a message to {who}. Tap Approve to send."
     elif action == "SCHED_MODIFY":
-        when = dims.when or "a time"
-        return f"I can help schedule that for {when}. Does that work?"
+        when = dims.when or "the requested time"
+        return f"Understood. I'll schedule that for {when}. Tap Approve to confirm."
     elif action == "INFO_RETRIEVE":
-        return "Let me look that up for you."
+        return "On it. I'll look that up for you. Tap Approve to proceed."
     elif action == "DOC_EDIT":
-        return "I can help with that document. What changes do you need?"
+        return "Ready to make those changes. Tap Approve to apply."
+    elif action == "FIN_TRANS":
+        return "Financial action understood. Tap Approve to authorise."
+    elif action == "SYS_CONFIG":
+        return "Configuration change ready. Tap Approve to apply."
     else:
-        what = dims.what or hypothesis.hypothesis
-        return f"I understand: {what}. How would you like to proceed?"
+        what = dims.what or hypothesis.hypothesis[:60]
+        return f"Understood: {what}. Tap Approve to execute."
 
 
 def _generate_mock_response(transcript: str) -> str:
