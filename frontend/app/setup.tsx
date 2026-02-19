@@ -178,7 +178,12 @@ export default function SetupWizardScreen() {
   }
 
   async function handlePreferences() {
-    await api('/preferences', { method: 'PATCH', body: JSON.stringify({ phone_number: phone, timezone: tz, notifications_enabled: notifs, delivery_channels: deliveryChannels, channel_details: channelDetails }) });
+    try {
+      await obegee('/tenants/preferences', {
+        method: 'PATCH',
+        body: JSON.stringify({ phone_number: phone, timezone: tz, notifications_enabled: notifs, delivery_channels: deliveryChannels, channel_details: channelDetails }),
+      }, authToken);
+    } catch { /* preferences optional */ }
     setStep(8);
   }
 
