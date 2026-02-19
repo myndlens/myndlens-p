@@ -20,20 +20,28 @@ export type OnChunkCallback = (chunk: AudioChunk) => void;
 let _recording = false;
 let _seq = 0;
 let _chunkInterval: ReturnType<typeof setInterval> | null = null;
+let _vadInterval: ReturnType<typeof setInterval> | null = null;
 let _onChunk: OnChunkCallback | null = null;
+let _onSpeechEnd: (() => void) | null = null;
 
 // For native, we'd use expo-av Audio.Recording
 let _expoRecording: any = null;
 
 /**
  * Start audio recording and emit chunks every ~250ms.
+ * onSpeechEnd is called automatically when VAD detects end-of-utterance (Siri-like).
  */
-export async function startRecording(onChunk: OnChunkCallback): Promise<void> {
+export async function startRecording(
+  onChunk: OnChunkCallback,
+  onSpeechEnd?: () => void,
+): Promise<void> {
   if (_recording) return;
 
   _recording = true;
   _seq = 0;
   _onChunk = onChunk;
+  _onSpeechEnd = onSpeechEnd || null;
+  vad.reset();
 
   if (Platform.OS === 'web') {
     // Web: Use MediaRecorder API if available, else simulate
@@ -44,7 +52,7 @@ export async function startRecording(onChunk: OnChunkCallback): Promise<void> {
       _startSimulatedRecording(onChunk);
     }
   } else {
-    // Native: Use expo-av with permission request
+    // Native: Use expo-av with metering for VAD
     try {
       const { Audio } = require('expo-av');
 
@@ -62,11 +70,30 @@ export async function startRecording(onChunk: OnChunkCallback): Promise<void> {
       });
 
       const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await recording.prepareToRecordAsync({
+        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        isMeteringEnabled: true,
+      });
+
+      // Wire VAD via metering updates
+      recording.setProgressUpdateInterval(100);
+      recording.setOnRecordingStatusUpdate((status: any) => {
+        if (!_recording) return;
+        if (status.metering !== undefined) {
+          // Convert dBFS (typically -160 to 0) to linear RMS for VAD
+          const rms = Math.pow(10, status.metering / 20);
+          const event = vad.processEnergy(rms);
+          if (event === 'speechEnd' && _onSpeechEnd) {
+            console.log('[Recorder] VAD: speechEnd detected (native)');
+            _onSpeechEnd();
+          }
+        }
+      });
+
       await recording.startAsync();
       _expoRecording = recording;
 
-      // Emit simulated chunks for now (expo-av doesn't stream directly)
+      // Emit simulated chunks for WS streaming (expo-av doesn't stream directly)
       _startSimulatedRecording(onChunk);
     } catch (err) {
       console.warn('[Recorder] Native recording unavailable, using simulated:', (err as Error)?.message || err);
