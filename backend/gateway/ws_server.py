@@ -458,63 +458,105 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict) -> N
 
 
 async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: str) -> None:
-    """Process transcript through L1 Scout → Dimensions → generate response → TTS.
+    """Process transcript through L1 Scout → Dimensions → Guardrails → TTS.
 
-    Flow: transcript → L1 hypotheses → dimension update → contextual response → TTS
+    Flow: transcript → L1 hypotheses → dimension update → guardrails → response → TTS
     Emits pipeline_stage events to the client for real-time progress tracking.
     """
     import base64
 
-    async def _emit_stage(stage_id: str, stage_index: int, status: str = "active"):
+    async def _emit_stage(stage_id: str, stage_index: int, status: str = "active", sub_status: str = ""):
         data = _make_envelope(WSMessageType.PIPELINE_STAGE, {
             "stage_id": stage_id, "stage_index": stage_index,
             "total_stages": 10, "status": status,
+            "sub_status": sub_status,
+            "progress": round((stage_index + 1) / 10 * 100),
         })
         await ws.send_text(data)
 
-    # Stage 0: Intent captured
+    # ── STEP 0: Intent captured ─────────────────────────────────────────────
+    logger.info(
+        "[MANDATE:0:CAPTURE] session=%s transcript='%s' chars=%d",
+        session_id, transcript[:80], len(transcript),
+    )
     await _emit_stage("capture", 0, "done")
 
-    # Stage 1: Enriching with Digital Self (happens inside L1 scout)
-    await _emit_stage("digital_self", 1)
+    # ── STEP 1: L1 Scout — intent classification ────────────────────────────
+    logger.info("[MANDATE:1:L1_SCOUT] session=%s starting intent hypothesis", session_id)
+    await _emit_stage("digital_self", 1, "active", "Classifying intent...")
 
-    # 1. Run L1 Scout
     l1_draft = await run_l1_scout(
         session_id=session_id,
         user_id="",
         transcript=transcript,
     )
+
+    if l1_draft.hypotheses:
+        top_h = l1_draft.hypotheses[0]
+        logger.info(
+            "[MANDATE:1:L1_SCOUT] session=%s DONE is_mock=%s hypotheses=%d "
+            "top_action=%s top_confidence=%.2f top_hypothesis='%s' latency_ms=%.0f",
+            session_id, l1_draft.is_mock, len(l1_draft.hypotheses),
+            top_h.action_class, top_h.confidence, top_h.hypothesis[:60],
+            l1_draft.latency_ms,
+        )
+    else:
+        logger.warning("[MANDATE:1:L1_SCOUT] session=%s DONE — NO hypotheses returned", session_id)
+
     await _emit_stage("digital_self", 1, "done")
 
-    # Stage 2: Dimensions extraction
-    await _emit_stage("dimensions", 2)
+    # ── STEP 2: Dimensions extraction ───────────────────────────────────────
+    logger.info("[MANDATE:2:DIMENSIONS] session=%s updating A-set + B-set", session_id)
+    await _emit_stage("dimensions", 2, "active", "Extracting dimensions...")
 
-    # 2. Update dimensions from top hypothesis
     dim_state = get_dimension_state(session_id)
     if l1_draft.hypotheses:
         top = l1_draft.hypotheses[0]
         dim_state.update_from_suggestions(top.dimension_suggestions)
+
+    logger.info(
+        "[MANDATE:2:DIMENSIONS] session=%s DONE a_set=%s "
+        "ambiguity=%.2f urgency=%.2f emotional_load=%.2f turn=%d",
+        session_id, dim_state.a_set.to_dict(),
+        dim_state.b_set.ambiguity, dim_state.b_set.urgency,
+        dim_state.b_set.emotional_load, dim_state.turn_count,
+    )
     await _emit_stage("dimensions", 2, "done")
 
-    # Stage 3: Mandate creation
-    await _emit_stage("mandate", 3)
+    # ── STEP 3: Guardrails check ─────────────────────────────────────────────
+    logger.info("[MANDATE:3:GUARDRAILS] session=%s running checks", session_id)
+    await _emit_stage("mandate", 3, "active", "Creating mandate artefact...")
 
-    # 2.5. Run guardrails check (continuous, per spec §13A)
     guardrail = check_guardrails(transcript, dim_state, l1_draft)
+
+    logger.info(
+        "[MANDATE:3:GUARDRAILS] session=%s result=%s block=%s reason='%s'",
+        session_id, guardrail.result.value, guardrail.block_execution, guardrail.reason,
+    )
+
     if guardrail.block_execution:
-        # Guardrail triggered — send nudge instead of normal response
         response_text = guardrail.nudge or "I need a bit more clarity before proceeding."
         logger.warning(
-            "GUARDRAIL: session=%s result=%s reason=%s",
-            session_id, guardrail.result.value, guardrail.reason,
+            "[MANDATE:3:GUARDRAILS] BLOCKED session=%s result=%s nudge='%s'",
+            session_id, guardrail.result.value, response_text[:60],
         )
     elif l1_draft.hypotheses and not l1_draft.is_mock:
         top = l1_draft.hypotheses[0]
         response_text = _generate_l1_response(top, dim_state)
+        logger.info(
+            "[MANDATE:4:RESPONSE] session=%s source=llm action=%s confidence=%.2f response='%s'",
+            session_id, top.action_class, top.confidence, response_text[:60],
+        )
     else:
         response_text = _generate_mock_response(transcript)
+        logger.info(
+            "[MANDATE:4:RESPONSE] session=%s source=mock response='%s'",
+            session_id, response_text[:60],
+        )
 
-    # 4. Send draft_update with L1 hypotheses (for future execute CTA)
+    await _emit_stage("mandate", 3, "done")
+
+    # ── STEP 4: Draft update ─────────────────────────────────────────────────
     if l1_draft.hypotheses:
         top = l1_draft.hypotheses[0]
         draft_payload = {
@@ -525,37 +567,39 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             "dimensions": dim_state.to_dict(),
             "is_mock": l1_draft.is_mock,
         }
+        logger.info(
+            "[MANDATE:4:DRAFT] session=%s draft_id=%s action=%s confidence=%.2f",
+            session_id, l1_draft.draft_id[:8], top.action_class, top.confidence,
+        )
         data = _make_envelope(WSMessageType.DRAFT_UPDATE, draft_payload)
         await ws.send_text(data)
 
-    # 5. TTS
+    # ── STEP 5: TTS synthesis ────────────────────────────────────────────────
+    logger.info("[MANDATE:5:TTS] session=%s synthesizing text='%s'", session_id, response_text[:60])
     tts = get_tts_provider()
     result = await tts.synthesize(response_text)
 
     if result.audio_bytes and not result.is_mock:
         audio_b64 = base64.b64encode(result.audio_bytes).decode("ascii")
         payload = TTSAudioPayload(
-            text=response_text,
-            session_id=session_id,
-            format="mp3",
-            is_mock=False,
+            text=response_text, session_id=session_id, format="mp3", is_mock=False,
         )
         payload_dict = payload.model_dump()
         payload_dict["audio"] = audio_b64
         payload_dict["audio_size_bytes"] = len(result.audio_bytes)
         data = _make_envelope(WSMessageType.TTS_AUDIO, payload_dict)
         await ws.send_text(data)
+        logger.info("[MANDATE:5:TTS] session=%s DONE real_audio bytes=%d", session_id, len(result.audio_bytes))
     else:
         await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-            text=response_text,
-            session_id=session_id,
-            format="text",
-            is_mock=True,
+            text=response_text, session_id=session_id, format="text", is_mock=True,
         ))
+        logger.info("[MANDATE:5:TTS] session=%s DONE mock_text", session_id)
 
     logger.info(
-        "Response sent: session=%s l1_mock=%s hypotheses=%d response='%s'",
-        session_id, l1_draft.is_mock, len(l1_draft.hypotheses), response_text[:60],
+        "[MANDATE:COMPLETE] session=%s guardrail=%s l1_mock=%s hypotheses=%d response='%s'",
+        session_id, guardrail.result.value, l1_draft.is_mock,
+        len(l1_draft.hypotheses), response_text[:60],
     )
 
 
