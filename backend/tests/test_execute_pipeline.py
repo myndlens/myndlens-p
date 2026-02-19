@@ -57,85 +57,94 @@ def run_async(coro):
 class TestDraftPersistence:
     """Test L1 draft storage and retrieval from MongoDB."""
 
-    @pytest.mark.asyncio
-    async def test_d01_store_draft_via_l1_scout(self):
+    def test_d01_store_draft_via_l1_scout(self):
         """[D01] L1 Scout stores draft to MongoDB l1_drafts collection."""
-        from l1.scout import run_l1_scout, get_draft
+        async def _test():
+            from l1.scout import run_l1_scout, get_draft
 
-        session_id = f"test-session-{uuid.uuid4().hex[:8]}"
-        transcript = "Send a message to Alice about the meeting tomorrow"
+            session_id = f"test-session-{uuid.uuid4().hex[:8]}"
+            transcript = "Send a message to Alice about the meeting tomorrow"
 
-        draft = await run_l1_scout(
-            session_id=session_id,
-            user_id="test-user",
-            transcript=transcript,
-        )
+            draft = await run_l1_scout(
+                session_id=session_id,
+                user_id="test-user",
+                transcript=transcript,
+            )
 
-        assert draft is not None, "L1 Scout should return a draft"
-        assert draft.draft_id, "Draft should have an ID"
-        assert draft.transcript == transcript, "Draft should store transcript"
-        assert len(draft.hypotheses) > 0, "Draft should have hypotheses"
+            assert draft is not None, "L1 Scout should return a draft"
+            assert draft.draft_id, "Draft should have an ID"
+            assert draft.transcript == transcript, "Draft should store transcript"
+            assert len(draft.hypotheses) > 0, "Draft should have hypotheses"
 
-        print(f"[D01] Draft stored: draft_id={draft.draft_id[:8]} hypotheses={len(draft.hypotheses)}")
+            print(f"[D01] Draft stored: draft_id={draft.draft_id[:8]} hypotheses={len(draft.hypotheses)}")
+            return draft.draft_id
 
-    @pytest.mark.asyncio
-    async def test_d02_get_draft_by_id(self):
+        run_async(_test())
+
+    def test_d02_get_draft_by_id(self):
         """[D02] Can retrieve stored draft by draft_id."""
-        from l1.scout import run_l1_scout, get_draft
+        async def _test():
+            from l1.scout import run_l1_scout, get_draft
 
-        session_id = f"test-session-{uuid.uuid4().hex[:8]}"
-        transcript = "Schedule a call with Bob at 3pm"
+            session_id = f"test-session-{uuid.uuid4().hex[:8]}"
+            transcript = "Schedule a call with Bob at 3pm"
 
-        # Store draft
-        original = await run_l1_scout(
-            session_id=session_id,
-            user_id="test-user",
-            transcript=transcript,
-        )
+            # Store draft
+            original = await run_l1_scout(
+                session_id=session_id,
+                user_id="test-user",
+                transcript=transcript,
+            )
 
-        # Retrieve draft
-        retrieved = await get_draft(original.draft_id)
+            # Retrieve draft
+            retrieved = await get_draft(original.draft_id)
 
-        assert retrieved is not None, "Should retrieve stored draft"
-        assert retrieved.draft_id == original.draft_id, "Draft IDs should match"
-        assert retrieved.transcript == original.transcript, "Transcripts should match"
-        assert len(retrieved.hypotheses) == len(original.hypotheses), "Hypotheses count should match"
+            assert retrieved is not None, "Should retrieve stored draft"
+            assert retrieved.draft_id == original.draft_id, "Draft IDs should match"
+            assert retrieved.transcript == original.transcript, "Transcripts should match"
+            assert len(retrieved.hypotheses) == len(original.hypotheses), "Hypotheses count should match"
 
-        print(f"[D02] Draft retrieved: draft_id={retrieved.draft_id[:8]} transcript='{retrieved.transcript[:30]}...'")
+            print(f"[D02] Draft retrieved: draft_id={retrieved.draft_id[:8]} transcript='{retrieved.transcript[:30]}...'")
 
-    @pytest.mark.asyncio
-    async def test_d03_get_nonexistent_draft_returns_none(self):
+        run_async(_test())
+
+    def test_d03_get_nonexistent_draft_returns_none(self):
         """[D03] get_draft returns None for non-existent draft_id."""
-        from l1.scout import get_draft
+        async def _test():
+            from l1.scout import get_draft
 
-        result = await get_draft("nonexistent-draft-id-12345")
+            result = await get_draft("nonexistent-draft-id-12345")
 
-        assert result is None, "Non-existent draft should return None"
-        print("[D03] Non-existent draft correctly returns None")
+            assert result is None, "Non-existent draft should return None"
+            print("[D03] Non-existent draft correctly returns None")
 
-    @pytest.mark.asyncio
-    async def test_d04_draft_includes_hypotheses_structure(self):
+        run_async(_test())
+
+    def test_d04_draft_includes_hypotheses_structure(self):
         """[D04] Stored draft includes correct hypothesis structure."""
-        from l1.scout import run_l1_scout, get_draft
+        async def _test():
+            from l1.scout import run_l1_scout, get_draft
 
-        session_id = f"test-session-{uuid.uuid4().hex[:8]}"
-        transcript = "Send email to project team about status update"
+            session_id = f"test-session-{uuid.uuid4().hex[:8]}"
+            transcript = "Send email to project team about status update"
 
-        original = await run_l1_scout(
-            session_id=session_id,
-            user_id="test-user",
-            transcript=transcript,
-        )
+            original = await run_l1_scout(
+                session_id=session_id,
+                user_id="test-user",
+                transcript=transcript,
+            )
 
-        retrieved = await get_draft(original.draft_id)
+            retrieved = await get_draft(original.draft_id)
 
-        assert retrieved.hypotheses, "Retrieved draft should have hypotheses"
-        h = retrieved.hypotheses[0]
-        assert hasattr(h, "hypothesis"), "Hypothesis should have 'hypothesis' field"
-        assert hasattr(h, "action_class"), "Hypothesis should have 'action_class' field"
-        assert hasattr(h, "confidence"), "Hypothesis should have 'confidence' field"
+            assert retrieved.hypotheses, "Retrieved draft should have hypotheses"
+            h = retrieved.hypotheses[0]
+            assert hasattr(h, "hypothesis"), "Hypothesis should have 'hypothesis' field"
+            assert hasattr(h, "action_class"), "Hypothesis should have 'action_class' field"
+            assert hasattr(h, "confidence"), "Hypothesis should have 'confidence' field"
 
-        print(f"[D04] Hypothesis structure: action={h.action_class} conf={h.confidence:.2f}")
+            print(f"[D04] Hypothesis structure: action={h.action_class} conf={h.confidence:.2f}")
+
+        run_async(_test())
 
 
 class TestExecuteGates:
