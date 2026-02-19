@@ -424,7 +424,7 @@ export default function TalkScreen() {
           })()}
 
           {audioState === 'THINKING' ? (
-            <View style={styles.thinkingDots}>
+            <View style={styles.thinkingRow}>
               <Text style={styles.thinkingText}>{'\u2026'}</Text>
             </View>
           ) : null}
