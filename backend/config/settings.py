@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # Obtain from ObeGee team. Leave empty in dev — dispatch will fail gracefully.
     OBEGEE_API_TOKEN: str = Field(default="")
 
+    # Fixed dev tenant for mock IDP (avoids random tenant_id that ObeGee can't find).
+    # Set to the tenant_id provisioned in ObeGee for dev/staging testing.
+    OBEGEE_DEV_TENANT_ID: str = Field(default="")
+
     # ── MIO Key Encryption ───────────────────────────────────
     # 32-byte hex key used to AES-256-GCM encrypt the ED25519 private key at rest.
     # Generate with: python3 -c "import secrets; print(secrets.token_hex(32))"
