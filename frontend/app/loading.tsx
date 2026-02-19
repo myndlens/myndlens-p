@@ -51,13 +51,32 @@ export default function LoadingScreen() {
         router.replace('/setup');
       }
     } catch (err: any) {
-      // Check if subscription issue
-      if (err?.message?.includes('SUSPENDED')) {
+      const msg = err?.message || '';
+
+      // SUBSCRIPTION issue — soft block screen
+      if (msg.includes('SUSPENDED')) {
         router.replace('/softblock');
-      } else {
-        // Token invalid or network issue → back to login
-        router.replace('/login');
+        return;
       }
+
+      // HARD auth failure — token is genuinely invalid, clear it and re-pair
+      if (
+        msg.includes('auth_fail') ||
+        msg.includes('AUTH_ERROR') ||
+        msg.includes('No auth token') ||
+        msg.includes('Device ID mismatch')
+      ) {
+        const { clearAuth } = require('../src/ws/auth');
+        await clearAuth();
+        router.replace('/login');
+        return;
+      }
+
+      // SOFT failure — network error, timeout, backend unavailable
+      // Do NOT send to login. Token is still valid. Show retry.
+      setConnectionStatus('disconnected');
+      // Retry after 3 seconds automatically
+      setTimeout(() => activate(), 3000);
     }
   }
 
