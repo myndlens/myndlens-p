@@ -124,8 +124,19 @@ export default function SettingsScreen() {
   const [nickSaved, setNickSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Category B credential state
+  const [imapCreds, setImapCreds] = useState<IMAPCredentials>({ host: '', port: 993, email: '', password: '' });
+  const [imapSaved, setImapSaved] = useState(false);
+  const [gmailToken, setGmailToken] = useState('');
+  const [linkedinToken, setLinkedinToken] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+
   useEffect(() => {
     loadSettings().then(setPrefs);
+    loadIMAPCredentials().then(c => c && setImapCreds(c));
+    loadGmailToken().then(t => t && setGmailToken(t));
+    loadLinkedInCredentials().then(c => c && setLinkedinToken(c?.access_token ?? ''));
     if (userId) {
       fetch(`${ENV.API_URL}/nickname/${userId}`)
         .then(r => r.json())
