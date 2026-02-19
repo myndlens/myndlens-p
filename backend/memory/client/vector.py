@@ -58,6 +58,12 @@ def query(
 ) -> List[Dict[str, Any]]:
     """Semantic similarity search."""
     coll = _get_collection()
+    # ChromaDB raises if n_results > collection size
+    actual_count = coll.count()
+    if actual_count == 0:
+        return []
+    n_results = min(n_results, actual_count)
+
     kwargs = {
         "query_texts": [query_text],
         "n_results": n_results,
