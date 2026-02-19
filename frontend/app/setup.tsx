@@ -1,15 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ENV } from '../src/config/env';
 import { setItem } from '../src/utils/storage';
 
 const TOTAL_STEPS = 9;
-const api = (path: string, opts?: RequestInit) => fetch(`${ENV.API_URL}/setup${path}`, { headers: { 'Content-Type': 'application/json' }, ...opts }).then(r => r.json());
+const OBEGEE_BASE = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+
+// ObeGee API helper — calls ObeGee directly, not the MyndLens backend
+const obegee = (path: string, opts?: RequestInit, token?: string) =>
+  fetch(`${OBEGEE_BASE}/api${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    ...opts,
+  }).then(async r => {
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+    return data;
+  });
 
 const DELIVERY_CHANNELS = [
   { id: 'whatsapp', label: 'WhatsApp', desc: 'Receive reports via WhatsApp messages' },
