@@ -146,10 +146,13 @@ export default function SettingsScreen() {
   }, [userId]);
 
   const update = useCallback(async (patch: Partial<UserSettings>) => {
-    const next = { ...prefs, ...patch };
-    setPrefs(next);
-    await saveSettings(next);
-  }, [prefs]);
+    // Use functional state update to avoid stale closure — reads latest prefs
+    setPrefs(current => {
+      const next = { ...current, ...patch };
+      saveSettings(next); // fire-and-forget persist
+      return next;
+    });
+  }, []);
 
   async function saveNickname() {
     const nick = nickname.trim() || 'MyndLens';
