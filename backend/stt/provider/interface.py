@@ -19,7 +19,7 @@ class TranscriptFragment:
     start_time: float = 0.0  # relative to session start
     end_time: float = 0.0
     fragment_id: str = ""
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class STTProvider(ABC):
