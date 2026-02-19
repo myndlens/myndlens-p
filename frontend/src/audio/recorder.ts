@@ -176,6 +176,17 @@ async function _startWebRecording(onChunk: OnChunkCallback): Promise<void> {
     }
   };
 
+  // Attach VAD to the live stream for auto-stop
+  vad.attachStream(stream);
+  _vadInterval = setInterval(() => {
+    if (!_recording) return;
+    const event = vad.sampleStream();
+    if (event === 'speechEnd' && _onSpeechEnd) {
+      console.log('[Recorder] VAD: speechEnd detected (web)');
+      _onSpeechEnd();
+    }
+  }, 100);
+
   // Request data every 250ms
   recorder.start(250);
 }
