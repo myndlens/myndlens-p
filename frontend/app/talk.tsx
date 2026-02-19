@@ -288,11 +288,23 @@ export default function TalkScreen() {
   }
 
   // ---- TEXT SEND ----
-  function handleSendText() {
+  async function handleSendText() {
     if (!textInput.trim() || connectionStatus !== 'authenticated') return;
     Keyboard.dismiss();
-    wsClient.send('text_input', { session_id: sessionId, text: textInput.trim() });
-    setTranscript(textInput.trim());
+    const text = textInput.trim();
+
+    // Build on-device context capsule from local Digital Self PKG
+    let context_capsule: string | undefined;
+    try {
+      const userId = wsClient._userId ?? '';
+      if (userId) {
+        const capsule = await buildContextCapsule(userId, text);
+        if (capsule.summary) context_capsule = JSON.stringify(capsule);
+      }
+    } catch { /* capsule is optional */ }
+
+    wsClient.send('text_input', { session_id: sessionId, text, context_capsule });
+    setTranscript(text);
     setTextInput('');
     transition('THINKING');
   }
