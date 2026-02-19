@@ -136,7 +136,7 @@ export async function stopRecording(): Promise<void> {
   if (_expoRecording) {
     try {
       await _expoRecording.stopAndUnloadAsync();
-    } catch (e) {
+    } catch {
       // ignore
     }
     _expoRecording = null;
