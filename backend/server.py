@@ -1533,6 +1533,11 @@ if _settings_for_mock.ENV != "prod":
     from api.setup_wizard import router as setup_router
     app.include_router(setup_router, prefix="/api")
 
+# Digital Self sync — email, audit log, snapshot (Category B)
+from api.digital_self_sync import router as ds_sync_router
+app.include_router(ds_sync_router, prefix="/api")
+
+
 
 # =====================================================
 #  WebSocket Endpoint
