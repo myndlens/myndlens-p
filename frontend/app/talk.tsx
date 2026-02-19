@@ -167,7 +167,18 @@ export default function TalkScreen() {
         setExecuteBlocked(env.payload.reason);
         setPendingAction(null);
       }),
-      wsClient.on('session_terminated', () => {
+      wsClient.on('session_terminated', async () => {
+        // Clean up all active state before navigating away
+        if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
+          await stopRecording().catch(() => {});
+        }
+        await TTS.stop().catch(() => {});
+        resetAudio();
+        setPendingAction(null);
+        setPendingDraftId(null);
+        setPipelineStageIndex(-1);
+        setPipelineSubStatus('');
+        setPipelineProgress(0);
         setConnectionStatus('disconnected');
         router.replace('/loading');
       }),
