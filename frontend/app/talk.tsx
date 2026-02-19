@@ -21,6 +21,7 @@ import { useAudioStore, AudioState } from '../src/audio/state-machine';
 import { startRecording, stopRecording } from '../src/audio/recorder';
 import * as TTS from '../src/tts/player';
 import { MicIcon, StopIcon } from '../src/ui/icons';
+import { vad } from '../src/audio/vad/local-vad';
 
 const PIPELINE_STAGES = [
   { id: 'capture', label: 'Intent captured', activeText: 'Capturing your intent...' },
