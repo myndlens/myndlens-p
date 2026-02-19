@@ -51,7 +51,7 @@ IMAP_TIMEOUT_SECONDS = 20
 # TRAVEL_KEYWORDS removed -- no longer needed after redesign to vector extraction
 
 
-# ── Shared PKG output schema ──────────────────────────────────────────────────────────
+#    Shared PKG output schema                                                           
 
 class PKGNodeOut(BaseModel):
     """PKG node compatible with the on-device TypeScript PKGNode schema."""
@@ -83,7 +83,7 @@ class PKGDiff(BaseModel):
     stats: Dict[str, int]
 
 
-# ── Auth helper ───────────────────────────────────────────────────────────────────
+#    Auth helper                                                                    
 
 def _get_user_id(authorization: Optional[str]) -> str:
     if not authorization or not authorization.startswith("Bearer "):
@@ -99,7 +99,7 @@ def _get_user_id(authorization: Optional[str]) -> str:
             raise HTTPException(status_code=401, detail="Invalid token")
 
 
-# ── Entity extraction helpers ──────────────────────────────────────────────────────────
+#    Entity extraction helpers                                                           
 
 def _domain_from_email(addr: str) -> str:
     parts = addr.split("@")
@@ -191,7 +191,7 @@ def _run_imap_sync(req: "IMAPRequest") -> tuple[dict, dict, list]:
     return dict(contact_freq), contact_names, subject_tokens
 
 
-# ── IMAP Email Sync ───────────────────────────────────────────────────────────────
+#    IMAP Email Sync                                                                
 
 class IMAPRequest(BaseModel):
     host: str
@@ -235,7 +235,7 @@ async def sync_imap_email(
     nodes: List[PKGNodeOut] = []
     edges: List[PKGEdgeOut] = []
 
-    # ── Build Person nodes + embed ───────────────────────────────────────────────
+    #    Build Person nodes + embed                                                
     # Top 50 contacts by frequency
     top_contacts = sorted(contact_freq.items(), key=lambda x: x[1], reverse=True)[:50]
 
@@ -275,7 +275,7 @@ async def sync_imap_email(
             data={"frequency": freq, "direction": "email"},
         ))
 
-    # ── Extract Interest nodes from subject clustering ────────────────────────────
+    #    Extract Interest nodes from subject clustering                             
     # Use keyword frequency over subjects as a proxy for interests
     topic_freq: Dict[str, int] = defaultdict(int)
     stop_words = {"re", "fwd", "fw", "the", "a", "an", "and", "or", "of",
@@ -316,7 +316,7 @@ async def sync_imap_email(
     )
 
 
-# ── LinkedIn Sync ───────────────────────────────────────────────────────────────
+#    LinkedIn Sync                                                                
 
 class LinkedInCSVRequest(BaseModel):
     """LinkedIn Connections export CSV (Base64 encoded).
@@ -326,7 +326,7 @@ class LinkedInCSVRequest(BaseModel):
     """
     csv_base64: str = Field(
         ...,
-        max_length=2_000_000,  # H2: ~1.5MB base64 ≈ 500KB CSV ≈ ~5000 connections
+        max_length=2_000_000,  # H2: ~1.5MB base64   500KB CSV   ~5000 connections
         description="Base64-encoded Connections.csv from LinkedIn data export",
     )
 
@@ -439,7 +439,7 @@ async def sync_linkedin_csv(
     return PKGDiff(nodes=nodes, edges=edges, stats={"nodes": len(nodes), "edges": len(edges)})
 
 
-# ── Audit Log ───────────────────────────────────────────────────────────────
+#    Audit Log                                                                
 
 @router.get("/audit-log")
 async def get_audit_log(
@@ -457,7 +457,7 @@ async def get_audit_log(
     return {"events": events, "count": len(events)}
 
 
-# ── Snapshot ──────────────────────────────────────────────────────────────────
+#    Snapshot                                                                   
 
 @router.get("/snapshot")
 async def get_ds_snapshot(authorization: Optional[str] = Header(None)):
