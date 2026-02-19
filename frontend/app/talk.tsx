@@ -368,6 +368,27 @@ export default function TalkScreen() {
 
         {/* PRIMARY: Large mic button */}
         <View style={styles.controlArea}>
+          {/* VAD Energy Bar — visible only during CAPTURING */}
+          {audioState === 'CAPTURING' && (
+            <View style={styles.vadBar}>
+              {[0.003, 0.008, 0.015, 0.03, 0.06].map((threshold, i) => {
+                const active = liveEnergy >= threshold;
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      styles.vadDot,
+                      active && styles.vadDotActive,
+                      active && { opacity: 0.4 + i * 0.15 },
+                    ]}
+                  />
+                );
+              })}
+              <Text style={styles.vadLabel}>
+                {liveEnergy >= 0.015 ? 'speaking' : 'silence'}
+              </Text>
+            </View>
+          )}
           <Animated.View style={{ transform: [{ scale: micAnim }] }}>
             <TouchableOpacity
               style={[styles.micButton, { backgroundColor: micColor }, audioState === 'THINKING' && styles.micThinking]}
