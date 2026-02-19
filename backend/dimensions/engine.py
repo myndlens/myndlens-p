@@ -37,7 +37,7 @@ class BSet:
     """Cognitive dimensions (moving averages)."""
     urgency: float = 0.0
     emotional_load: float = 0.0
-    ambiguity: float = 0.5  # default high until proven low
+    ambiguity: float = 0.0  # default low — only raised when evidence suggests it
     reversibility: float = 1.0  # default reversible
     user_confidence: float = 0.5
 
