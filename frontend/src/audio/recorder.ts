@@ -138,6 +138,7 @@ export async function stopRecording(): Promise<void> {
       // ignore
     }
     _expoRecording = null;
+  }
 }
 
 export function isRecording(): boolean {
