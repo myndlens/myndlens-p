@@ -181,6 +181,66 @@ export default function SettingsScreen() {
     setSaving(false);
   }
 
+  async function handleSaveIMAP() {
+    await saveIMAPCredentials(imapCreds);
+    setImapSaved(true);
+    setTimeout(() => setImapSaved(false), 2000);
+  }
+
+  async function handleSyncEmail() {
+    if (!imapCreds.host || !imapCreds.email || !imapCreds.password) {
+      Alert.alert('Missing credentials', 'Please enter your IMAP details first.');
+      return;
+    }
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const token = await getStoredToken();
+      const res = await fetch(`${ENV.API_URL}/digital-self/email/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(imapCreds),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      setSyncResult(
+        `✅ Found ${data.contacts_found} contacts · ${data.travel_signals} travel signals`,
+      );
+    } catch (e: any) {
+      setSyncResult(`❌ ${e.message}`);
+    }
+    setSyncing(false);
+  }
+
+  async function handleSaveGmail() {
+    if (!gmailToken.trim()) return;
+    await saveGmailToken(gmailToken.trim());
+    Alert.alert('Saved', 'Gmail token saved securely.');
+  }
+
+  async function handleSaveLinkedIn() {
+    if (!linkedinToken.trim()) return;
+    await saveLinkedInCredentials({ access_token: linkedinToken.trim() });
+    Alert.alert('Saved', 'LinkedIn token saved securely.');
+  }
+
+  async function handleRevokeAll() {
+    Alert.alert(
+      'Revoke All Credentials',
+      'This removes all stored email, messaging, and social credentials. Data already imported is kept.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Revoke All', style: 'destructive', onPress: async () => {
+          await revokeAllCredentials();
+          setImapCreds({ host: '', port: 993, email: '', password: '' });
+          setGmailToken('');
+          setLinkedinToken('');
+          Alert.alert('Done', 'All credentials revoked.');
+        }},
+      ],
+    );
+  }
+
   async function handlePauseDS() {
     await update({ ds_paused: !prefs.ds_paused });
   }
