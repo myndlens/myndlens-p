@@ -54,6 +54,28 @@ logger = logging.getLogger(__name__)
 # ---- Lifespan ----
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """FastAPI lifespan: startup validation → init → serve → shutdown."""
+    settings = get_settings()
+
+    # ── Startup: Fail fast on missing critical configuration ────────────────
+    _required_vars = {
+        "MIO_KEY_ENCRYPTION_KEY": settings.MIO_KEY_ENCRYPTION_KEY,
+        "MYNDLENS_BASE_URL": settings.MYNDLENS_BASE_URL,
+    }
+    _missing = [k for k, v in _required_vars.items() if not v]
+    if _missing:
+        raise RuntimeError(
+            f"STARTUP FAILED — missing required env vars in backend/.env: {', '.join(_missing)}\n"
+            "Set them and restart the server."
+        )
+
+    _warned_vars = {
+        "OBEGEE_API_URL": settings.OBEGEE_API_URL,
+        "CHANNEL_ADAPTER_IP": settings.CHANNEL_ADAPTER_IP,
+    }
+    for k, v in _warned_vars.items():
+        if not v:
+            logger.warning("CONFIG WARNING: %s is not set — mandate dispatch will fail", k)
     settings = get_settings()
     logger.info("MyndLens BE starting — env=%s", settings.ENV)
     await init_indexes()
