@@ -1,4 +1,4 @@
-"""Digital Self — Data Source Sync Endpoints.
+"""Digital Self -- Data Source Sync Endpoints.
 
 Extracts entity graphs and ONNX embedding vectors from:
   - Email (IMAP)
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 IMAP_TIMEOUT_SECONDS = 20
 
-# TRAVEL_KEYWORDS removed — no longer needed after redesign to vector extraction
+# TRAVEL_KEYWORDS removed -- no longer needed after redesign to vector extraction
 
 
 # ── Shared PKG output schema ──────────────────────────────────────────────────────────
@@ -217,7 +217,7 @@ async def sync_imap_email(
     logger.info("[EmailSync] User=%s host=%s port=%d", user_id, req.host, req.port)
 
     try:
-        # Run blocking IMAP I/O in a thread — never blocks the event loop
+        # Run blocking IMAP I/O in a thread -- never blocks the event loop
         contact_freq, contact_names, subject_tokens = await asyncio.to_thread(
             _run_imap_sync, req
         )
@@ -351,7 +351,7 @@ async def sync_linkedin_csv(
         text = csv_bytes.decode("utf-8", errors="replace")
 
         # H3: LinkedIn's export has 3 introductory header rows before the real CSV.
-        # Skip lines until we find one starting with "First Name" — that is the real header.
+        # Skip lines until we find one starting with "First Name" -- that is the real header.
         lines = text.splitlines()
         data_start = 0
         for idx, line in enumerate(lines):
