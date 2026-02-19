@@ -273,12 +273,19 @@ async def _handle_heartbeat(ws: WebSocket, session_id: str, payload: dict) -> No
         ))
 
 
-async def _handle_execute_request(ws: WebSocket, session_id: str, payload: dict, subscription_status: str = "ACTIVE") -> None:
-    """Process an execute request. Gate on presence AND subscription."""
+async def _handle_execute_request(
+    ws: WebSocket,
+    session_id: str,
+    payload: dict,
+    subscription_status: str = "ACTIVE",
+    user_id: str = "",
+    tenant_id: str = "",
+) -> None:
+    """Execute an approved mandate: L2 → QC → Skills → Dispatch."""
     try:
         req = ExecuteRequestPayload(**payload)
 
-        # SUBSCRIPTION GATE: Block if not ACTIVE
+        # SUBSCRIPTION GATE
         if subscription_status != "ACTIVE":
             await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
                 reason=f"Subscription status is {subscription_status}. Execute blocked.",
@@ -290,13 +297,9 @@ async def _handle_execute_request(ws: WebSocket, session_id: str, payload: dict,
                 session_id=session_id,
                 details={"subscription": subscription_status, "draft_id": req.draft_id},
             )
-            logger.warning(
-                "EXECUTE_BLOCKED: session=%s reason=SUBSCRIPTION_INACTIVE sub=%s",
-                session_id, subscription_status,
-            )
             return
 
-        # CRITICAL GATE: Check heartbeat freshness
+        # PRESENCE GATE
         is_present = await check_presence(session_id)
         if not is_present:
             await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
@@ -309,30 +312,110 @@ async def _handle_execute_request(ws: WebSocket, session_id: str, payload: dict,
                 session_id=session_id,
                 details={"reason": "PRESENCE_STALE", "draft_id": req.draft_id},
             )
-            logger.warning(
-                "EXECUTE_BLOCKED: session=%s reason=PRESENCE_STALE draft=%s",
-                session_id, req.draft_id,
-            )
+            logger.warning("EXECUTE_BLOCKED: session=%s reason=PRESENCE_STALE", session_id)
             return
 
-        # Presence OK — in future batches, this continues to MIO signing pipeline.
-        # For now (Batch 1), we acknowledge the request.
+        # RETRIEVE DRAFT
+        from l1.scout import get_draft
+        draft = await get_draft(req.draft_id)
+        if not draft or not draft.hypotheses:
+            await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
+                reason="Draft not found or expired. Please re-submit your intent.",
+                code="DRAFT_NOT_FOUND",
+                draft_id=req.draft_id,
+            ))
+            logger.warning("EXECUTE_BLOCKED: draft not found: session=%s draft=%s", session_id, req.draft_id)
+            return
+
+        top = draft.hypotheses[0]
+        dim_state = get_dimension_state(session_id)
+
+        from dispatcher.mandate_dispatch import broadcast_stage, dispatch_mandate
+
+        # Stage 4: Oral approval received — done
+        await broadcast_stage(session_id, 4, "done")
+
+        # Stage 5: L2 Sentry verification
+        await broadcast_stage(session_id, 5, "active", "Verifying intent...")
+        from l2.sentry import run_l2_sentry
+        l2 = await run_l2_sentry(
+            session_id=session_id,
+            user_id=user_id,
+            transcript=draft.transcript,
+            l1_action_class=top.action_class,
+            l1_confidence=top.confidence,
+            dimensions=dim_state.to_dict(),
+        )
+        logger.info(
+            "L2 Sentry: session=%s action=%s conf=%.2f agrees=%s",
+            session_id, l2.action_class, l2.confidence, l2.shadow_agrees_with_l1,
+        )
+
+        # QC Sentry
+        from qc.sentry import run_qc_sentry
+        qc = await run_qc_sentry(
+            session_id=session_id,
+            user_id=user_id,
+            transcript=draft.transcript,
+            action_class=l2.action_class,
+            intent_summary=top.hypothesis,
+        )
+        if not qc.overall_pass:
+            await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
+                reason=qc.block_reason or "QC adversarial check failed",
+                code="QC_BLOCKED",
+                draft_id=req.draft_id,
+            ))
+            logger.warning("EXECUTE_BLOCKED: QC failed: session=%s reason=%s", session_id, qc.block_reason)
+            return
+
+        await broadcast_stage(session_id, 5, "done", "Intent verified")
+
+        # Stage 6: Skills matching
+        await broadcast_stage(session_id, 6, "active", "Matching skills...")
+        from skills.library import match_skills_to_intent
+        matched_skills = await match_skills_to_intent(draft.transcript, top_n=3)
+        skill_names = [s.get("name", "") for s in matched_skills if s.get("name")]
+        await broadcast_stage(session_id, 6, "done", f"{len(skill_names)} skills matched")
+        logger.info("Skills matched: session=%s count=%d skills=%s", session_id, len(skill_names), skill_names)
+
+        # Stage 7: Authorization granted
+        await broadcast_stage(session_id, 7, "done")
+
+        # Dispatch mandate
+        mandate = {
+            "mandate_id": req.draft_id,
+            "tenant_id": tenant_id,
+            "intent": top.hypothesis,
+            "action_class": l2.action_class,
+            "dimensions": dim_state.to_dict(),
+            "generated_skills": skill_names,
+        }
+        result = await dispatch_mandate(session_id, mandate)
+
+        # Send execute_ok
+        await _send(ws, WSMessageType.EXECUTE_OK, ExecuteOkPayload(
+            draft_id=req.draft_id,
+            dispatch_status=result.get("status", "QUEUED"),
+        ))
+
         await log_audit_event(
             AuditEventType.EXECUTE_REQUESTED,
             session_id=session_id,
-            details={"draft_id": req.draft_id, "presence_ok": True},
+            details={
+                "draft_id": req.draft_id,
+                "execution_id": result.get("execution_id"),
+                "action_class": l2.action_class,
+                "skills": skill_names,
+            },
+        )
+        logger.info(
+            "Execute pipeline complete: session=%s draft=%s action=%s exec=%s",
+            session_id, req.draft_id, l2.action_class, result.get("execution_id"),
         )
 
-        # Placeholder: In Batch 1, execute pipeline is not yet built.
-        # Send a blocked response with appropriate reason.
-        await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
-            reason="Execute pipeline not yet available (Batch 1). Presence verified.",
-            code="PIPELINE_NOT_READY",
-            draft_id=req.draft_id,
-        ))
-
     except Exception as e:
-        logger.error("Execute request error: session=%s error=%s", session_id, str(e))
+        logger.error("Execute request error: session=%s error=%s", session_id, str(e), exc_info=True)
         await _send(ws, WSMessageType.ERROR, ErrorPayload(
             message="Execute request failed",
             code="EXECUTE_ERROR",
