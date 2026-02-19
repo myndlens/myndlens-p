@@ -216,6 +216,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                     websocket, session_id, payload, subscription_status,
                     user_id=user_id_resolved or "",
                     tenant_id=sso_claims.myndlens_tenant_id if sso_claims else "",
+                    auth_token=auth_payload.token,
                 )
 
             elif msg_type == WSMessageType.CANCEL.value:
