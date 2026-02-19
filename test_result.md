@@ -809,7 +809,23 @@ test_plan:
 agent_communication:
     - agent: "main"
       message: |
-        VAD + STT + TTS Pipeline testing required.
+        COMPREHENSIVE CODE REVIEW FIXES — 6 surgical changes across 3 files.
+
+        1. l1/scout.py — Added store_draft() + get_draft() + called store_draft() in run_l1_scout()
+        2. gateway/ws_server.py — Replaced PIPELINE_NOT_READY stub with real L2→QC→Skills→Dispatch pipeline
+        3. gateway/ws_server.py — Added ExecuteOkPayload to imports
+        4. gateway/ws_server.py — Updated _handle_execute_request call site to pass user_id + tenant_id
+        5. gateway/ws_server.py — Fixed _generate_l1_response to return confirmations not clarification questions
+        6. ws/client.ts — Removed orphaned reconnect fields (reconnectAttempts, maxReconnectAttempts, reconnectDelay)
+
+        Please run: cd /app/backend && python -m pytest tests/test_myndlens_phases.py tests/test_intent_capture.py -v -s
+        
+        Key flows to verify:
+        1. text_input → transcript_final → draft_update → tts_audio (L1 pipeline, TTS says confirmation not clarification)
+        2. execute_request with valid draft_id → L2 → QC → Skills → dispatch → execute_ok
+        3. execute_request with invalid draft_id → DRAFT_NOT_FOUND blocked
+        4. execute_request with stale heartbeat → PRESENCE_STALE blocked (regression)
+        5. agents/create, agents/modify, agents/retire (regression)
 
         CHANGES MADE:
         1. Added step logs to stt/orchestrator.py: [STT:ORCHESTRATOR], [STT:DECODE]
