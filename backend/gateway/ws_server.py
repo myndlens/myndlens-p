@@ -533,6 +533,13 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
     text = payload.get("text", "").strip()
     if not text:
         return
+    # Guard: reject oversized inputs (prevents DoS through LLM/TTS cost)
+    if len(text) > 2000:
+        await _send(ws, WSMessageType.ERROR, ErrorPayload(
+            message="Input too long. Maximum 2000 characters.",
+            code="INPUT_TOO_LONG",
+        ))
+        return
 
     logger.info("Text input: session=%s text='%s'", session_id, text[:50])
 
