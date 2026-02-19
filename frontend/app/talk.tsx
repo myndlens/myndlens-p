@@ -632,22 +632,6 @@ const styles = StyleSheet.create({
   middleZone: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   pipelineWrapper: { alignItems: 'center', width: '100%' },
   pipelineSpinner: { marginBottom: 12 },
-  conversationOverlay: { marginTop: 16, width: '100%', paddingHorizontal: 8 },
-
-  assistantBubble: {
-    backgroundColor: '#1A1A2E', borderRadius: 16, borderTopLeftRadius: 4,
-    padding: 16, marginBottom: 10, maxWidth: '85%',
-  },
-  assistantText: { color: '#D0D0E0', fontSize: 16, lineHeight: 24 },
-
-  userBubble: {
-    backgroundColor: '#6C5CE722', borderRadius: 16, borderTopRightRadius: 4,
-    padding: 16, marginBottom: 10, alignSelf: 'flex-end', maxWidth: '85%',
-  },
-  userText: { color: '#FFFFFF', fontSize: 16, lineHeight: 24 },
-
-  thinkingDots: { marginBottom: 10 },
-  thinkingText: { color: '#6C5CE7', fontSize: 32, letterSpacing: 4 },
 
   // Controls
   controlArea: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
