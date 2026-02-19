@@ -61,6 +61,9 @@ async def lifespan(app: FastAPI):
     # Initialize base soul in vector memory
     from soul.store import initialize_base_soul
     await initialize_base_soul()
+    # Pre-load MIO signing keys from DB (persists across restarts)
+    from mio.signer import _load_or_generate_keys
+    await _load_or_generate_keys()
     # Auto-index skills library into MongoDB
     from skills.library import load_and_index_library
     skills_result = await load_and_index_library()
