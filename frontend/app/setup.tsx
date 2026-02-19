@@ -128,7 +128,7 @@ export default function SetupWizardScreen() {
   async function handlePayment() {
     setLoading(true);
     try {
-      // Step 4: POST /billing/checkout → ObeGee — returns Stripe URL
+      // Step 4: POST /billing/checkout → ObeGee — returns Stripe URL + session_id
       const res = await obegee('/billing/checkout', {
         method: 'POST',
         body: JSON.stringify({
@@ -138,15 +138,36 @@ export default function SetupWizardScreen() {
         }),
       }, authToken);
       if (res.url) {
-        // Open Stripe checkout in browser; user returns after payment
+        // Open Stripe checkout in browser
         Linking.openURL(res.url);
         setStep(5);
-        activateWorkspace();
+        // Poll for payment completion BEFORE activating — Stripe webhook may not have fired yet
+        pollPaymentThenActivate(res.session_id);
       }
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Payment failed');
     }
     setLoading(false);
+  }
+
+  async function pollPaymentThenActivate(sessionId: string) {
+    setActivationStatus('activating');
+    setProgress(0.1);
+    const poll = setInterval(async () => {
+      try {
+        const status = await obegee(
+          `/billing/checkout/status/${sessionId}`,
+          undefined,
+          authToken,
+        );
+        if (status.payment_status === 'paid') {
+          clearInterval(poll);
+          activateWorkspace();
+        }
+      } catch { /* keep polling — network hiccup */ }
+    }, 3000);
+    // 10 minute timeout — user has time to complete Stripe checkout
+    setTimeout(() => clearInterval(poll), 600000);
   }
 
   async function activateWorkspace() {
