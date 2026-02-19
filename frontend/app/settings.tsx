@@ -362,24 +362,78 @@ export default function SettingsScreen() {
             />
           )}
 
-          <Text style={s.subHeading}>Email Access (Optional · Coming Soon)</Text>
-          <CheckRow label="Gmail" value={prefs.data_sources.email_gmail} onChange={v => update({ data_sources: { ...prefs.data_sources, email_gmail: v } })} />
-          <CheckRow label="Outlook" value={prefs.data_sources.email_outlook} onChange={v => update({ data_sources: { ...prefs.data_sources, email_outlook: v } })} />
-          <CheckRow label="Other (IMAP)" value={prefs.data_sources.email_imap} onChange={v => update({ data_sources: { ...prefs.data_sources, email_imap: v } })} />
+          <Text style={s.subHeading}>Email Access</Text>
+          <CheckRow
+            label="Gmail (App Password)"
+            sub="Generate at myaccount.google.com/apppasswords"
+            value={prefs.data_sources.email_gmail}
+            onChange={v => update({ data_sources: { ...prefs.data_sources, email_gmail: v } })}
+          />
+          {prefs.data_sources.email_gmail && (
+            <View style={s.credForm}>
+              <TextInput style={s.credInput} placeholder="Gmail App Password" placeholderTextColor="#555"
+                secureTextEntry value={gmailToken} onChangeText={setGmailToken}
+                autoCapitalize="none" />
+              <ActionBtn label="Save Token" onPress={handleSaveGmail} />
+            </View>
+          )}
 
-          <Text style={s.subHeading}>Messaging (Optional · Coming Soon)</Text>
-          <CheckRow label="WhatsApp" value={prefs.data_sources.messaging_whatsapp} onChange={v => update({ data_sources: { ...prefs.data_sources, messaging_whatsapp: v } })} />
-          <CheckRow label="iMessage" value={prefs.data_sources.messaging_imessage} onChange={v => update({ data_sources: { ...prefs.data_sources, messaging_imessage: v } })} />
-          <CheckRow label="Telegram" value={prefs.data_sources.messaging_telegram} onChange={v => update({ data_sources: { ...prefs.data_sources, messaging_telegram: v } })} />
-          <Text style={s.disclosure}>Messages are scanned locally for travel artifacts only.</Text>
+          <CheckRow label="Outlook" value={prefs.data_sources.email_outlook}
+            onChange={v => update({ data_sources: { ...prefs.data_sources, email_outlook: v } })} />
 
-          <Text style={s.subHeading}>Social & Professional (Optional · Coming Soon)</Text>
-          <CheckRow label="LinkedIn" sub="Company affiliation · Role seniority · Business vs personal" value={prefs.data_sources.social_linkedin} onChange={v => update({ data_sources: { ...prefs.data_sources, social_linkedin: v } })} />
-          <CheckRow label="Instagram / X (interest signals only)" value={prefs.data_sources.social_other} onChange={v => update({ data_sources: { ...prefs.data_sources, social_other: v } })} />
+          <CheckRow label="Other (IMAP / Gmail IMAP)" value={prefs.data_sources.email_imap}
+            onChange={v => update({ data_sources: { ...prefs.data_sources, email_imap: v } })} />
+          {prefs.data_sources.email_imap && (
+            <View style={s.credForm}>
+              <TextInput style={s.credInput} placeholder="IMAP Host (e.g. imap.gmail.com)" placeholderTextColor="#555"
+                value={imapCreds.host} onChangeText={v => setImapCreds(c => ({ ...c, host: v }))}
+                autoCapitalize="none" autoCorrect={false} />
+              <TextInput style={s.credInput} placeholder="Port (993)" placeholderTextColor="#555"
+                keyboardType="numeric"
+                value={String(imapCreds.port)} onChangeText={v => setImapCreds(c => ({ ...c, port: parseInt(v) || 993 }))} />
+              <TextInput style={s.credInput} placeholder="Email address" placeholderTextColor="#555"
+                value={imapCreds.email} onChangeText={v => setImapCreds(c => ({ ...c, email: v }))}
+                autoCapitalize="none" keyboardType="email-address" />
+              <TextInput style={s.credInput} placeholder="Password or App Password" placeholderTextColor="#555"
+                secureTextEntry value={imapCreds.password} onChangeText={v => setImapCreds(c => ({ ...c, password: v }))} />
+              <View style={s.credBtns}>
+                <ActionBtn label={imapSaved ? '✓ Saved' : 'Save Credentials'} onPress={handleSaveIMAP} />
+                <ActionBtn label={syncing ? 'Syncing…' : 'Sync Now'} onPress={handleSyncEmail} />
+              </View>
+              {syncResult ? <Text style={s.syncResult}>{syncResult}</Text> : null}
+            </View>
+          )}
 
-          <Text style={s.subHeading}>Financial Signals (Optional · Sensitive · Coming Soon)</Text>
-          <CheckRow label="Payment methods (tokenized)" value={prefs.data_sources.financial_payment} onChange={v => update({ data_sources: { ...prefs.data_sources, financial_payment: v } })} />
-          <CheckRow label="Corporate card flag" value={prefs.data_sources.financial_corporate} onChange={v => update({ data_sources: { ...prefs.data_sources, financial_corporate: v } })} />
+          <Text style={s.subHeading}>Messaging</Text>
+          <CheckRow label="WhatsApp" value={prefs.data_sources.messaging_whatsapp}
+            onChange={v => update({ data_sources: { ...prefs.data_sources, messaging_whatsapp: v } })} />
+          <CheckRow label="iMessage" value={prefs.data_sources.messaging_imessage}
+            onChange={v => update({ data_sources: { ...prefs.data_sources, messaging_imessage: v } })} />
+          <CheckRow label="Telegram" value={prefs.data_sources.messaging_telegram}
+            onChange={v => update({ data_sources: { ...prefs.data_sources, messaging_telegram: v } })} />
+          <Text style={s.disclosure}>Messages scanned locally for travel artifacts only. No content stored.</Text>
+
+          <Text style={s.subHeading}>Social & Professional</Text>
+          <CheckRow label="LinkedIn" sub="Role · Company · Business vs personal"
+            value={prefs.data_sources.social_linkedin}
+            onChange={v => update({ data_sources: { ...prefs.data_sources, social_linkedin: v } })} />
+          {prefs.data_sources.social_linkedin && (
+            <View style={s.credForm}>
+              <TextInput style={s.credInput} placeholder="LinkedIn Access Token (OAuth2)"
+                placeholderTextColor="#555" secureTextEntry
+                value={linkedinToken} onChangeText={setLinkedinToken} autoCapitalize="none" />
+              <ActionBtn label="Save Token" onPress={handleSaveLinkedIn} />
+            </View>
+          )}
+          <CheckRow label="Instagram / X (interest signals only)"
+            value={prefs.data_sources.social_other}
+            onChange={v => update({ data_sources: { ...prefs.data_sources, social_other: v } })} />
+
+          <Text style={s.subHeading}>Financial Signals (Sensitive)</Text>
+          <CheckRow label="Payment methods (tokenized)" value={prefs.data_sources.financial_payment}
+            onChange={v => update({ data_sources: { ...prefs.data_sources, financial_payment: v } })} />
+          <CheckRow label="Corporate card flag" value={prefs.data_sources.financial_corporate}
+            onChange={v => update({ data_sources: { ...prefs.data_sources, financial_corporate: v } })} />
         </Section>
 
         {/* ─── 3. AUTOMATION & CONSENT ────────────────────────────────────── */}
