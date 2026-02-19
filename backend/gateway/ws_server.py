@@ -218,7 +218,11 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                 await _handle_audio_chunk(websocket, session_id, payload)
 
             elif msg_type == WSMessageType.EXECUTE_REQUEST.value:
-                await _handle_execute_request(websocket, session_id, payload, subscription_status)
+                await _handle_execute_request(
+                    websocket, session_id, payload, subscription_status,
+                    user_id=user_id_resolved or "",
+                    tenant_id=sso_claims.myndlens_tenant_id if sso_claims else "",
+                )
 
             elif msg_type == WSMessageType.CANCEL.value:
                 logger.info("Cancel received: session=%s", session_id)
