@@ -59,27 +59,19 @@ async def submit_mio_to_adapter(
     endpoint_info = await resolve_tenant_endpoint(tenant_id)
 
     if endpoint_info and endpoint_info.get("endpoint"):
-        # Real adapter call
         endpoint = endpoint_info["endpoint"]
         return await _call_adapter(endpoint, submission, mio_id, session_id, start)
 
-    # Fallback: check if CHANNEL_ADAPTER_IP is configured with a default port
+    # Fall back to configured CHANNEL_ADAPTER_IP
     if settings.CHANNEL_ADAPTER_IP:
         endpoint = f"http://{settings.CHANNEL_ADAPTER_IP}:8080/v1/dispatch"
         return await _call_adapter(endpoint, submission, mio_id, session_id, start)
 
-    # Dev stub: no adapter configured
-    latency_ms = (time.monotonic() - start) * 1000
-    logger.info(
-        "[Adapter] STUB: mio=%s action=%s tenant=%s (no adapter configured)",
-        mio_id[:12], action, tenant_id[:12],
+    # No adapter endpoint — fail fast
+    raise DispatchBlockedError(
+        "No ObeGee Channel Adapter endpoint configured for this tenant. "
+        "Set CHANNEL_ADAPTER_IP in backend/.env or ensure tenant is provisioned in ObeGee."
     )
-    return {
-        "status": "submitted",
-        "stub": True,
-        "mio_id": mio_id,
-        "latency_ms": latency_ms,
-    }
 
 
 async def _call_adapter(
