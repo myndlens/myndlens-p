@@ -1,9 +1,9 @@
 /**
- * WebSocket auth — handles pairing + token management.
+ * WebSocket auth — handles token management.
  * Uses cross-platform storage wrapper.
+ * Pairing is handled via ObeGee directly in login.tsx.
  */
 import { getItem, setItem, deleteItem } from '../utils/storage';
-import { ENV } from '../config/env';
 
 const TOKEN_KEY = 'myndlens_auth_token';
 const USER_ID_KEY = 'myndlens_user_id';
@@ -28,40 +28,6 @@ export async function getStoredToken(): Promise<string | null> {
 
 export async function getStoredUserId(): Promise<string | null> {
   return getItem(USER_ID_KEY);
-}
-
-export interface PairResponse {
-  token: string;
-  user_id: string;
-  device_id: string;
-  env: string;
-}
-
-export async function pairDevice(userId: string): Promise<PairResponse> {
-  const deviceId = await getOrCreateDeviceId();
-
-  const response = await fetch(`${ENV.API_URL}/auth/pair`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      user_id: userId,
-      device_id: deviceId,
-      client_version: '1.0.0',
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Pairing failed: ${response.status} ${text}`);
-  }
-
-  const data: PairResponse = await response.json();
-
-  // Store token and user ID
-  await setItem(TOKEN_KEY, data.token);
-  await setItem(USER_ID_KEY, data.user_id);
-
-  return data;
 }
 
 export async function clearAuth(): Promise<void> {
