@@ -114,14 +114,9 @@ export class MyndLensWSClient {
             timestamp: new Date().toISOString(),
             payload: { code: event.code, reason: event.reason },
           });
-
-          // Auto-reconnect if not intentional close
-          if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.reconnectAttempts++;
-            const delay = this.reconnectDelay * this.reconnectAttempts;
-            console.log(`[WS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-            setTimeout(() => this.connect().catch(console.error), delay);
-          }
+          // Auto-reconnect is intentionally NOT here.
+          // loading.tsx is the single authority for reconnection.
+          // Dual reconnect (here + loading.tsx) causes race conditions and stuck states.
         };
 
         this.ws.onerror = (error) => {
