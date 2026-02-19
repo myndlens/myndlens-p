@@ -185,13 +185,22 @@ export default function TalkScreen() {
       setPipelineProgress(0);
       transition('LISTENING');
       transition('CAPTURING');
-      await startRecording((chunk) => {
-        incrementChunks();
-        wsClient.send('audio_chunk', {
-          session_id: sessionId, audio: chunk.data,
-          seq: chunk.seq, timestamp: chunk.timestamp, duration_ms: chunk.durationMs,
-        });
-      });
+      await startRecording(
+        (chunk) => {
+          incrementChunks();
+          wsClient.send('audio_chunk', {
+            session_id: sessionId, audio: chunk.data,
+            seq: chunk.seq, timestamp: chunk.timestamp, duration_ms: chunk.durationMs,
+          });
+        },
+        async () => {
+          // VAD auto-stop: user finished speaking — stop recorder, let server transcribe
+          console.log('[Talk] VAD triggered auto-stop');
+          await stopRecording();
+          transition('COMMITTING');
+          transition('THINKING');
+        },
+      );
     } else if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
       await stopRecording();
       transition('COMMITTING');
