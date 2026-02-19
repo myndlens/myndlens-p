@@ -609,6 +609,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         session_id=session_id,
         user_id=user_id,
         transcript=transcript,
+        context_capsule=context_capsule,
     )
 
     if l1_draft.hypotheses:
