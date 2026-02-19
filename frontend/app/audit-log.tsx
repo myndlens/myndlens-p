@@ -31,9 +31,15 @@ export default function AuditLogScreen() {
     setLoading(true);
     try {
       const token = await getStoredToken();
+      if (!token) { setError('Not authenticated'); setLoading(false); return; }
       const res = await fetch(`${ENV.API_URL}/digital-self/audit-log?limit=50`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) {
+        setError(`Failed to load audit log (${res.status})`);
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       setEvents(data.events ?? []);
     } catch (e: any) {
