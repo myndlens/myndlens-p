@@ -415,9 +415,11 @@ class TestE2EWorkflow:
             ws.recv()  # Discard heartbeat_ack
 
             # Now send execute_request
+            session_id = getattr(self.__class__, 'session_id', "unknown")
             execute_msg = {
                 "type": "execute_request",
                 "payload": {
+                    "session_id": session_id,
                     "draft_id": draft_id
                 }
             }
