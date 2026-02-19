@@ -337,6 +337,10 @@ export default function TalkScreen() {
                 <Text style={styles.menuIcon}>{'\u{1F4CA}'}</Text>
                 <Text style={styles.menuText}>Dashboard</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); router.push('/persona'); }} data-testid="menu-persona">
+                <Text style={styles.menuIcon}>🧠</Text>
+                <Text style={styles.menuText}>Digital Self</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuOpen(false); router.push('/settings'); }} data-testid="menu-settings">
                 <Text style={styles.menuIcon}>{'\u2699'}</Text>
                 <Text style={styles.menuText}>Settings</Text>
