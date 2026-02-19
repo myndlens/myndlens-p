@@ -45,8 +45,13 @@ async def run_l1_scout(
     session_id: str,
     user_id: str,
     transcript: str,
+    context_capsule: Optional[str] = None,
 ) -> L1DraftObject:
-    """Run L1 Scout on a transcript. Returns max 3 hypotheses."""
+    """Run L1 Scout on a transcript. Returns max 3 hypotheses.
+
+    context_capsule: JSON string from the device's on-device PKG (Digital Self).
+    When provided, used instead of server-side memory recall.
+    """
     settings = get_settings()
     start = time.monotonic()
 
@@ -54,10 +59,24 @@ async def run_l1_scout(
         return _mock_l1(transcript, start)
 
     try:
-        # Recall relevant memories from Digital Self
-        from memory.retriever import recall
-        memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=3)
-        logger.info("L1 Scout: recalled %d memories for user=%s", len(memory_snippets), user_id)
+        # Use device context capsule if provided (on-device Digital Self)
+        # Fall back to server-side recall ONLY if no capsule (legacy / empty PKG)
+        memory_snippets = None
+        if context_capsule:
+            import json as _json
+            try:
+                capsule_data = _json.loads(context_capsule)
+                summary = capsule_data.get("summary", "")
+                if summary:
+                    memory_snippets = [{"text": summary, "provenance": "DEVICE_PKG", "distance": 0.0}]
+                    logger.info("L1 Scout: using on-device context capsule for user=%s", user_id)
+            except Exception:
+                logger.warning("L1 Scout: invalid context capsule, falling back to server recall")
+
+        if memory_snippets is None and user_id:
+            from memory.retriever import recall
+            memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=3)
+            logger.info("L1 Scout: recalled %d memories (server) for user=%s", len(memory_snippets), user_id)
 
         # Fetch per-user optimization adjustments
         from prompting.user_profiles import get_prompt_adjustments
