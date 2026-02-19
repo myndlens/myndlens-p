@@ -795,18 +795,46 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 8
+  test_sequence: 9
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Intent Capture Pipeline — 56 test cases"
+    - "Mandate creation step logs"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-      message: "Batch 2 Audio Pipeline implementation complete. NEW backend modules: stt/ (mock provider + interface + orchestrator), transcript/ (assembler + spans + storage). Gateway extended with audio_chunk handler, text_input handler, stream_end handler, and mock TTS response. PLEASE TEST: 1) Audio chunk flow over WS (base64 encoded chunks sent to mock STT which returns transcript fragments), 2) Text input flow (text_input message to transcript to TTS), 3) Chunk validation (empty chunks, oversized chunks, invalid base64), 4) Stream end (cancel message triggers final transcript), 5) Transcript persistence in MongoDB, 6) Regression: All B0+B1 tests must still pass (health, auth/pair, WS auth, heartbeat, execute gate)."
+      message: |
+        CRITICAL: Intent Capture Pipeline testing required.
+        
+        Changes made this session:
+        1. FIXED BUG: Ambiguity default was 0.5 (above 0.30 guardrail threshold) — changed to 0.0 in dimensions/engine.py
+        2. FIXED BUG: Mock L1 did not set ambiguity in dimension_suggestions — now sets ambiguity=0.1 for all mock paths
+        3. ADDED: Structured step-by-step logs at every pipeline stage in ws_server.py (MANDATE:0:CAPTURE through MANDATE:COMPLETE)
+        4. CREATED: /app/backend/tests/test_intent_capture.py with 56 test cases
+        
+        Please run: cd /app/backend && python -m pytest tests/test_intent_capture.py -v -s
+        
+        Test groups:
+        - Group A (T01-T10): Coding mandates — must PASS guardrails, no clarification
+        - Group B (T11-T20): Communication mandates — must PASS
+        - Group C (T21-T28): Scheduling mandates — must PASS
+        - Group D (T29-T36): Info retrieval — must PASS
+        - Group E (T37-T42): Document mandates — must PASS
+        - Group F (T43-T50): Harmful intents — must be BLOCKED by guardrails
+        - Group G (T51-T56): Edge cases + original bug case — must PASS
+        - Step-level unit tests: each pipeline stage individually
+        
+        Critical assertions:
+        1. Guardrail result == PASS for all benign mandates
+        2. Ambiguity < 0.30 for all clear intents
+        3. Response must NOT contain: "could you tell me a bit more", "i want to make sure i understand", etc.
+        4. Harmful intents MUST be blocked
+        5. Original bug case (T56: "Create Hello World Code using Python") must pass with guardrail=PASS NEW backend modules: stt/ (mock provider + interface + orchestrator), transcript/ (assembler + spans + storage). Gateway extended with audio_chunk handler, text_input handler, stream_end handler, and mock TTS response. PLEASE TEST: 1) Audio chunk flow over WS (base64 encoded chunks sent to mock STT which returns transcript fragments), 2) Text input flow (text_input message to transcript to TTS), 3) Chunk validation (empty chunks, oversized chunks, invalid base64), 4) Stream end (cancel message triggers final transcript), 5) Transcript persistence in MongoDB, 6) Regression: All B0+B1 tests must still pass (health, auth/pair, WS auth, heartbeat, execute gate)."
     - agent: "testing"
       message: "COMPREHENSIVE BACKEND TESTING COMPLETE ✅ ALL CRITICAL SYSTEMS WORKING PERFECTLY! Tested all 9 backend tasks with 7 comprehensive test scenarios. CRITICAL FINDINGS: 1) Health endpoint: ✅ Working correctly, 2) Auth/Pair endpoint: ✅ Creates valid JWT tokens, 3) WebSocket Gateway: ✅ Full auth/heartbeat/execute flow working, 4) MOST CRITICAL - Presence Gate: ✅ CORRECTLY blocks execute requests after 15s stale heartbeat (tested with 16s delay), 5) Auth rejection: ✅ Invalid tokens properly rejected, 6) Session status: ✅ Returns correct presence info, 7) PII Redaction: ✅ No sensitive data in logs, 8) Env Guard: ✅ Properly prevents prod dispatch from dev, 9) Audit logging: ✅ All security events logged. The MyndLens Sovereign Voice Assistant backend is production-ready for Batch 0+1 requirements. All identity, presence, and security gates are functioning correctly."
     - agent: "testing"
