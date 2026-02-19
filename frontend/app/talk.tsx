@@ -456,35 +456,32 @@ export default function TalkScreen() {
 
         {/* PRIMARY: Large mic button */}
         <View style={styles.controlArea}>
-          {/* VAD Energy Bar — visible only during CAPTURING */}
+          {/* VAD label — minimal hint below button only */}
           {audioState === 'CAPTURING' && (
-            <View style={styles.vadBar}>
-              {[0.003, 0.008, 0.015, 0.03, 0.06].map((threshold, i) => {
-                const active = liveEnergy >= threshold;
-                return (
-                  <View
-                    key={i}
-                    style={[
-                      styles.vadDot,
-                      active && styles.vadDotActive,
-                      active && { opacity: 0.4 + i * 0.15 },
-                    ]}
-                  />
-                );
-              })}
-              <Text style={styles.vadLabel}>
-                {liveEnergy >= 0.015 ? 'speaking' : 'silence'}
-              </Text>
-            </View>
+            <Text style={styles.vadListeningLabel}>
+              {liveEnergy >= 0.015 ? 'listening...' : 'waiting...'}
+            </Text>
           )}
           <Animated.View style={{ transform: [{ scale: micAnim }] }}>
             <TouchableOpacity
               style={[styles.micButton, { backgroundColor: micColor }, audioState === 'THINKING' && styles.micThinking]}
               onPress={handleMic}
               disabled={connectionStatus !== 'authenticated' || audioState === 'THINKING'}
-              activeOpacity={0.7}
+              activeOpacity={0.85}
             >
-              {audioState === 'CAPTURING' ? <StopIcon size={32} color="#FFFFFF" /> : <MicIcon size={40} color="#FFFFFF" />}
+              {audioState === 'CAPTURING' ? (
+                /* Siri-style sympathetic waveform — 5 bars, energy-driven */
+                <View style={styles.waveContainer}>
+                  {waveAnims.map((anim, i) => (
+                    <Animated.View
+                      key={i}
+                      style={[styles.waveBar, { height: anim }]}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <MicIcon size={40} color="#FFFFFF" />
+              )}
             </TouchableOpacity>
           </Animated.View>
 
