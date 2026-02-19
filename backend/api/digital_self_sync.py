@@ -61,8 +61,8 @@ class IMAPRequest(BaseModel):
     host: str
     port: int = 993
     email: str
-    password: str       # App Password recommended. Never persisted.
-    max_emails: int = 200
+    password: str       # App Password recommended. Never persisted. Never logged.
+    max_emails: int = Field(default=200, ge=1, le=500)  # Bounded: prevents DoS via memory exhaustion
 
 
 class EmailSyncResult(BaseModel):
@@ -80,22 +80,32 @@ async def sync_imap_email(
 ):
     """Connect to IMAP, extract contact patterns and travel signals.
 
-    Credentials used only for this request — never stored.
+    Credentials used only for this request — never stored, never logged.
     Returns structured metadata only — no email bodies.
     """
     user_id = _get_user_id(authorization)
-    logger.info("[EmailSync] User=%s host=%s email=%s", user_id, req.host, req.email)
+    # Email address NOT logged — it is PII
+    logger.info("[EmailSync] User=%s host=%s port=%d", user_id, req.host, req.port)
 
     try:
         ctx = ssl.create_default_context()
+        # Set socket timeout to prevent hanging on unresponsive IMAP servers
         with imaplib.IMAP4_SSL(req.host, req.port, ssl_context=ctx) as imap:
+            imap.socket().settimeout(IMAP_TIMEOUT_SECONDS)
             imap.login(req.email, req.password)
             imap.select("INBOX", readonly=True)
 
-            # Fetch last N email UIDs
-            _, data = imap.search(None, "ALL")
-            all_uids = data[0].split()
-            uids_to_fetch = all_uids[-req.max_emails:] if len(all_uids) > req.max_emails else all_uids
+            # Fetch only recent emails using IMAP date range — avoids loading all UIDs
+            from email.utils import formatdate
+            import time as _time
+            since_days = 90
+            since_date = formatdate(
+                _time.mktime(_time.gmtime(_time.time() - since_days * 86400)),
+                usegmt=True,
+            )[:11].replace(' ', '-')  # "DD-Mon-YYYY" format for IMAP
+            _, data = imap.search(None, f'SINCE "{since_date}"')
+            all_uids = data[0].split() if data[0] else []
+            uids_to_fetch = all_uids[-req.max_emails:]  # Last N from date-filtered results
 
             contact_freq: Dict[str, int] = {}
             travel_subjects: List[str] = []
@@ -109,7 +119,6 @@ async def sync_imap_email(
                     raw = msg_data[0][1]
                     msg = email_lib.message_from_bytes(raw)
 
-                    # Extract sender
                     from_header = msg.get("From", "")
                     emails_in_from = re.findall(r"[\w.+-]+@[\w-]+\.[\w.]+", from_header)
                     for addr in emails_in_from:
@@ -117,7 +126,6 @@ async def sync_imap_email(
                         if addr != req.email.lower():
                             contact_freq[addr] = contact_freq.get(addr, 0) + 1
 
-                    # Check for travel signals in subject
                     raw_subj = msg.get("Subject", "")
                     subj_parts = decode_header(raw_subj)
                     subj = " ".join(
@@ -127,7 +135,6 @@ async def sync_imap_email(
                     if any(kw in subj.lower() for kw in TRAVEL_KEYWORDS):
                         travel_subjects.append(subj[:100])
 
-                    # Record date
                     date_str = msg.get("Date", "")
                     if date_str:
                         dates.append(date_str[:30])
@@ -135,7 +142,6 @@ async def sync_imap_email(
                 except Exception:
                     continue
 
-        # Build top contacts (sorted by frequency)
         top = sorted(contact_freq.items(), key=lambda x: x[1], reverse=True)[:20]
         top_contacts = [{"email": addr, "frequency": freq} for addr, freq in top]
 
@@ -151,20 +157,20 @@ async def sync_imap_email(
         )
 
         await log_audit_event(
-            AuditEventType.SESSION_CREATED,  # using closest available type
+            AuditEventType.DATA_ACCESSED,
             user_id=user_id,
-            details={"action": "email_sync", "host": req.host, "contacts_found": result.contacts_found},
+            details={"action": "email_sync", "contacts_found": result.contacts_found},
         )
 
-        logger.info(
-            "[EmailSync] User=%s contacts=%d travel=%d",
-            user_id, result.contacts_found, result.travel_signals,
-        )
+        logger.info("[EmailSync] User=%s contacts=%d travel=%d", user_id, result.contacts_found, result.travel_signals)
         return result
 
     except imaplib.IMAP4.error as e:
         logger.warning("[EmailSync] IMAP error user=%s: %s", user_id, str(e))
         raise HTTPException(status_code=400, detail=f"IMAP connection failed: {str(e)}")
+    except TimeoutError:
+        logger.warning("[EmailSync] IMAP timeout user=%s host=%s", user_id, req.host)
+        raise HTTPException(status_code=504, detail="IMAP server did not respond within timeout")
     except Exception as e:
         logger.error("[EmailSync] Unexpected error user=%s: %s", user_id, str(e))
         raise HTTPException(status_code=500, detail="Email sync failed")
