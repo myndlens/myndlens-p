@@ -77,8 +77,7 @@ export default function TalkScreen() {
   const router = useRouter();
   const {
     connectionStatus, sessionId,
-    setConnectionStatus, setSessionId, setPresenceOk,
-    setHeartbeatSeq, setExecuteBlocked, lastExecuteBlockReason,
+    setConnectionStatus, setHeartbeatSeq, setExecuteBlocked,
   } = useSessionStore();
   const {
     state: audioState, transcript, partialTranscript, ttsText, chunksSent,
