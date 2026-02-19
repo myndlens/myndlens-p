@@ -224,7 +224,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                 await _handle_stream_end(websocket, session_id)
 
             elif msg_type == WSMessageType.TEXT_INPUT.value:
-                await _handle_text_input(websocket, session_id, payload)
+                await _handle_text_input(websocket, session_id, payload, user_id=user_id_resolved or "")
 
             else:
                 await _send(websocket, WSMessageType.ERROR, ErrorPayload(
