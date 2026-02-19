@@ -1485,13 +1485,15 @@ app.include_router(api_router)
 from api.onboarding import router as onboarding_router
 app.include_router(onboarding_router, prefix="/api")
 
-# Include mock dashboard API router (dev only)
-from api.dashboard_mock import router as dashboard_router
-app.include_router(dashboard_router, prefix="/api")
+# Include mock dashboard and setup wizard routers — DEV ONLY
+# These MUST NOT be active in production (ENV=prod)
+_settings_for_mock = get_settings()
+if _settings_for_mock.ENV != "prod":
+    from api.dashboard_mock import router as dashboard_router
+    app.include_router(dashboard_router, prefix="/api")
 
-# Include setup wizard API router (dev only)
-from api.setup_wizard import router as setup_router
-app.include_router(setup_router, prefix="/api")
+    from api.setup_wizard import router as setup_router
+    app.include_router(setup_router, prefix="/api")
 
 
 # =====================================================
