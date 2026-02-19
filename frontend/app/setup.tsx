@@ -24,8 +24,6 @@ const DELIVERY_CHANNELS = [
 export default function SetupWizardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const setAuth = useSessionStore((s) => s.setAuth);
-
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   // Account
