@@ -355,8 +355,9 @@ class TestSkillsAPI:
         print(f"[S02] Skills matched for 'send email': {len(data)} results")
 
     def test_s03_skills_search(self):
-        """[S03] GET /api/skills/search?query= searches library."""
-        response = requests.get(f"{BASE_URL}/api/skills/search?query=email")
+        """[S03] GET /api/skills/search?q= searches library."""
+        # Note: The endpoint uses 'q' not 'query'
+        response = requests.get(f"{BASE_URL}/api/skills/search?q=email")
         assert response.status_code == 200, f"Skills search failed: {response.text}"
         
         data = response.json()
