@@ -88,9 +88,14 @@ class CancelPayload(BaseModel):
 
 
 class TextInputPayload(BaseModel):
-    """Text input as STT fallback."""
+    """Text input as STT fallback.
+
+    context_capsule: optional Digital Self context from the device PKG.
+    Backend uses this instead of querying server-side memory.
+    """
     session_id: str
     text: str
+    context_capsule: Optional[str] = None  # JSON-serialised ContextCapsule from device PKG
 
 
 # =====================================================
