@@ -301,7 +301,7 @@ export default function TalkScreen() {
     : audioState === 'RESPONDING' ? '#00D68F'
     : audioState === 'THINKING' ? '#FFAA00'
     : '#6C5CE7';
-  const isActive = audioState !== 'IDLE';
+  const audioState = useAudioStore(s => s.state);
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
