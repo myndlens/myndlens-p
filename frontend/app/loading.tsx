@@ -20,6 +20,8 @@ export default function LoadingScreen() {
   const { setConnectionStatus, setSessionId, setPresenceOk } = useSessionStore();
   const [statusIdx, setStatusIdx] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const retryCount = useRef(0);
+  const MAX_RETRIES = 8;
 
   useEffect(() => {
     // Rotate status text
