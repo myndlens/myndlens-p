@@ -19,6 +19,8 @@ Privacy contract:
 """
 from __future__ import annotations
 
+import asyncio
+import base64
 import csv
 import email as email_lib
 import imaplib
