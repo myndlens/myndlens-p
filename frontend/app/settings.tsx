@@ -610,4 +610,18 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   nickSaveText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+
+  // Credential form styles (Category B)
+  credForm: {
+    backgroundColor: '#0D0D1A', borderRadius: 10, padding: 12,
+    marginTop: 8, gap: 8, borderWidth: 1, borderColor: '#1A1A2E',
+  },
+  credInput: {
+    backgroundColor: '#1A1A2E', borderRadius: 8, padding: 10,
+    color: '#fff', fontSize: 13,
+  },
+  credBtns: { flexDirection: 'row', gap: 8 },
+  syncResult: {
+    color: '#00D68F', fontSize: 12, marginTop: 4, lineHeight: 16,
+  },
 });
