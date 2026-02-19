@@ -384,7 +384,7 @@ class TestAgentsCRUD:
         self.agent_ids = []
 
     def test_a01_create_agent(self):
-        """[A01] POST /api/agents creates a new agent."""
+        """[A01] POST /api/agents/create creates a new agent."""
         agent_data = {
             "tenant_id": self.tenant_id,
             "name": f"TEST_agent_{uuid.uuid4().hex[:6]}",
@@ -394,7 +394,7 @@ class TestAgentsCRUD:
             "bindings": {"email": "test@example.com"},
         }
         
-        response = requests.post(f"{BASE_URL}/api/agents", json=agent_data)
+        response = requests.post(f"{BASE_URL}/api/agents/create", json=agent_data)
         assert response.status_code in [200, 201], f"Create agent failed: {response.text}"
         
         data = response.json()
@@ -405,7 +405,7 @@ class TestAgentsCRUD:
         print(f"[A01] Agent created: id={data['agent_id']} name={data.get('name')}")
 
     def test_a02_modify_agent(self):
-        """[A02] PUT /api/agents/{id} modifies an existing agent."""
+        """[A02] POST /api/agents/modify modifies an existing agent."""
         # First create an agent
         agent_data = {
             "tenant_id": self.tenant_id,
@@ -413,18 +413,19 @@ class TestAgentsCRUD:
             "description": "Agent to be modified",
             "tools": ["read"],
         }
-        create_resp = requests.post(f"{BASE_URL}/api/agents", json=agent_data)
+        create_resp = requests.post(f"{BASE_URL}/api/agents/create", json=agent_data)
         assert create_resp.status_code in [200, 201], f"Create failed: {create_resp.text}"
         agent_id = create_resp.json()["agent_id"]
         
         # Modify the agent
         modify_data = {
+            "agent_id": agent_id,
             "name": f"TEST_mod_updated_{uuid.uuid4().hex[:4]}",
             "tools": ["read", "write", "search"],
             "soil": {"prompt_vars": {"style": "casual"}},
         }
         
-        response = requests.put(f"{BASE_URL}/api/agents/{agent_id}", json=modify_data)
+        response = requests.post(f"{BASE_URL}/api/agents/modify", json=modify_data)
         assert response.status_code == 200, f"Modify agent failed: {response.text}"
         
         data = response.json()
@@ -432,19 +433,19 @@ class TestAgentsCRUD:
         print(f"[A02] Agent modified: id={agent_id} changes={data.get('changes')}")
 
     def test_a03_retire_agent(self):
-        """[A03] POST /api/agents/{id}/retire retires an agent."""
+        """[A03] POST /api/agents/retire retires an agent."""
         # First create an agent
         agent_data = {
             "tenant_id": self.tenant_id,
             "name": f"TEST_ret_{uuid.uuid4().hex[:6]}",
             "tools": ["read"],
         }
-        create_resp = requests.post(f"{BASE_URL}/api/agents", json=agent_data)
+        create_resp = requests.post(f"{BASE_URL}/api/agents/create", json=agent_data)
         assert create_resp.status_code in [200, 201]
         agent_id = create_resp.json()["agent_id"]
         
         # Retire the agent
-        response = requests.post(f"{BASE_URL}/api/agents/{agent_id}/retire")
+        response = requests.post(f"{BASE_URL}/api/agents/retire", json={"agent_id": agent_id})
         assert response.status_code == 200, f"Retire agent failed: {response.text}"
         
         data = response.json()
@@ -452,7 +453,7 @@ class TestAgentsCRUD:
         print(f"[A03] Agent retired: id={agent_id} mode={data.get('mode')}")
 
     def test_a04_list_agents(self):
-        """[A04] GET /api/agents?tenant_id= lists agents for tenant."""
+        """[A04] GET /api/agents/list/{tenant_id} lists agents for tenant."""
         # Create a couple of agents first
         for i in range(2):
             agent_data = {
@@ -460,9 +461,9 @@ class TestAgentsCRUD:
                 "name": f"TEST_list_{uuid.uuid4().hex[:6]}",
                 "tools": ["read"],
             }
-            requests.post(f"{BASE_URL}/api/agents", json=agent_data)
+            requests.post(f"{BASE_URL}/api/agents/create", json=agent_data)
         
-        response = requests.get(f"{BASE_URL}/api/agents?tenant_id={self.tenant_id}")
+        response = requests.get(f"{BASE_URL}/api/agents/list/{self.tenant_id}")
         assert response.status_code == 200, f"List agents failed: {response.text}"
         
         data = response.json()
@@ -477,7 +478,7 @@ class TestAgentsCRUD:
             "name": f"TEST_get_{uuid.uuid4().hex[:6]}",
             "tools": ["read"],
         }
-        create_resp = requests.post(f"{BASE_URL}/api/agents", json=agent_data)
+        create_resp = requests.post(f"{BASE_URL}/api/agents/create", json=agent_data)
         assert create_resp.status_code in [200, 201]
         agent_id = create_resp.json()["agent_id"]
         
