@@ -227,8 +227,10 @@ export default function SettingsScreen() {
       if (!res.ok) throw new Error(diff.detail || `HTTP ${res.status}`);
       // Merge returned PKGDiff (nodes + edges with ONNX vectors) into local encrypted PKG
       const merged = await mergePKGDiff(uid, diff);
+      const persons = diff.stats?.persons ?? merged.nodesAdded;
+      const interests = diff.stats?.interests ?? 0;
       setSyncResult(
-        `✅ +${merged.nodesAdded} nodes · +${merged.edgesAdded} edges added to Digital Self`,
+        `✅ +${merged.nodesAdded} nodes (${persons} contacts · ${interests} topics) · +${merged.edgesAdded} edges`,
       );
     } catch (e: any) {
       setSyncResult(`❌ ${e.message}`);
