@@ -7,6 +7,7 @@ Privacy contract:
 - They are NEVER persisted on the backend.
 - Only structured metadata (contact frequencies, travel signals) is returned.
 - No email bodies, no message content.
+- User email addresses are NOT logged.
 """
 import email as email_lib
 import imaplib
@@ -18,11 +19,10 @@ from email.header import decode_header
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from auth.tokens import validate_token
 from auth.sso_validator import get_sso_validator, AuthError
-from config.settings import get_settings
 from observability.audit_log import log_audit_event
 from schemas.audit import AuditEventType
 
@@ -34,6 +34,8 @@ TRAVEL_KEYWORDS = [
     "e-ticket", "boarding", "confirmation", "travel", "trip", "airline",
     "airbnb", "expedia", "booking.com", "hilton", "marriott", "hyatt",
 ]
+
+IMAP_TIMEOUT_SECONDS = 20  # Hard timeout for IMAP connections
 
 
 def _get_user_id(authorization: Optional[str]) -> str:
