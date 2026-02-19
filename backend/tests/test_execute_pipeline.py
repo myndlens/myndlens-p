@@ -29,8 +29,8 @@ if not BASE_URL:
 
 PAIR_CODE = "123456"
 
-# Configure pytest-asyncio
-pytest_plugins = ('pytest_asyncio',)
+# Configure pytest-asyncio (removed - not needed with sync wrappers)
+# pytest_plugins = ('pytest_asyncio',)
 
 
 # ============================================================================
