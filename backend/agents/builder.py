@@ -405,15 +405,18 @@ class AgentBuilder:
     async def _capability_match(
         self, agent_spec: Dict[str, Any], tenant: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
-        """Check if an existing active agent can fulfill the intent."""
+        """Check if an existing active agent can fulfill the intent.
+
+        Matches on tools (subset) first, then falls back to name match
+        to prevent duplicate agents when no tools are specified.
+        """
         db = get_db()
         tenant_id = tenant.get("tenant_id", "")
         if not tenant_id:
             return None
 
         required_tools = set(agent_spec.get("tools", {}).get("allow", []))
-        if not required_tools:
-            return None
+        agent_name = agent_spec.get("name", "").strip().lower()
 
         cursor = db.agents.find(
             {"tenant_id": tenant_id, "status": "ACTIVE"},
@@ -421,7 +424,11 @@ class AgentBuilder:
         )
         async for agent in cursor:
             existing_tools = set(agent.get("tools", {}).get("allow", []))
-            if required_tools.issubset(existing_tools):
+            # Tool-based match: existing agent covers all required tools
+            if required_tools and required_tools.issubset(existing_tools):
+                return agent
+            # Name-based match: same name already exists — prevent pure duplicate
+            if not required_tools and agent_name and agent_name == agent.get("name", "").strip().lower():
                 return agent
 
         return None
