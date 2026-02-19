@@ -119,3 +119,46 @@ async def close_db() -> None:
         _client = None
         _db = None
         logger.info("MongoDB connection closed")
+
+
+
+# ── Safe query helpers (always exclude _id to prevent ObjectId serialization) ──
+
+async def find_one_safe(
+    collection_name: str,
+    query: dict,
+    extra_projection: dict | None = None,
+) -> dict | None:
+    """find_one with _id excluded by default.
+
+    Prevents ObjectId serialization crashes in API responses.
+    Use instead of raw db.collection.find_one() wherever the result
+    may be returned to the client or serialized to JSON.
+    """
+    db = get_db()
+    projection: dict = {"_id": 0}
+    if extra_projection:
+        projection.update(extra_projection)
+    return await getattr(db, collection_name).find_one(query, projection)
+
+
+async def find_safe(
+    collection_name: str,
+    query: dict,
+    limit: int = 100,
+    sort_field: str | None = None,
+    sort_dir: int = -1,
+    extra_projection: dict | None = None,
+) -> list[dict]:
+    """find() with _id excluded and result capped by limit.
+
+    Prevents ObjectId serialization crashes and unbounded query results.
+    """
+    db = get_db()
+    projection: dict = {"_id": 0}
+    if extra_projection:
+        projection.update(extra_projection)
+    cursor = getattr(db, collection_name).find(query, projection)
+    if sort_field:
+        cursor = cursor.sort(sort_field, sort_dir)
+    return await cursor.limit(limit).to_list(limit)
