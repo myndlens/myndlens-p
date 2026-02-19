@@ -148,9 +148,10 @@ async def get_commit(commit_id: str) -> Optional[Dict[str, Any]]:
     return doc
 
 
-async def get_session_commits(session_id: str) -> List[Dict[str, Any]]:
+async def get_session_commits(session_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """Return recent commits for a session. Capped at limit to prevent unbounded results."""
     db = get_db()
-    cursor = db.commits.find({"session_id": session_id}).sort("created_at", -1)
+    cursor = db.commits.find({"session_id": session_id}).sort("created_at", -1).limit(limit)
     results = []
     async for doc in cursor:
         doc.pop("_id", None)
