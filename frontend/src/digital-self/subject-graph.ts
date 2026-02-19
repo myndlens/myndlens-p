@@ -124,8 +124,8 @@ export async function buildContextCapsule(
     parts.push(`Contacts: ${personSummaries.join('; ')}`);
   }
 
-  if (traits.length > 0) parts.push(`User traits: ${traits.join(', ')}`);
-  if (places.length > 0) parts.push(`Known places: ${places.join(', ')}`);
+  if (traits.length > 0) parts.push(`User traits: ${traits.slice(0, 5).join(', ')}`);
+  if (places.length > 0) parts.push(`Known places: ${places.slice(0, 5).join(', ')}`);
 
   const summary = parts.join(' | ');
 
