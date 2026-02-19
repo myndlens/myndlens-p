@@ -115,6 +115,10 @@ async def dispatch_mandate(
                 "Content-Type": "application/json",
             },
         )
+        if response.status_code >= 400:
+            raise DispatchBlockedError(
+                f"ObeGee rejected mandate dispatch: HTTP {response.status_code} — {response.text[:200]}"
+            )
         result = response.json()
         execution_id = result.get("execution_id", execution_id)
 
