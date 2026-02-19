@@ -23,6 +23,7 @@ import {
   revokeAllCredentials,
   IMAPCredentials,
 } from '../src/digital-self/credentials';
+import { mergePKGDiff } from '../src/digital-self';
 
 // ── Reusable sub-components ────────────────────────────────────────────────
 
