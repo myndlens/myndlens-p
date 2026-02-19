@@ -1,0 +1,59 @@
+{
+  "summary": "Intent Capture Pipeline Tests — ALL 66 PASSED (100%). Verified the guardrail ambiguity bug fix: ambiguity now defaults to 0.0 (not 0.5), and _mock_l1() adds ambiguity=0.1 to suggestions. T56 'Create Hello World Code using Python' returns guardrail=PASS with ambiguity=0.030.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_intent_capture.py",
+    "/app/test_reports/pytest/intent_capture_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BUG FIX VERIFIED: dimensions/engine.py line 40 — ambiguity default changed from 0.5 to 0.0",
+    "BUG FIX VERIFIED: l1/scout.py _mock_l1() — ambiguity=0.1 added to all dimension_suggestions branches",
+    "BUG FIX VERIFIED: T56 'Create Hello World Code using Python' → guardrail=PASS, ambiguity=0.030 (below 0.30 threshold)",
+    "VERIFIED: All benign mandates (T01-T42, T51-T56) return guardrail=PASS",
+    "VERIFIED: All harmful intents (T43-T50) return guardrail=REFUSE with block=True",
+    "VERIFIED: Ambiguity after L1 update stays at 0.030 (EMA: 0.3*0.1 + 0.7*0.0 = 0.030)",
+    "VERIFIED: DimensionState starts with ambiguity=0.0",
+    "VERIFIED: No clarification phrases in responses for clear mandates"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (66/66 tests passed)",
+    "frontend": "N/A - backend-only testing requested"
+  },
+  "test_breakdown": {
+    "Group A - Coding Mandates (T01-T10)": "10/10 PASSED - All return guardrail=PASS",
+    "Group B - Communication Mandates (T11-T20)": "10/10 PASSED - All return guardrail=PASS",
+    "Group C - Scheduling Mandates (T21-T28)": "8/8 PASSED - All return guardrail=PASS",
+    "Group D - Info Retrieval Mandates (T29-T36)": "8/8 PASSED - All return guardrail=PASS",
+    "Group E - Document Mandates (T37-T42)": "6/6 PASSED - All return guardrail=PASS",
+    "Group F - Guardrail Blocking (T43-T50)": "8/8 PASSED - All harmful intents blocked (REFUSE)",
+    "Group G - Edge Cases (T51-T56)": "6/6 PASSED - All edge cases pass including original bug case T56",
+    "Pipeline Step Tests": "10/10 PASSED - STEP0-STEP4 all verified"
+  },
+  "seed_data_creation": "No seed data needed - tests run directly against Python modules with mock L1",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Guardrail ambiguity bug is FIXED. Tests verified: (1) DimensionState.b_set.ambiguity defaults to 0.0, (2) _mock_l1() adds ambiguity=0.1 to all suggestions, (3) EMA calculation results in 0.030 after first update, (4) guardrail threshold is 0.30 so all benign mandates PASS. All 66 intent capture pipeline tests pass 100%.",
+  "mocked_apis_confirmed": {
+    "L1_Scout_mock": "Yes - _mock_l1() used when MOCK_LLM=true or no LLM key",
+    "TTS_mock": "Yes - mock text response used"
+  },
+  "bug_fix_validation": {
+    "original_issue": "Guardrail was incorrectly triggering SILENCE/CLARIFY for all mandates because ambiguity defaulted to 0.5 (above 0.30 threshold)",
+    "root_cause": "dimensions/engine.py BSet.ambiguity had default=0.5, and _mock_l1() did not set ambiguity in dimension_suggestions",
+    "fix_applied": {
+      "file1": "dimensions/engine.py line 40 — ambiguity: float = 0.0",
+      "file2": "l1/scout.py _mock_l1() — added ambiguity=0.1 to all dimension_suggestions"
+    },
+    "fix_verified": "T56 'Create Hello World Code using Python' now returns guardrail=PASS with ambiguity=0.030"
+  }
+}
