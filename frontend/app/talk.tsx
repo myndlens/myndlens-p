@@ -108,13 +108,29 @@ export default function TalkScreen() {
     new Animated.Value(4),
   ]).current;
 
-  // Poll VAD energy during CAPTURING for visual indicator
+  // Drive waveform bars from live VAD energy — each bar gets a different height multiplier
+  const WAVE_PROFILE = [0.55, 0.85, 1.0, 0.85, 0.55]; // centre bar tallest
   useEffect(() => {
     if (audioState !== 'CAPTURING') {
+      // Collapse all bars back to minimum
+      waveAnims.forEach(a =>
+        Animated.timing(a, { toValue: 4, duration: 250, useNativeDriver: false }).start(),
+      );
       setLiveEnergy(0);
       return;
     }
-    const poll = setInterval(() => setLiveEnergy(vad.lastEnergy), 80);
+    const poll = setInterval(() => {
+      const energy = vad.lastEnergy;
+      setLiveEnergy(energy);
+      waveAnims.forEach((anim, i) => {
+        const target = Math.max(4, energy * 44 * WAVE_PROFILE[i]);
+        Animated.timing(anim, {
+          toValue: target,
+          duration: 80,
+          useNativeDriver: false,
+        }).start();
+      });
+    }, 80);
     return () => clearInterval(poll);
   }, [audioState]);
 
