@@ -501,6 +501,85 @@ export default function TalkScreen() {
             </TouchableOpacity>
           ) : null}
         </View>
+
+        {/* ── Floating Chat Bubble ──────────────────────────────────────── */}
+        {(ttsText || transcript) ? (
+          <Animated.View style={[
+            styles.chatFAB,
+            { transform: [{ scale: chatBubbleAnim }] },
+          ]}>
+            <TouchableOpacity
+              onPress={() => setChatOpen(true)}
+              style={styles.chatFABInner}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.chatFABIcon}>💬</Text>
+              {!chatOpen && (
+                <View style={styles.chatBadge} />
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+        ) : null}
+
+        {/* ── Chat Modal — slides in full-screen ───────────────────────── */}
+        <Modal
+          visible={chatOpen}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setChatOpen(false)}
+        >
+          <View style={styles.chatModalOverlay}>
+            <View style={styles.chatModalSheet}>
+              {/* Handle bar */}
+              <View style={styles.chatHandle} />
+
+              {/* Header */}
+              <View style={styles.chatModalHeader}>
+                <Text style={styles.chatModalTitle}>Conversation</Text>
+                <TouchableOpacity
+                  onPress={() => setChatOpen(false)}
+                  style={styles.chatCloseBtn}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <Text style={styles.chatCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Conversation content */}
+              <ScrollView
+                style={styles.chatScrollView}
+                contentContainerStyle={styles.chatScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {ttsText ? (
+                  <View style={styles.assistantBubble}>
+                    <Text style={styles.assistantLabel}>MyndLens</Text>
+                    <Text style={styles.assistantText}>{ttsText}</Text>
+                  </View>
+                ) : null}
+                {(transcript || partialTranscript) ? (
+                  <View style={styles.userBubble}>
+                    <Text style={styles.userLabel}>You</Text>
+                    <Text style={styles.userText}>{partialTranscript || transcript}</Text>
+                  </View>
+                ) : null}
+                {audioState === 'THINKING' && (
+                  <View style={styles.thinkingRow}>
+                    <Text style={styles.thinkingText}>{'\u2026'}</Text>
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* Minimise tap area */}
+              <TouchableOpacity
+                style={styles.chatMinimiseBtn}
+                onPress={() => setChatOpen(false)}
+              >
+                <Text style={styles.chatMinimiseText}>Minimise  ↓</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </KeyboardAvoidingView>
   );
