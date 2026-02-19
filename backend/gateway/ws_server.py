@@ -39,6 +39,7 @@ from schemas.ws_messages import (
     HeartbeatAckPayload,
     ExecuteRequestPayload,
     ExecuteBlockedPayload,
+    ExecuteOkPayload,
     TranscriptPayload,
     TTSAudioPayload,
     ErrorPayload,
