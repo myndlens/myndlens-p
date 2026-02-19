@@ -509,6 +509,20 @@ const styles = StyleSheet.create({
   // Controls
   controlArea: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
 
+  vadBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14,
+  },
+  vadDot: {
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: '#2A2A3E',
+  },
+  vadDotActive: {
+    backgroundColor: '#E74C3C',
+  },
+  vadLabel: {
+    fontSize: 11, color: '#555568', marginLeft: 8, letterSpacing: 0.5,
+  },
+
   micButton: {
     width: 90, height: undefined, aspectRatio: 1, borderRadius: 999,
     minWidth: 90, maxWidth: 90,
