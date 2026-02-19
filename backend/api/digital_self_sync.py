@@ -101,6 +101,31 @@ def _get_user_id(authorization: Optional[str]) -> str:
 
 # ── Entity extraction helpers ──────────────────────────────────────────────────────────
 
+def _domain_from_email(addr: str) -> str:
+    parts = addr.split("@")
+    return parts[1] if len(parts) == 2 else ""
+
+
+def _infer_relationship_strength(freq: int, total: int) -> tuple[str, float]:
+    ratio = freq / max(total, 1)
+    if ratio >= 0.1 or freq >= 20:
+        return "close contact", 0.95
+    elif ratio >= 0.03 or freq >= 5:
+        return "regular contact", 0.80
+    return "occasional contact", 0.60
+
+
+def _decode_subject(raw_subj: str) -> str:
+    try:
+        parts = decode_header(raw_subj)
+        return " ".join(
+            part.decode(enc or "utf-8", errors="replace") if isinstance(part, bytes) else part
+            for part, enc in parts
+        )
+    except Exception:
+        return raw_subj
+
+
 def _node_id_from_email(addr: str) -> str:
 
     Uses a 6-char hash suffix so 'bob.smith@a.com' and 'bob_smith@a.com'
