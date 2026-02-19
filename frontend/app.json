@@ -32,6 +32,13 @@
     },
     "plugins": [
       "expo-router",
+      "expo-secure-store",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow MyndLens to access your microphone for voice commands."
+        }
+      ],
       [
         "expo-splash-screen",
         {
