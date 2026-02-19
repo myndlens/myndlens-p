@@ -553,7 +553,7 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
     ))
 
     await save_transcript(state)
-    await _send_mock_tts_response(ws, session_id, text)
+    await _send_mock_tts_response(ws, session_id, text, user_id=user_id)
 
 
 async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: str) -> None:
