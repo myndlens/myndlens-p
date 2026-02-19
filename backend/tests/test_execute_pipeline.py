@@ -493,60 +493,62 @@ class TestAgentsCRUD:
 class TestExecutePipelineIntegration:
     """Integration tests for the full execute pipeline."""
 
-    @pytest.mark.asyncio
-    async def test_p01_full_pipeline_l2_qc_skills(self):
+    def test_p01_full_pipeline_l2_qc_skills(self):
         """[P01] Full pipeline: draft → L2 → QC → skills."""
-        from l1.scout import run_l1_scout, get_draft
-        from l2.sentry import run_l2_sentry
-        from qc.sentry import run_qc_sentry
-        from skills.library import match_skills_to_intent
-        from dimensions.engine import get_dimension_state
-        
-        session_id = f"test-pipeline-{uuid.uuid4().hex[:8]}"
-        user_id = "test-user"
-        transcript = "Send an email to the project team about the status update"
-        
-        # Step 1: L1 Scout (creates draft)
-        draft = await run_l1_scout(session_id, user_id, transcript)
-        assert draft and draft.hypotheses, "L1 should produce hypotheses"
-        print(f"[P01] L1: draft_id={draft.draft_id[:8]} action={draft.hypotheses[0].action_class}")
-        
-        # Step 2: Verify draft persistence
-        retrieved = await get_draft(draft.draft_id)
-        assert retrieved, "Draft should be retrievable"
-        print(f"[P01] Draft retrieved: {retrieved.draft_id[:8]}")
-        
-        # Step 3: L2 Sentry
-        top = draft.hypotheses[0]
-        dim_state = get_dimension_state(session_id)
-        
-        l2 = await run_l2_sentry(
-            session_id=session_id,
-            user_id=user_id,
-            transcript=transcript,
-            l1_action_class=top.action_class,
-            l1_confidence=top.confidence,
-            dimensions=dim_state.to_dict(),
-        )
-        assert l2.action_class, "L2 should return action_class"
-        print(f"[P01] L2: action={l2.action_class} conf={l2.confidence:.2f} agrees={l2.shadow_agrees_with_l1}")
-        
-        # Step 4: QC Sentry
-        qc = await run_qc_sentry(
-            session_id=session_id,
-            user_id=user_id,
-            transcript=transcript,
-            action_class=l2.action_class,
-            intent_summary=top.hypothesis,
-        )
-        print(f"[P01] QC: overall_pass={qc.overall_pass} reason={qc.block_reason or 'N/A'}")
-        
-        # Step 5: Skills matching
-        skills = await match_skills_to_intent(transcript, top_n=3)
-        skill_names = [s.get("name", "") for s in skills]
-        print(f"[P01] Skills: matched={len(skills)} names={skill_names}")
-        
-        print(f"[P01] COMPLETE: L1→L2→QC→Skills pipeline executed successfully")
+        async def _test():
+            from l1.scout import run_l1_scout, get_draft
+            from l2.sentry import run_l2_sentry
+            from qc.sentry import run_qc_sentry
+            from skills.library import match_skills_to_intent
+            from dimensions.engine import get_dimension_state
+            
+            session_id = f"test-pipeline-{uuid.uuid4().hex[:8]}"
+            user_id = "test-user"
+            transcript = "Send an email to the project team about the status update"
+            
+            # Step 1: L1 Scout (creates draft)
+            draft = await run_l1_scout(session_id, user_id, transcript)
+            assert draft and draft.hypotheses, "L1 should produce hypotheses"
+            print(f"[P01] L1: draft_id={draft.draft_id[:8]} action={draft.hypotheses[0].action_class}")
+            
+            # Step 2: Verify draft persistence
+            retrieved = await get_draft(draft.draft_id)
+            assert retrieved, "Draft should be retrievable"
+            print(f"[P01] Draft retrieved: {retrieved.draft_id[:8]}")
+            
+            # Step 3: L2 Sentry
+            top = draft.hypotheses[0]
+            dim_state = get_dimension_state(session_id)
+            
+            l2 = await run_l2_sentry(
+                session_id=session_id,
+                user_id=user_id,
+                transcript=transcript,
+                l1_action_class=top.action_class,
+                l1_confidence=top.confidence,
+                dimensions=dim_state.to_dict(),
+            )
+            assert l2.action_class, "L2 should return action_class"
+            print(f"[P01] L2: action={l2.action_class} conf={l2.confidence:.2f} agrees={l2.shadow_agrees_with_l1}")
+            
+            # Step 4: QC Sentry
+            qc = await run_qc_sentry(
+                session_id=session_id,
+                user_id=user_id,
+                transcript=transcript,
+                action_class=l2.action_class,
+                intent_summary=top.hypothesis,
+            )
+            print(f"[P01] QC: overall_pass={qc.overall_pass} reason={qc.block_reason or 'N/A'}")
+            
+            # Step 5: Skills matching
+            skills = await match_skills_to_intent(transcript, top_n=3)
+            skill_names = [s.get("name", "") for s in skills]
+            print(f"[P01] Skills: matched={len(skills)} names={skill_names}")
+            
+            print(f"[P01] COMPLETE: L1→L2→QC→Skills pipeline executed successfully")
+
+        run_async(_test())
 
 
 if __name__ == "__main__":
