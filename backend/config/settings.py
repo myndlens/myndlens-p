@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # Generate with: python3 -c "import secrets; print(secrets.token_hex(32))"
     MIO_KEY_ENCRYPTION_KEY: str = Field(default="")
 
+    # ── Self-referential URL (used in pairing response) ──────
+    MYNDLENS_BASE_URL: str = Field(default="https://app.myndlens.com")
+
     # ── Observability ────────────────────────────────────────────
     LOG_LEVEL: str = Field(default="INFO")
     LOG_REDACTION_ENABLED: bool = Field(default=True)
