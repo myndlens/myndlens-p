@@ -3,7 +3,7 @@
 No execution without valid MIO. Defined here for schema-first contracts.
 Implementation in Batch 8, but schema frozen now.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
