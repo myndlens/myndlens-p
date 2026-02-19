@@ -1,5 +1,5 @@
 """Session schemas — user-device-session binding models."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from pydantic import BaseModel, Field
 import uuid
@@ -11,7 +11,7 @@ class Session(BaseModel):
     user_id: str
     device_id: str
     env: str = "dev"  # dev | staging | prod
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_heartbeat_at: Optional[datetime] = None
     heartbeat_seq: int = 0
     active: bool = True
