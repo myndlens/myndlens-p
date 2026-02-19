@@ -18,8 +18,6 @@ import { setItem } from '../src/utils/storage';
 import { useSessionStore } from '../src/state/session-store';
 import { ENV } from '../src/config/env';
 
-const OBEGEE_PAIR_URL = 'https://obegee.co.uk/api/myndlens/pair';
-
 /**
  * Login — ObeGee 6-digit pairing code.
  * User gets the code from ObeGee Dashboard → Settings → Generate Pairing Code.
