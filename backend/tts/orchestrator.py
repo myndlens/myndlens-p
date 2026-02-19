@@ -13,14 +13,14 @@ _provider: Optional[TTSProvider] = None
 
 def _get_provider() -> TTSProvider:
     if is_mock_tts():
-        logger.info("[TTS] Using MockTTSProvider")
+        logger.info("[TTS:ORCHESTRATOR] Provider=MockTTSProvider (MOCK_TTS=true)")
         return MockTTSProvider()
     try:
         from tts.provider.elevenlabs import ElevenLabsTTSProvider
-        logger.info("[TTS] Using ElevenLabsTTSProvider")
+        logger.info("[TTS:ORCHESTRATOR] Provider=ElevenLabsTTSProvider (MOCK_TTS=false)")
         return ElevenLabsTTSProvider()
     except Exception as e:
-        logger.error("[TTS] ElevenLabs init failed, falling back to mock: %s", str(e))
+        logger.error("[TTS:ORCHESTRATOR] ElevenLabs init failed → fallback to mock: %s", str(e))
         return MockTTSProvider()
 
 
