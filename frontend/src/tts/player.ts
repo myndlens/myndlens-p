@@ -7,8 +7,6 @@
 import { Platform } from 'react-native';
 
 let _isSpeaking = false;
-let _onComplete: (() => void) | null = null;
-let _onStart: (() => void) | null = null;
 
 /**
  * Speak text using TTS. Calls onComplete when finished.
@@ -24,9 +22,6 @@ export async function speak(
 ): Promise<void> {
   // Interrupt any current speech
   await stop();
-
-  _onComplete = options?.onComplete || null;
-  _onStart = options?.onStart || null;
 
   if (Platform.OS === 'web') {
     _speakWeb(text, options);
