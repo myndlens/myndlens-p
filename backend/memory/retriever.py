@@ -25,10 +25,12 @@ async def recall(
     # 1. Semantic search in vector store — scoped to this user only
     vector_results = vector.query(query_text, n_results=n_results, where={"user_id": user_id})
 
-    # 2. Enrich with graph context
+    # 2. Enrich with graph context — load from DB if not in memory
     enriched = []
     for vr in vector_results:
         node_id = vr.get("metadata", {}).get("node_id", vr["id"])
+        if user_id not in graph._graphs:
+            await graph.load_graph(user_id)
         graph_node = graph.get_node(user_id, node_id)
         neighbors = graph.get_neighbors(user_id, node_id)
 
