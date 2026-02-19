@@ -166,7 +166,7 @@ export async function storeFact(
   const slug = params.label.toLowerCase().replace(/\s+/g, '_');
   // Trait/Place/Event nodes use stable IDs so repeated ingestion updates rather than duplicates.
   // FACT nodes use Date.now() because each observation is genuinely unique.
-  const id = params.type === 'Trait' || params.type === 'Place' || params.type === 'Event'
+  const id = params.type === 'Trait' || params.type === 'Place' || params.type === 'Event' || params.type === 'Interest'
     ? `${params.type.toLowerCase()}_${slug}`
     : `${params.type.toLowerCase()}_${slug}_${Date.now()}`;
   return upsertNode(userId, {
