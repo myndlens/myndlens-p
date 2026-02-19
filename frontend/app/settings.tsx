@@ -215,18 +215,20 @@ export default function SettingsScreen() {
   async function _doSync() {
     setSyncing(true);
     setSyncResult(null);
-    // M1: Privacy disclosure — IMAP credentials are sent to the MyndLens backend transiently
     try {
       const token = await getStoredToken();
+      const uid = await getStoredUserId() ?? 'local';
       const res = await fetch(`${ENV.API_URL}/digital-self/email/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(imapCreds),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      const diff = await res.json();
+      if (!res.ok) throw new Error(diff.detail || `HTTP ${res.status}`);
+      // Merge returned PKGDiff (nodes + edges with ONNX vectors) into local encrypted PKG
+      const merged = await mergePKGDiff(uid, diff);
       setSyncResult(
-        `✅ Found ${data.contacts_found} contacts · ${data.travel_signals} travel signals`,
+        `✅ +${merged.nodesAdded} nodes · +${merged.edgesAdded} edges added to Digital Self`,
       );
     } catch (e: any) {
       setSyncResult(`❌ ${e.message}`);
