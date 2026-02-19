@@ -402,7 +402,7 @@ async def _handle_execute_request(
             "generated_skills": skill_names,
             "assigned_agent_id": assigned_agent_id,
         }
-        result = await dispatch_mandate(session_id, mandate)
+        result = await dispatch_mandate(session_id, mandate, api_token=auth_token)
 
         # Send execute_ok
         await _send(ws, WSMessageType.EXECUTE_OK, ExecuteOkPayload(
