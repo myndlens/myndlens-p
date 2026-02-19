@@ -193,54 +193,10 @@ async def sync_imap_email(
     logger.info("[EmailSync] User=%s host=%s port=%d", user_id, req.host, req.port)
 
     try:
-        ctx = ssl.create_default_context()
-        with imaplib.IMAP4_SSL(req.host, req.port, ssl_context=ctx) as imap:
-            imap.socket().settimeout(IMAP_TIMEOUT_SECONDS)
-            imap.login(req.email, req.password)
-            imap.select("INBOX", readonly=True)
-
-            # Date-range search: last 90 days — avoids loading all UIDs
-            since_date = datetime.fromtimestamp(
-                time.time() - 90 * 86400, tz=timezone.utc
-            ).strftime("%d-%b-%Y")
-            _, data = imap.search(None, f'SINCE "{since_date}"')
-            all_uids = data[0].split() if data[0] else []
-            uids_to_fetch = all_uids[-req.max_emails:]
-
-            # Frequency counters (email addr → count)
-            contact_freq: Dict[str, int] = defaultdict(int)
-            contact_names: Dict[str, str] = {}
-            subject_tokens: List[str] = []
-
-            for uid in uids_to_fetch:
-                try:
-                    _, msg_data = imap.fetch(uid, "(BODY[HEADER.FIELDS (FROM TO SUBJECT)])")
-                    if not msg_data or not msg_data[0]:
-                        continue
-                    msg = email_lib.message_from_bytes(msg_data[0][1])
-
-                    # Extract all participant addresses
-                    for hdr in ("From", "To", "Cc"):
-                        raw = msg.get(hdr, "")
-                        # Match "Name <email>" or bare "email"
-                        for match in re.finditer(
-                            r'(?:([^<,"]+)\s*<)?([\w.+%-]+@[\w.-]+\.[\w]+)>?', raw
-                        ):
-                            name_raw, addr = match.group(1), match.group(2).lower()
-                            if addr == req.email.lower():
-                                continue
-                            contact_freq[addr] += 1
-                            if name_raw and addr not in contact_names:
-                                contact_names[addr] = name_raw.strip().strip('"')
-
-                    # Collect subject tokens for topic extraction
-                    subj = _decode_subject(msg.get("Subject", ""))
-                    if subj and len(subj) > 3:
-                        subject_tokens.append(subj[:80])
-
-                except Exception:
-                    continue
-
+        # Run blocking IMAP I/O in a thread — never blocks the event loop
+        contact_freq, contact_names, subject_tokens = await asyncio.to_thread(
+            _run_imap_sync, req
+        )
     except imaplib.IMAP4.error as e:
         logger.warning("[EmailSync] IMAP error user=%s: %s", user_id, str(e))
         raise HTTPException(status_code=400, detail=f"IMAP connection failed: {str(e)}")
