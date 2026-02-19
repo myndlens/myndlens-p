@@ -183,22 +183,3 @@ async def dispatch_mandate(
     # Timeout
     logger.warning("Execution polling timeout: exec=%s", execution_id)
     await broadcast_stage(session_id, 8, "failed", "Execution timed out", 0, execution_id)
-
-
-async def _simulate_execution(session_id: str, execution_id: str) -> None:
-    """Simulate ObeGee execution stages in dev mode."""
-    stages = [
-        (8, "active", "Agent started", 10),
-        (8, "active", "Using web search tool...", 30),
-        (8, "active", "Analyzing results...", 50),
-        (8, "active", "Generating response...", 70),
-        (8, "active", "Preparing delivery...", 85),
-        (8, "done", "Execution complete", 95),
-        (9, "done", "Results delivered", 100),
-    ]
-
-    for stage_idx, status, sub_status, progress in stages:
-        await asyncio.sleep(1.5)
-        await broadcast_stage(session_id, stage_idx, status, sub_status, progress, execution_id)
-
-    logger.info("Simulated execution complete: exec=%s", execution_id)
