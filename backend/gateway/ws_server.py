@@ -274,6 +274,7 @@ async def _handle_execute_request(
     subscription_status: str = "ACTIVE",
     user_id: str = "",
     tenant_id: str = "",
+    auth_token: str = "",
 ) -> None:
     """Execute an approved mandate: L2 → QC → Skills → Dispatch."""
     try:
