@@ -150,49 +150,53 @@ class TestDraftPersistence:
 class TestExecuteGates:
     """Test execute_request blocking gates (presence, subscription, draft)."""
 
-    @pytest.mark.asyncio
-    async def test_e01_presence_gate_blocks_stale_heartbeat(self):
+    def test_e01_presence_gate_blocks_stale_heartbeat(self):
         """[E01] Execute blocked with PRESENCE_STALE when heartbeat is stale (>16s)."""
-        from presence.heartbeat import record_heartbeat, check_presence
-        from datetime import datetime, timezone, timedelta
-        from core.database import get_db
-        
-        session_id = f"test-stale-{uuid.uuid4().hex[:8]}"
-        
-        # Manually insert stale heartbeat (20 seconds old)
-        db = get_db()
-        stale_time = datetime.now(timezone.utc) - timedelta(seconds=20)
-        await db.presence.update_one(
-            {"session_id": session_id},
-            {"$set": {
-                "session_id": session_id,
-                "last_heartbeat": stale_time,
-                "seq": 1,
-            }},
-            upsert=True
-        )
-        
-        # Check presence - should be stale
-        is_present = await check_presence(session_id)
-        
-        assert is_present is False, "Stale heartbeat (>16s) should return is_present=False"
-        print(f"[E01] PRESENCE_STALE gate: stale_time={stale_time.isoformat()} is_present={is_present}")
+        async def _test():
+            from presence.heartbeat import record_heartbeat, check_presence
+            from datetime import datetime, timezone, timedelta
+            from core.database import get_db
+            
+            session_id = f"test-stale-{uuid.uuid4().hex[:8]}"
+            
+            # Manually insert stale heartbeat (20 seconds old)
+            db = get_db()
+            stale_time = datetime.now(timezone.utc) - timedelta(seconds=20)
+            await db.presence.update_one(
+                {"session_id": session_id},
+                {"$set": {
+                    "session_id": session_id,
+                    "last_heartbeat": stale_time,
+                    "seq": 1,
+                }},
+                upsert=True
+            )
+            
+            # Check presence - should be stale
+            is_present = await check_presence(session_id)
+            
+            assert is_present is False, "Stale heartbeat (>16s) should return is_present=False"
+            print(f"[E01] PRESENCE_STALE gate: stale_time={stale_time.isoformat()} is_present={is_present}")
 
-    @pytest.mark.asyncio
-    async def test_e02_presence_gate_allows_fresh_heartbeat(self):
+        run_async(_test())
+
+    def test_e02_presence_gate_allows_fresh_heartbeat(self):
         """[E02] Execute allowed when heartbeat is fresh (<16s)."""
-        from presence.heartbeat import record_heartbeat, check_presence
-        
-        session_id = f"test-fresh-{uuid.uuid4().hex[:8]}"
-        
-        # Record fresh heartbeat
-        await record_heartbeat(session_id, seq=1, client_ts=int(time.time() * 1000))
-        
-        # Check presence - should be fresh
-        is_present = await check_presence(session_id)
-        
-        assert is_present is True, "Fresh heartbeat should return is_present=True"
-        print(f"[E02] Fresh heartbeat gate: session={session_id} is_present={is_present}")
+        async def _test():
+            from presence.heartbeat import record_heartbeat, check_presence
+            
+            session_id = f"test-fresh-{uuid.uuid4().hex[:8]}"
+            
+            # Record fresh heartbeat
+            await record_heartbeat(session_id, seq=1, client_ts=int(time.time() * 1000))
+            
+            # Check presence - should be fresh
+            is_present = await check_presence(session_id)
+            
+            assert is_present is True, "Fresh heartbeat should return is_present=True"
+            print(f"[E02] Fresh heartbeat gate: session={session_id} is_present={is_present}")
+
+        run_async(_test())
 
     def test_e03_subscription_inactive_blocks_execute(self):
         """[E03] SUBSCRIPTION_INACTIVE blocks execute_request."""
