@@ -275,8 +275,6 @@ async def bulk_import(req: BulkImportRequest):
 @router.post("/analyze")
 async def server_analyze(req: ServerAnalyzeRequest):
     """Server-side Gemini analysis fallback for complex relationship inference."""
-    from config.settings import get_settings
-    settings = get_settings()
 
     analyzed_contacts = []
     for c in req.contacts:
