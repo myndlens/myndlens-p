@@ -209,11 +209,17 @@ if _settings_for_route.ENV != "prod" and _settings_for_route.ENABLE_OBEGEE_MOCK_
         if len(req.code) != 6 or not req.code.isdigit():
             raise HTTPException(status_code=400, detail="Invalid pairing code")
 
-        # Simulate ObeGee tenant pre-provisioning
-        from tenants.registry import create_or_get_tenant
-        user_id = f"user_{req.device_id[-8:]}"
-        tenant = await create_or_get_tenant(user_id)
-        tenant_id = tenant.tenant_id
+        # Use fixed dev tenant if configured — ensures ObeGee can find it.
+        # Fall back to per-device tenant for local-only testing.
+        dev_tenant_id = getattr(settings, 'OBEGEE_DEV_TENANT_ID', '')
+        if dev_tenant_id:
+            tenant_id = dev_tenant_id
+            user_id = f"user_{req.device_id[-8:]}"
+        else:
+            from tenants.registry import create_or_get_tenant
+            user_id = f"user_{req.device_id[-8:]}"
+            tenant = await create_or_get_tenant(user_id)
+            tenant_id = tenant.tenant_id
 
         now = datetime.now(timezone.utc)
         payload = {
