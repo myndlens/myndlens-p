@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ENV } from '../src/config/env';
 import { setItem } from '../src/utils/storage';
-import { useSessionStore } from '../src/state/session-store';
 
 const TOTAL_STEPS = 9;
 const api = (path: string, opts?: RequestInit) => fetch(`${ENV.API_URL}/setup${path}`, { headers: { 'Content-Type': 'application/json' }, ...opts }).then(r => r.json());
