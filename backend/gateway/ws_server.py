@@ -247,9 +247,10 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
     except Exception as e:
         logger.error("WS error: session=%s error=%s", session_id, str(e), exc_info=True)
     finally:
-        # Cleanup
+        # Cleanup all per-session in-memory state
         if session_id:
             active_connections.pop(session_id, None)
+            cleanup_dimensions(session_id)
             await terminate_session(session_id)
             await log_audit_event(
                 AuditEventType.SESSION_TERMINATED,
