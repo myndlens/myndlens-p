@@ -809,7 +809,60 @@ test_plan:
 agent_communication:
     - agent: "main"
       message: |
-        COMPREHENSIVE CODE REVIEW FIXES — 6 surgical changes across 3 files.
+        FULL E2E TESTING REQUIRED — Monitor all log files. Stick to truth. No drift.
+
+        Test the complete workflow:
+
+        STEP 1: Health check
+          - GET /api/health — expect status: healthy, stt_healthy: true, tts_healthy: true
+
+        STEP 2: Pairing (Mock IDP — ENV=dev)
+          - POST /api/sso/myndlens/pair with code=123456, device_id, device_name
+          - Expect: access_token, runtime_endpoint=https://app.myndlens.com, session_id
+
+        STEP 3: WebSocket auth
+          - Connect wss://{host}/api/ws
+          - Send AUTH with token from step 2
+          - Expect: auth_ok message with user_id, session_id
+          - Monitor log: "Session created" in backend.out.log
+
+        STEP 4: Heartbeat
+          - Send heartbeat message
+          - Expect: heartbeat_ack
+
+        STEP 5: Text input mandate (THE CRITICAL FLOW)
+          - Send text_input: "Create Hello World code in Python"
+          - Expect in order:
+            a. transcript_final received
+            b. pipeline_stage events (stages 0-4)
+            c. draft_update with action_class, confidence, draft_id
+            d. tts_audio with text = confirmation ("Tap Approve to execute")
+          - Monitor logs for: [MANDATE:0:CAPTURE] through [MANDATE:COMPLETE]
+          - CRITICAL: tts_audio text must NOT contain "could you tell me", "i want to make sure"
+          - CRITICAL: guardrail must be PASS not CLARIFY
+
+        STEP 6: Execute request (Approve button)
+          - Send execute_request with draft_id from step 5
+          - Expect: EITHER execute_blocked(DISPATCH_BLOCKED, because OBEGEE_API_URL not reached)
+                    OR execute_ok if ObeGee is live
+          - Monitor logs for: L2 Sentry, QC Sentry, Skills matching
+
+        STEP 7: Disconnect
+          - Close WebSocket
+          - Monitor logs for: Session terminated, cleanup_dimensions called
+
+        LOG FILES TO MONITOR:
+          - /var/log/supervisor/backend.out.log (main pipeline events)
+          - /var/log/supervisor/backend.err.log (errors, WS connections)
+
+        HONEST REPORTING REQUIRED:
+          - If a step fails, report EXACTLY what error occurred
+          - If a log message is missing, report it as missing
+          - Do not assume success — verify each step from actual output
+          - Report OBEGEE_API_URL dispatch failure as expected (not a bug)
+
+        Test file: /app/backend/tests/test_e2e_workflow.py
+        Create this file and run it. Tail logs during run.
 
         1. l1/scout.py — Added store_draft() + get_draft() + called store_draft() in run_l1_scout()
         2. gateway/ws_server.py — Replaced PIPELINE_NOT_READY stub with real L2→QC→Skills→Dispatch pipeline
