@@ -345,7 +345,7 @@ export default function SettingsScreen() {
 
           <View style={s.divider} />
           <ActionBtn label="Reset preferences to defaults" onPress={handleResetPrefs} />
-          <ActionBtn label="View Digital Self" onPress={() => router.push('/persona')} />
+          <ActionBtn label="View Digital Self" onPress={() => router.push('/persona' as any)} />
           <ActionBtn label="Delete Digital Self" onPress={handleDeleteDS} destructive />
         </Section>
 
