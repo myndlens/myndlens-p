@@ -4,7 +4,6 @@
     "slug": "myndlens",
     "owner": "myndlens",
     "version": "1.0.0",
-    "icon": "./assets/images/icon.png",
     "web": {
       "bundler": "metro",
       "output": "static",
