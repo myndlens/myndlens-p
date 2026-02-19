@@ -12,7 +12,7 @@
  * Requires APK rebuild with onnxruntime-react-native installed.
  */
 
-import { PKG, PKGNode } from './pkg';
+import { PKG } from './pkg';
 
 const MODEL_URL = 'https://huggingface.co/Xenova/bge-small-en-v1.5/resolve/main/onnx/model_quantized.onnx';
 const MODEL_CACHE_KEY = 'myndlens_onnx_bge_small_v1';
