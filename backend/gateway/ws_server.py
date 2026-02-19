@@ -746,4 +746,4 @@ def _generate_mock_response(transcript: str) -> str:
     elif "confirm" in lower:
         return "I'll prepare that for your review. Please check the draft card."
     else:
-        return f"I heard: '{transcript[:50]}'. Could you tell me more about what you'd like to do?"
+        return f"I heard you. Tap Approve to execute: {transcript[:50]}."
