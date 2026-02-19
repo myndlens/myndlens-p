@@ -20,7 +20,7 @@ import { useSessionStore } from '../src/state/session-store';
 import { useAudioStore } from '../src/audio/state-machine';
 import { startRecording, stopRecording } from '../src/audio/recorder';
 import * as TTS from '../src/tts/player';
-import { MicIcon, StopIcon } from '../src/ui/icons';
+import { buildContextCapsule } from '../src/digital-self';
 import { vad } from '../src/audio/vad/local-vad';
 
 const PIPELINE_STAGES = [
