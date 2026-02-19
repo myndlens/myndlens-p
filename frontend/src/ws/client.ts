@@ -83,7 +83,6 @@ export class MyndLensWSClient {
         this.ws.onopen = () => {
           console.log('[WS] Connected, sending AUTH');
           this._isConnected = true;
-          this.reconnectAttempts = 0;
 
           // Send AUTH message
           this.send('auth', {
