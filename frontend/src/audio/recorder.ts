@@ -107,11 +107,20 @@ export async function startRecording(
  */
 export async function stopRecording(): Promise<void> {
   _recording = false;
+  _onSpeechEnd = null;
 
   if (_chunkInterval) {
     clearInterval(_chunkInterval);
     _chunkInterval = null;
   }
+
+  if (_vadInterval) {
+    clearInterval(_vadInterval);
+    _vadInterval = null;
+  }
+
+  vad.detach();
+  vad.reset();
 
   if (_webStream) {
     _webStream.getTracks().forEach(t => t.stop());
