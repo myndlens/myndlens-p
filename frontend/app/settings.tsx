@@ -195,8 +195,26 @@ export default function SettingsScreen() {
       Alert.alert('Missing credentials', 'Please enter your IMAP details first.');
       return;
     }
+    // M3: Warn if credentials haven't been saved yet
+    if (!imapSaved) {
+      Alert.alert(
+        'Credentials not saved',
+        'Your credentials will be used for this sync but are not saved yet. Save them first to sync without re-entering.',
+        [
+          { text: 'Save & Sync', onPress: async () => { await handleSaveIMAP(); await _doSync(); } },
+          { text: 'Sync once (no save)', onPress: _doSync },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+      return;
+    }
+    await _doSync();
+  }
+
+  async function _doSync() {
     setSyncing(true);
     setSyncResult(null);
+    // M1: Privacy disclosure — IMAP credentials are sent to the MyndLens backend transiently
     try {
       const token = await getStoredToken();
       const res = await fetch(`${ENV.API_URL}/digital-self/email/sync`, {
