@@ -21,15 +21,14 @@ MAX_CHUNKS_PER_SECOND = 10  # Rate limit
 def _get_provider() -> STTProvider:
     """Get the configured STT provider."""
     if is_mock_stt():
-        logger.info("[STT] Using MockSTTProvider")
+        logger.info("[STT:ORCHESTRATOR] Provider=MockSTTProvider (MOCK_STT=true)")
         return MockSTTProvider(latency_ms=30.0)
-    # Real Deepgram provider
     try:
         from stt.provider.deepgram import DeepgramSTTProvider
-        logger.info("[STT] Using DeepgramSTTProvider")
+        logger.info("[STT:ORCHESTRATOR] Provider=DeepgramSTTProvider (MOCK_STT=false)")
         return DeepgramSTTProvider()
     except Exception as e:
-        logger.error("[STT] Deepgram init failed, falling back to mock: %s", str(e))
+        logger.error("[STT:ORCHESTRATOR] Deepgram init failed → fallback to mock: %s", str(e))
         return MockSTTProvider(latency_ms=30.0)
 
 
@@ -57,19 +56,28 @@ def validate_audio_chunk(data: bytes, seq: int) -> Optional[str]:
 
 def decode_audio_payload(payload: dict) -> tuple[bytes, int, Optional[str]]:
     """Decode audio chunk from WS payload.
-    
+
     Returns (audio_bytes, sequence_number, error_or_none).
     """
     audio_b64 = payload.get("audio")
     seq = payload.get("seq", -1)
 
+    logger.debug("[STT:DECODE] seq=%d b64_len=%s", seq, len(audio_b64) if audio_b64 else 0)
+
     if not audio_b64:
+        logger.warning("[STT:DECODE] seq=%d MISSING audio field", seq)
         return b"", seq, "Missing audio data"
 
     try:
         audio_bytes = base64.b64decode(audio_b64)
     except Exception:
+        logger.warning("[STT:DECODE] seq=%d INVALID base64", seq)
         return b"", seq, "Invalid base64 audio data"
 
     error = validate_audio_chunk(audio_bytes, seq)
+    if error:
+        logger.warning("[STT:DECODE] seq=%d VALIDATION FAIL: %s", seq, error)
+    else:
+        logger.debug("[STT:DECODE] seq=%d OK bytes=%d", seq, len(audio_bytes))
+
     return audio_bytes, seq, error
