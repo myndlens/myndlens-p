@@ -321,8 +321,8 @@ async def sync_imap_email(
 class LinkedInCSVRequest(BaseModel):
     """LinkedIn Connections export CSV (Base64 encoded).
 
-    User downloads from: LinkedIn -> Settings -> Data Privacy -> Get a copy of your data -> Connections.csv
-    LinkedIn's export includes 3 introductory header rows before the actual CSV data.
+    User downloads from: LinkedIn Settings -> Data Privacy -> Get a copy of your data -> Connections.csv
+    The LinkedIn export includes 3 introductory header rows before the actual CSV data.
     """
     csv_base64: str = Field(
         ...,
