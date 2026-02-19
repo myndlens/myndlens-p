@@ -12,6 +12,7 @@ EXECUTION GUARDRAIL (Patch 5 / §3.2):
   and still requires the execute_request envelope — it simply skips the physical
   latch.  This comment is the guardrail contract; violating it requires an ADR.
 """
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
