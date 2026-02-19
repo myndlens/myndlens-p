@@ -293,15 +293,21 @@ export default function TalkScreen() {
     Keyboard.dismiss();
     const text = textInput.trim();
 
-    // Build on-device context capsule from local Digital Self PKG
+    // Build on-device context capsule from local Digital Self PKG.
+    // Only the summary string is transmitted — never raw nodes, never PII.
     let context_capsule: string | undefined;
     try {
       const userId = wsClient.userId ?? '';
       if (userId) {
         const capsule = await buildContextCapsule(userId, text);
-        if (capsule.summary) context_capsule = JSON.stringify(capsule);
+        if (capsule.summary) {
+          // Transmit only the summary — entities/traits/places stay on device
+          context_capsule = JSON.stringify({ summary: capsule.summary });
+        }
       }
-    } catch { /* capsule is optional */ }
+    } catch (err) {
+      console.warn('[Talk] Context capsule unavailable:', err);
+    }
 
     wsClient.send('text_input', { session_id: sessionId, text, context_capsule });
     setTranscript(text);
