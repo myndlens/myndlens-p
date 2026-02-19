@@ -29,7 +29,7 @@ class RiskTier(int, Enum):
 
 class MIOHeader(BaseModel):
     mio_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     signer_id: str = "MYNDLENS_BE_01"
     ttl_seconds: int = 120
 
