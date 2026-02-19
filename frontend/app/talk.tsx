@@ -371,7 +371,7 @@ export default function TalkScreen() {
                     </View>
                   ) : (
                     <View style={styles.pipelineActiveInner}>
-                      <Text style={styles.pipelineActiveText}>{stage.activeText}</Text>
+                      <Text style={styles.pipelineActiveText}>{stage?.activeText ?? ''}</Text>
                       {pipelineSubStatus ? (
                         <Text style={styles.pipelineSubStatus}>{pipelineSubStatus}</Text>
                       ) : null}
