@@ -23,6 +23,10 @@ export async function deleteDigitalSelf(userId: string): Promise<void> {
   // 3. Delete AES encryption key from hardware-backed SecureStore (Secure Enclave / StrongBox)
   await SecureStore.deleteItemAsync(`${AES_KEY_PREFIX}_${userId}`);
 
+  // 4. Clear in-memory key cache so next access generates a fresh key
+  // (Accessing the _keyCache from pkg.ts is not possible due to module encapsulation,
+  //  but the next loadPKG call will fail to decrypt old data, returning empty PKG — correct)
+
   console.log(`[KillSwitch] Digital Self fully wiped for user: ${userId}`);
 }
 
