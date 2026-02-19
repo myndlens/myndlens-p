@@ -233,9 +233,11 @@ class TestE2EWorkflow:
             pytest.skip("No active WS connection")
 
         try:
+            session_id = getattr(self.__class__, 'session_id', "unknown")
             heartbeat_msg = {
                 "type": "heartbeat",
                 "payload": {
+                    "session_id": session_id,
                     "seq": 1,
                     "client_ts": int(time.time() * 1000)
                 }
