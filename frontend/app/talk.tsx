@@ -664,52 +664,57 @@ const styles = StyleSheet.create({
   // ── Chat Modal ──────────────────────────────────────────────────────────
   chatModalOverlay: {
     flex: 1, justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.82)',
   },
   chatModalSheet: {
-    backgroundColor: '#0F0F1E',
+    backgroundColor: '#0A0A14',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderTopWidth: 1, borderColor: '#1E1E32',
     paddingBottom: 32, maxHeight: '85%', minHeight: '50%',
   },
   chatHandle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: '#2A2A3E',
+    backgroundColor: '#2A2A42',
     alignSelf: 'center', marginTop: 10, marginBottom: 4,
   },
   chatModalHeader: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#1A1A2E',
+    borderBottomWidth: 1, borderBottomColor: '#131326',
+    backgroundColor: '#0A0A14',
   },
-  chatModalTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  chatModalTitle: { color: '#E0E0F0', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
   chatCloseBtn: { padding: 4 },
-  chatCloseText: { color: '#666', fontSize: 18 },
+  chatCloseText: { color: '#44445A', fontSize: 20, fontWeight: '300' },
   chatScrollView: { flex: 1 },
   chatScrollContent: { padding: 16, gap: 12 },
 
   assistantBubble: {
-    backgroundColor: '#1A1A2E', borderRadius: 16, borderTopLeftRadius: 4,
+    backgroundColor: '#111128', borderRadius: 16, borderTopLeftRadius: 4,
     padding: 14, maxWidth: '88%',
+    borderWidth: 1, borderColor: '#1E1E36',
   },
   assistantLabel: { color: '#6C5CE7', fontSize: 11, fontWeight: '700', marginBottom: 4 },
-  assistantText: { color: '#D0D0E0', fontSize: 15, lineHeight: 22 },
+  assistantText: { color: '#C8C8E0', fontSize: 15, lineHeight: 22 },
 
   userBubble: {
-    backgroundColor: '#6C5CE722', borderRadius: 16, borderTopRightRadius: 4,
+    backgroundColor: '#16162A', borderRadius: 16, borderTopRightRadius: 4,
     padding: 14, alignSelf: 'flex-end', maxWidth: '88%',
+    borderWidth: 1, borderColor: '#2A2A42',
   },
-  userLabel: { color: '#888', fontSize: 11, fontWeight: '700', marginBottom: 4, textAlign: 'right' },
-  userText: { color: '#fff', fontSize: 15, lineHeight: 22 },
+  userLabel: { color: '#6C5CE7', fontSize: 11, fontWeight: '700', marginBottom: 4, textAlign: 'right', opacity: 0.7 },
+  userText: { color: '#E8E8F8', fontSize: 15, lineHeight: 22 },
 
   thinkingRow: { paddingLeft: 4 },
   thinkingText: { color: '#6C5CE7', fontSize: 28, letterSpacing: 4 },
 
   chatMinimiseBtn: {
     alignItems: 'center', paddingVertical: 14,
-    borderTopWidth: 1, borderTopColor: '#1A1A2E',
+    borderTopWidth: 1, borderTopColor: '#131326',
+    backgroundColor: '#0A0A14',
   },
-  chatMinimiseText: { color: '#555568', fontSize: 13 },
+  chatMinimiseText: { color: '#333350', fontSize: 13, letterSpacing: 0.5 },
 
   vadBar: {
     flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14,
