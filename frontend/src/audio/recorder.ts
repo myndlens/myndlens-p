@@ -38,7 +38,6 @@ export async function startRecording(
 
   _recording = true;
   _seq = 0;
-  _onChunk = onChunk;
   _onSpeechEnd = onSpeechEnd || null;
   vad.reset();
 
