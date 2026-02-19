@@ -41,8 +41,7 @@ export default function LoadingScreen() {
       setConnectionStatus('connecting');
       await wsClient.connect();
       setConnectionStatus('authenticated');
-      setSessionId(wsClient.currentSessionId);
-      setPresenceOk(true);
+      wsClient.currentSessionId && setConnectionStatus('authenticated');
 
       // Check if first-time setup is needed
       const { getItem } = require('../src/utils/storage');
