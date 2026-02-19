@@ -89,7 +89,17 @@ export const DEFAULT_SETTINGS: UserSettings = {
 export async function loadSettings(): Promise<UserSettings> {
   try {
     const raw = await AsyncStorage.getItem(PREFS_KEY);
-    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    if (raw) {
+      const stored = JSON.parse(raw) as Partial<UserSettings>;
+      // Deep merge nested objects to preserve defaults not present in stored data
+      return {
+        ...DEFAULT_SETTINGS,
+        ...stored,
+        travel_scope: { ...DEFAULT_SETTINGS.travel_scope, ...(stored.travel_scope ?? {}) },
+        auto_action: { ...DEFAULT_SETTINGS.auto_action, ...(stored.auto_action ?? {}) },
+        data_sources: { ...DEFAULT_SETTINGS.data_sources, ...(stored.data_sources ?? {}) },
+      };
+    }
   } catch { /* return defaults */ }
   return { ...DEFAULT_SETTINGS };
 }
