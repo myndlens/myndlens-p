@@ -9,7 +9,6 @@ import {
   Platform,
   KeyboardAvoidingView,
   Keyboard,
-  ScrollView,
   Image,
   ActivityIndicator,
   AppState,
