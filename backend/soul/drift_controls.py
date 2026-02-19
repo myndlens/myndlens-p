@@ -4,7 +4,7 @@ Detect and prevent drift from base soul.
 Personalization allowed; drift forbidden.
 """
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from soul.store import compute_soul_hash, BASE_SOUL_FRAGMENTS, retrieve_soul
 

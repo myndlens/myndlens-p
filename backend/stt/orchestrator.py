@@ -5,10 +5,10 @@ Enforces rate limits, chunk validation, and format rules.
 """
 import base64
 import logging
-from typing import Dict, Optional
+from typing import Optional
 
 from config.feature_flags import is_mock_stt
-from stt.provider.interface import STTProvider, TranscriptFragment
+from stt.provider.interface import STTProvider
 from stt.provider.mock import MockSTTProvider
 
 logger = logging.getLogger(__name__)

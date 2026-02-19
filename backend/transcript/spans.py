@@ -4,7 +4,6 @@ Track which transcript fragments ground which intent claims.
 """
 import uuid
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass

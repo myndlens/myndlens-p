@@ -8,8 +8,8 @@ Decides per purpose:
 Policy decisions are explainable and logged.
 """
 import logging
-from dataclasses import dataclass, field
-from typing import Dict, FrozenSet, List, Optional, Set
+from dataclasses import dataclass
+from typing import Dict, FrozenSet, List, Optional
 
 from prompting.types import PromptPurpose, SectionID
 

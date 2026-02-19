@@ -11,7 +11,6 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from memory.client import vector, graph, kv
-from memory.provenance import Provenance
 
 logger = logging.getLogger(__name__)
 

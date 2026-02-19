@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from core.database import get_db
@@ -276,7 +276,6 @@ async def bulk_import(req: BulkImportRequest):
 async def server_analyze(req: ServerAnalyzeRequest):
     """Server-side Gemini analysis fallback for complex relationship inference."""
     from config.settings import get_settings
-    from config.feature_flags import is_mock_llm
     settings = get_settings()
 
     analyzed_contacts = []

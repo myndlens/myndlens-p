@@ -5,7 +5,7 @@ Unregistered calls are violations and will be blocked by the gateway.
 
 Fail condition: any file calls an LLM client directly without being on this list.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, FrozenSet, List
 
 from prompting.types import PromptPurpose

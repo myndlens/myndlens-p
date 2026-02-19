@@ -15,7 +15,6 @@ from typing import List, Tuple
 
 from prompting.types import (
     PromptContext,
-    PromptPurpose,
     PromptArtifact,
     PromptReport,
     SectionID,

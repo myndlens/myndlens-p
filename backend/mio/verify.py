@@ -9,7 +9,7 @@ Runs all checks before allowing execution:
   6. Presence fresh (heartbeat)
 """
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from mio.signer import verify_mio

@@ -3,7 +3,7 @@ import logging
 from typing import Optional
 
 from config.feature_flags import is_mock_tts
-from tts.provider.interface import TTSProvider, TTSResult
+from tts.provider.interface import TTSProvider
 from tts.provider.mock import MockTTSProvider
 
 logger = logging.getLogger(__name__)

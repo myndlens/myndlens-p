@@ -5,8 +5,6 @@ without a live ObeGee backend. MUST NOT exist in production.
 """
 import logging
 from fastapi import APIRouter
-from pydantic import BaseModel
-from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 

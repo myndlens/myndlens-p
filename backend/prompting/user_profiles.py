@@ -6,7 +6,7 @@ and accuracy thresholds.
 """
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from core.database import get_db
 

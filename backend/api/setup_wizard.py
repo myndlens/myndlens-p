@@ -6,11 +6,10 @@ plan selection, payment, and pairing. MUST NOT exist in production.
 import logging
 import uuid
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional
 
 from core.database import get_db
 

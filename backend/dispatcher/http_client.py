@@ -12,7 +12,7 @@ MyndLens NEVER sends: transcripts, memory, prompts, secrets.
 """
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from core.exceptions import DispatchBlockedError
 from config.settings import get_settings

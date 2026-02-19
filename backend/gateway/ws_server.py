@@ -15,18 +15,16 @@ EXECUTION GUARDRAIL (Patch 5 / §3.2):
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
 from typing import Dict
 
 from fastapi import WebSocket, WebSocketDisconnect
 
 from auth.tokens import validate_token, TokenClaims
 from auth.sso_validator import get_sso_validator, SSOClaims
-from auth.device_binding import create_session, get_session, terminate_session
+from auth.device_binding import create_session, terminate_session
 from config.settings import get_settings
-from core.exceptions import AuthError, PresenceError, MyndLensError, DispatchBlockedError
+from core.exceptions import AuthError, PresenceError, DispatchBlockedError
 from observability.audit_log import log_audit_event
-from observability.redaction import redact_dict
 from presence.heartbeat import record_heartbeat, check_presence
 from presence.rules import get_heartbeat_interval_ms
 from schemas.audit import AuditEventType
@@ -47,9 +45,9 @@ from schemas.ws_messages import (
 )
 from stt.orchestrator import get_stt_provider, decode_audio_payload
 from tts.orchestrator import get_tts_provider
-from l1.scout import run_l1_scout, L1DraftObject
+from l1.scout import run_l1_scout
 from dimensions.engine import get_dimension_state, cleanup_dimensions
-from guardrails.engine import check_guardrails, GuardrailResult
+from guardrails.engine import check_guardrails
 from transcript.assembler import transcript_assembler
 from transcript.storage import save_transcript
 

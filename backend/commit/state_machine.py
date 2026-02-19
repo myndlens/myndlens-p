@@ -20,8 +20,6 @@ from typing import Any, Dict, List, Optional
 import uuid
 
 from core.database import get_db
-from observability.audit_log import log_audit_event
-from schemas.audit import AuditEventType
 
 logger = logging.getLogger(__name__)
 

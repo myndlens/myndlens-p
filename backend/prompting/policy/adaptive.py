@@ -5,7 +5,7 @@ automatically suggests or applies policy adjustments.
 """
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from core.database import get_db
 

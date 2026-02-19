@@ -15,7 +15,7 @@ from enum import Enum
 from typing import Optional
 
 from dimensions.engine import DimensionState
-from l1.scout import L1DraftObject, Hypothesis
+from l1.scout import L1DraftObject
 
 logger = logging.getLogger(__name__)
 

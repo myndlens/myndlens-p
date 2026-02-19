@@ -10,7 +10,7 @@ URL is a configuration error, not a silent no-op.
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from core.database import get_db
 from core.exceptions import DispatchBlockedError

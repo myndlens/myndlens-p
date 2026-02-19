@@ -6,7 +6,6 @@ Tracks evidence spans for grounding.
 import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
-import uuid
 
 from stt.provider.interface import TranscriptFragment
 from transcript.spans import EvidenceSpan, create_span

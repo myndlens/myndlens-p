@@ -5,7 +5,7 @@ purpose-level performance to drive the learning engine.
 """
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from core.database import get_db
 

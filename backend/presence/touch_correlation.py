@@ -8,8 +8,6 @@ Spec §10.2:
   - Replay cache prevents token reuse.
 """
 import logging
-from datetime import datetime, timezone
-from typing import Optional
 
 from mio.ttl import check_replay, record_usage, compute_touch_token_hash
 

@@ -3,7 +3,6 @@
 All secrets loaded exclusively from env vars. Never committed, never logged.
 Redaction enforced everywhere via observability.redaction.
 """
-import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal

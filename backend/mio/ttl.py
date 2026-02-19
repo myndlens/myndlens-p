@@ -9,9 +9,7 @@ Spec §9.3:
 import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
-from config.settings import get_settings
 from core.database import get_db
 
 logger = logging.getLogger(__name__)

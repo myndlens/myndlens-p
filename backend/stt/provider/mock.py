@@ -6,7 +6,6 @@ Returns predictable fragments based on chunk sequence numbers.
 import asyncio
 import logging
 import uuid
-from datetime import datetime
 from typing import Dict, Optional, List
 
 from stt.provider.interface import STTProvider, TranscriptFragment

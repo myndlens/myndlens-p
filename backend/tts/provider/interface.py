@@ -4,7 +4,7 @@ TTS provides ONLY: audio bytes from text.
 TTS does NOT provide: intent, emotion analysis, or any reasoning.
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 

@@ -15,7 +15,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-from core.database import get_db
 from core.exceptions import DispatchBlockedError
 from config.settings import get_settings
 from envguard.env_separation import assert_dispatch_allowed

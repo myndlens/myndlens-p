@@ -8,7 +8,7 @@ Protects against:
 States: CLOSED (normal) → OPEN (blocking) → HALF_OPEN (testing)
 """
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, Optional
 

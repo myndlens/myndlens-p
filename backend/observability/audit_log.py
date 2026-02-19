@@ -1,6 +1,5 @@
 """Audit logging — persists structured audit events to MongoDB."""
 import logging
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 from config.settings import get_settings

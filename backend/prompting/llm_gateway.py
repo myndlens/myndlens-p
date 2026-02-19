@@ -7,14 +7,13 @@ Audit logs every bypass attempt.
 LlmChat import lives HERE ONLY. No other module may import it.
 """
 import logging
-import uuid
 from typing import Optional
 
 from config.settings import get_settings
 from core.exceptions import MyndLensError
 from observability.audit_log import log_audit_event
 from schemas.audit import AuditEventType
-from prompting.types import PromptArtifact, PromptPurpose
+from prompting.types import PromptArtifact
 from prompting.call_sites import get_call_site, validate_purpose
 
 logger = logging.getLogger(__name__)
