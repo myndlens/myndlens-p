@@ -51,8 +51,10 @@ class Settings(BaseSettings):
     MYNDLENS_DISPATCH_TOKEN: str = Field(default="myndlens_dispatch_secret_2026")
     OBEGEE_API_URL: str = Field(default="")  # https://obegee.co.uk/api in prod
 
-    # ── Self-referential URL (used in pairing response) ──────
-    MYNDLENS_BASE_URL: str = Field(default="https://app.myndlens.com")  # Override in .env if needed
+    # ── MIO Key Encryption ───────────────────────────────────
+    # 32-byte hex key used to AES-256-GCM encrypt the ED25519 private key at rest.
+    # Generate with: python3 -c "import secrets; print(secrets.token_hex(32))"
+    MIO_KEY_ENCRYPTION_KEY: str = Field(default="")
 
     # ── Observability ────────────────────────────────────────────
     LOG_LEVEL: str = Field(default="INFO")
