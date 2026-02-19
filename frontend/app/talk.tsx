@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { wsClient, WSEnvelope } from '../src/ws/client';
 import { useSessionStore } from '../src/state/session-store';
-import { useAudioStore, AudioState } from '../src/audio/state-machine';
+import { useAudioStore } from '../src/audio/state-machine';
 import { startRecording, stopRecording } from '../src/audio/recorder';
 import * as TTS from '../src/tts/player';
 import { MicIcon, StopIcon } from '../src/ui/icons';
