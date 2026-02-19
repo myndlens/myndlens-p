@@ -156,7 +156,7 @@ def _mock_l1(transcript: str, start_time: float) -> L1DraftObject:
             action_class="COMM_SEND",
             confidence=0.85,
             evidence_spans=[{"text": "send a message", "start": 0, "end": len(transcript)}],
-            dimension_suggestions={"what": "send message", "who": _extract_name(transcript)},
+            dimension_suggestions={"what": "send message", "who": _extract_name(transcript), "ambiguity": 0.1},
         ))
     elif "schedule" in lower or "meeting" in lower:
         hypotheses.append(Hypothesis(
@@ -164,14 +164,14 @@ def _mock_l1(transcript: str, start_time: float) -> L1DraftObject:
             action_class="SCHED_MODIFY",
             confidence=0.80,
             evidence_spans=[{"text": transcript, "start": 0, "end": len(transcript)}],
-            dimension_suggestions={"what": "schedule meeting"},
+            dimension_suggestions={"what": "schedule meeting", "ambiguity": 0.1},
         ))
     else:
         hypotheses.append(Hypothesis(
             hypothesis="User is expressing a general request",
             action_class="DRAFT_ONLY",
-            confidence=0.5,
-            dimension_suggestions={"what": transcript[:50]},
+            confidence=0.6,
+            dimension_suggestions={"what": transcript[:50], "ambiguity": 0.1},
         ))
 
     return L1DraftObject(
