@@ -101,40 +101,70 @@ def _get_user_id(authorization: Optional[str]) -> str:
 
 # ── Entity extraction helpers ──────────────────────────────────────────────────────────
 
-def _domain_from_email(addr: str) -> str:
-    """Extract domain from email address."""
-    parts = addr.split("@")
-    return parts[1] if len(parts) == 2 else ""
+def _node_id_from_email(addr: str) -> str:
+    """Generate collision-resistant node ID from email address.
 
-
-def _infer_relationship_strength(freq: int, total: int) -> tuple[str, float]:
-    """Convert communication frequency into a labelled relationship strength."""
-    ratio = freq / max(total, 1)
-    if ratio >= 0.1 or freq >= 20:
-        return "close contact", 0.95
-    elif ratio >= 0.03 or freq >= 5:
-        return "regular contact", 0.80
-    else:
-        return "occasional contact", 0.60
-
-
-def _decode_subject(raw_subj: str) -> str:
-    """Safely decode RFC2047-encoded email subject."""
-    try:
-        parts = decode_header(raw_subj)
-        return " ".join(
-            part.decode(enc or "utf-8", errors="replace") if isinstance(part, bytes) else part
-            for part, enc in parts
-        )
-    except Exception:
-        return raw_subj
+    Uses a 6-char hash suffix so 'bob.smith@a.com' and 'bob_smith@a.com'
+    produce different IDs despite identical slug output.
+    """
+    import hashlib
+    slug = re.sub(r'[^a-z0-9]', '_', addr.lower())[:40]
+    suffix = hashlib.sha256(addr.lower().encode()).hexdigest()[:6]
+    return f"person_{slug}_{suffix}"
 
 
 async def _embed_texts(texts: List[str]) -> List[List[float]]:
-    """Generate ONNX embeddings for a list of texts using bge-small-en-v1.5."""
+    """Generate ONNX embeddings in a thread (non-blocking, CPU-bound)."""
     if not texts:
         return []
-    return embed(texts)
+    return await asyncio.to_thread(embed, texts)
+
+
+def _run_imap_sync(req: "IMAPRequest") -> tuple[dict, dict, list]:
+    """Synchronous IMAP extraction — runs in a thread via asyncio.to_thread."""
+    contact_freq: Dict[str, int] = defaultdict(int)
+    contact_names: Dict[str, str] = {}
+    subject_tokens: List[str] = []
+
+    ctx = ssl.create_default_context()
+    with imaplib.IMAP4_SSL(req.host, req.port, ssl_context=ctx) as imap:
+        imap.socket().settimeout(IMAP_TIMEOUT_SECONDS)
+        imap.login(req.email, req.password)
+        imap.select("INBOX", readonly=True)
+
+        since_date = datetime.fromtimestamp(
+            time.time() - 90 * 86400, tz=timezone.utc
+        ).strftime("%d-%b-%Y")
+        _, data = imap.search(None, f'SINCE "{since_date}"')
+        all_uids = data[0].split() if data[0] else []
+        uids_to_fetch = all_uids[-req.max_emails:]
+
+        for uid in uids_to_fetch:
+            try:
+                _, msg_data = imap.fetch(uid, "(BODY[HEADER.FIELDS (FROM TO SUBJECT)])")
+                if not msg_data or not msg_data[0]:
+                    continue
+                msg = email_lib.message_from_bytes(msg_data[0][1])
+
+                for hdr in ("From", "To", "Cc"):
+                    raw = msg.get(hdr, "")
+                    for match in re.finditer(
+                        r'(?:([^<,"]+)\s*<)?([\w.+%-]+@[\w.-]+\.[\w]+)>?', raw
+                    ):
+                        name_raw, addr = match.group(1), match.group(2).lower()
+                        if addr == req.email.lower():
+                            continue
+                        contact_freq[addr] += 1
+                        if name_raw and addr not in contact_names:
+                            contact_names[addr] = name_raw.strip().strip('"')
+
+                subj = _decode_subject(msg.get("Subject", ""))
+                if subj and len(subj) > 3:
+                    subject_tokens.append(subj[:80])
+            except Exception:
+                continue
+
+    return dict(contact_freq), contact_names, subject_tokens
 
 
 # ── IMAP Email Sync ───────────────────────────────────────────────────────────────
