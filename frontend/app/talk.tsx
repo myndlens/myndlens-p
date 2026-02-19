@@ -737,18 +737,24 @@ const styles = StyleSheet.create({
   },
   chatMinimiseText: { color: '#333350', fontSize: 13, letterSpacing: 0.5 },
 
-  vadBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14,
+  // Siri-style waveform inside the mic button
+  waveContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    height: 48,
   },
-  vadDot: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: '#2A2A3E',
+  waveBar: {
+    width: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.95)',
   },
-  vadDotActive: {
-    backgroundColor: '#E74C3C',
-  },
-  vadLabel: {
-    fontSize: 11, color: '#555568', marginLeft: 8, letterSpacing: 0.5,
+
+  // Minimal state label below the button
+  vadListeningLabel: {
+    color: '#6C5CE7', fontSize: 11, letterSpacing: 0.8,
+    marginBottom: 10, textTransform: 'lowercase',
   },
 
   micButton: {
