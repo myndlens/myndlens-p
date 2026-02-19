@@ -110,6 +110,16 @@ export default function TalkScreen() {
     return () => clearInterval(poll);
   }, [audioState]);
 
+  // Pulse the chat bubble when new TTS or transcript arrives
+  useEffect(() => {
+    if (ttsText || transcript) {
+      Animated.sequence([
+        Animated.timing(chatBubbleAnim, { toValue: 1.25, duration: 180, useNativeDriver: true }),
+        Animated.timing(chatBubbleAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [ttsText, transcript]);
+
   // AppState: detect background → foreground transition
   useEffect(() => {
     const appStateSub = AppState.addEventListener('change', async (nextState) => {
