@@ -67,56 +67,113 @@ export default function SetupWizardScreen() {
     if (!name.trim() || !email.trim() || !password.trim()) return;
     setLoading(true);
     try {
-      const res = await api('/register', { method: 'POST', body: JSON.stringify({ email, password, name }) });
-      if (res.access_token) { setStep(2); }
-      else if (res.detail?.includes('already registered')) { Alert.alert('Account Exists', 'Try logging in instead.'); }
-      else { Alert.alert('Error', res.detail || 'Registration failed'); }
-    } catch { Alert.alert('Error', 'Connection failed'); }
+      // Step 1: POST /auth/signup → ObeGee
+      const res = await obegee('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, name }),
+      });
+      if (res.access_token) {
+        setAuthToken(res.access_token);
+        setStep(2);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Registration failed');
+    }
     setLoading(false);
   }
 
   async function checkSlug(s: string) {
     if (s.length < 3) { setSlugAvailable(null); return; }
-    const res = await api(`/check-slug/${s.toLowerCase()}`);
-    setSlugAvailable(res.available);
-    if (!res.available && res.suggestions) setSlugSuggestions(res.suggestions);
+    try {
+      // Step 2: POST /tenants/validate-slug → ObeGee
+      const res = await obegee('/tenants/validate-slug', {
+        method: 'POST',
+        body: JSON.stringify({ slug: s.toLowerCase() }),
+      });
+      setSlugAvailable(res.valid ?? res.available ?? false);
+      if (!(res.valid ?? res.available) && res.suggestions) setSlugSuggestions(res.suggestions);
+    } catch { setSlugAvailable(false); }
   }
 
   async function handleCreateTenant() {
     setLoading(true);
-    const res = await api('/create-tenant', { method: 'POST', body: JSON.stringify({ workspace_slug: slug.toLowerCase() }) });
-    if (res.tenant_id) { setTenantId(res.tenant_id); setStep(3); }
+    try {
+      // Step 3: POST /tenants/ → ObeGee
+      const res = await obegee('/tenants/', {
+        method: 'POST',
+        body: JSON.stringify({ workspace_slug: slug.toLowerCase(), name: slug }),
+      }, authToken);
+      if (res.tenant_id) { setTenantId(res.tenant_id); setStep(3); }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not create workspace');
+    }
     setLoading(false);
   }
 
   async function loadPlans() {
-    const res = await api('/plans');
-    if (Array.isArray(res)) { setPlans(res); setSelectedPlan(res[1]?.plan_id || res[0]?.plan_id); }
+    try {
+      const res = await obegee('/billing/plans', undefined, authToken);
+      if (Array.isArray(res)) { setPlans(res); setSelectedPlan(res[1]?.plan_id || res[0]?.plan_id); }
+    } catch { /* plans optional */ }
   }
 
   async function handlePayment() {
-    // In production this opens Stripe WebView. For mock, skip to activation.
-    setStep(5);
-    activateWorkspace();
+    setLoading(true);
+    try {
+      // Step 4: POST /billing/checkout → ObeGee — returns Stripe URL
+      const res = await obegee('/billing/checkout', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan_id: selectedPlan,
+          origin_url: 'https://app.myndlens.com',
+          tenant_id: tenantId,
+        }),
+      }, authToken);
+      if (res.url) {
+        // Open Stripe checkout in browser; user returns after payment
+        Linking.openURL(res.url);
+        setStep(5);
+        activateWorkspace();
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Payment failed');
+    }
+    setLoading(false);
   }
 
   async function activateWorkspace() {
     setActivationStatus('activating'); setProgress(0.2);
-    await api(`/activate/${tenantId}`, { method: 'POST' });
-    setProgress(0.6);
-    // Poll status
-    const poll = setInterval(async () => {
-      const res = await api(`/tenant/${tenantId}`);
-      if (res.status === 'READY') { clearInterval(poll); setProgress(1); setActivationStatus('ready'); setTimeout(() => { setStep(6); generateCode(); }, 1500); }
-    }, 1500);
-    setTimeout(() => clearInterval(poll), 60000);
+    try {
+      // Step 5: POST /tenants/{tenant_id}/activate → ObeGee
+      await obegee(`/tenants/${tenantId}/activate`, { method: 'POST' }, authToken);
+      setProgress(0.6);
+      // Step 6: Poll GET /tenants/my-tenant until status=READY
+      const poll = setInterval(async () => {
+        try {
+          const res = await obegee('/tenants/my-tenant', undefined, authToken);
+          if (res.status === 'READY') {
+            clearInterval(poll);
+            setProgress(1);
+            setActivationStatus('ready');
+            setTimeout(() => { setStep(6); generateCode(); }, 1500);
+          }
+        } catch { /* keep polling */ }
+      }, 2000);
+      setTimeout(() => clearInterval(poll), 120000);
+    } catch (err: any) {
+      Alert.alert('Activation Error', err.message || 'Workspace activation failed');
+    }
   }
 
   async function generateCode() {
-    const res = await api('/generate-code', { method: 'POST' });
-    setPairingCode(res.code || '------');
-    // Auto-pair
-    setTimeout(() => { setStep(7); }, 2000);
+    try {
+      // Step 7: POST /myndlens/generate-code → ObeGee
+      const res = await obegee('/myndlens/generate-code', { method: 'POST' }, authToken);
+      setPairingCode(res.code || '------');
+      // Do NOT auto-advance — user must manually enter code in login screen
+    } catch {
+      setPairingCode('------');
+    }
   }
 
   async function handlePreferences() {
