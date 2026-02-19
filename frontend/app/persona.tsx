@@ -73,7 +73,8 @@ export default function PersonaScreen() {
           text: 'Delete Everything',
           style: 'destructive',
           onPress: async () => {
-            const userId = await getStoredUserId() ?? 'local';
+            const userId = await getStoredUserId();
+            if (!userId) return;
             await deleteDigitalSelf(userId);
             await load();
             Alert.alert('Done', 'Your Digital Self has been deleted.');
