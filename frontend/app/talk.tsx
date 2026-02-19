@@ -423,22 +423,6 @@ export default function TalkScreen() {
             );
           })()}
 
-          {/* Conversation bubbles overlay */}
-          {(ttsText || transcript || partialTranscript) && (
-            <View style={styles.conversationOverlay}>
-              {ttsText ? (
-                <View style={styles.assistantBubble}>
-                  <Text style={styles.assistantText}>{ttsText}</Text>
-                </View>
-              ) : null}
-              {(transcript || partialTranscript) ? (
-                <View style={styles.userBubble}>
-                  <Text style={styles.userText}>{partialTranscript || transcript}</Text>
-                </View>
-              ) : null}
-            </View>
-          )}
-
           {audioState === 'THINKING' ? (
             <View style={styles.thinkingDots}>
               <Text style={styles.thinkingText}>{'\u2026'}</Text>
