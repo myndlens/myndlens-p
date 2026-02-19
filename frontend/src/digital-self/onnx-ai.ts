@@ -1,15 +1,12 @@
 /**
  * On-Device ONNX AI for Digital Self.
  *
- * Uses onnxruntime-react-native + a quantized embedding model for:
- *   - Semantic clustering of PKG nodes
- *   - Persona Summary generation from PKG
+ * Uses onnxruntime-react-native + BAAI/bge-small-en-v1.5 for semantic embedding.
+ * The ONNX session is prepared for future semantic clustering/search within the PKG.
+ * Current summary generation is template-based (works without ONNX).
  *
- * Model: BAAI/bge-small-en-v1.5 (22MB ONNX, 384-dim embeddings)
- * Downloaded once on first launch, cached in app document directory.
- *
- * Falls back to template-based summary if ONNX is unavailable.
  * Requires APK rebuild with onnxruntime-react-native installed.
+ * Model is NOT downloaded until initONNX() is explicitly called.
  */
 
 import { PKG } from './pkg';
@@ -17,7 +14,6 @@ import { PKG } from './pkg';
 const MODEL_URL = 'https://huggingface.co/Xenova/bge-small-en-v1.5/resolve/main/onnx/model_quantized.onnx';
 const MODEL_CACHE_KEY = 'myndlens_onnx_bge_small_v1';
 
-let _session: any = null;
 let _initialized = false;
 
 // ── ONNX Session Management ─────────────────────────────────────────────────
