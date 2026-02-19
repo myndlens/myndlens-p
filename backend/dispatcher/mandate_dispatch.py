@@ -156,7 +156,7 @@ async def _poll_execution(
     import httpx
 
     progress = 15
-    for i in range(150):
+    for _ in range(150):
         await asyncio.sleep(2)
 
         try:
