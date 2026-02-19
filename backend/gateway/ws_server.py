@@ -371,6 +371,22 @@ async def _handle_execute_request(
 
         await broadcast_stage(session_id, 5, "done", "Intent verified")
 
+        # Stage 5: Agent assignment
+        assigned_agent_id = None
+        if tenant_id:
+            from agents.builder import AgentBuilder
+            builder = AgentBuilder()
+            tenant_agents = await builder.list_agents(tenant_id)
+            if tenant_agents:
+                assigned_agent_id = tenant_agents[0]["agent_id"]
+                agent_name = tenant_agents[0].get("name", assigned_agent_id)
+                logger.info("Agent assigned: session=%s agent=%s", session_id, assigned_agent_id)
+                await broadcast_stage(session_id, 5, "done", f"Agent: {agent_name}")
+            else:
+                await broadcast_stage(session_id, 5, "done", "Default agent")
+        else:
+            await broadcast_stage(session_id, 5, "done", "Agent assigned")
+
         # Stage 6: Skills matching
         await broadcast_stage(session_id, 6, "active", "Matching skills...")
         from skills.library import match_skills_to_intent
