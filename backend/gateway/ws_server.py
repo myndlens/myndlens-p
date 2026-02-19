@@ -174,7 +174,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
         session = await create_session(
             user_id=user_id_resolved,
             device_id=auth_payload.device_id,
-            env=get_settings().ENV if not sso_claims else "dev",
+            env=get_settings().ENV,
             client_version=auth_payload.client_version,
         )
         session_id = session.session_id
