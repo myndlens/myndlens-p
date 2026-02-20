@@ -458,45 +458,33 @@ async def _handle_execute_request(
                 built = await build_skill([skill], draft.transcript)
                 built_skills.append(built)
 
-        await broadcast_stage(session_id, 6, "done", f"{len(skill_names)} skills ({skill_risk} risk)")
-        logger.info("Skills matched: session=%s count=%d risk=%s skills=%s",
-                    session_id, len(skill_names), skill_risk, skill_names)
+        # ── Skill Determination — LLM decides what skills are needed ────────
+        from skills.determine import determine_skills
+        skill_plan = await determine_skills(
+            session_id=session_id, user_id=user_id,
+            mandate={
+                "intent": top.intent,
+                "mandate_summary": top.hypothesis,
+                "actions": [{"action": top.hypothesis, "priority": "high", "dimensions": {}}],
+            },
+        )
+        skill_names = [s.get("skill_name", "") for s in skill_plan.get("skill_plan", [])]
+        execution_strategy = skill_plan.get("execution_strategy", "sequential")
 
-        # ── Phase 3: Pre-flight env check — block if critical env vars missing ──
-        all_missing: list[str] = []
-        blocking_skill: str = ""
-        for skill in matched_skills:
-            missing = skill.get("_missing_env", [])
-            if missing:
-                all_missing.extend(missing)
-                blocking_skill = blocking_skill or skill.get("name", "")
-        if all_missing:
-            unique_missing = sorted(set(all_missing))
-            logger.warning(
-                "Pre-flight: missing env vars for skill=%s missing=%s session=%s",
-                blocking_skill, unique_missing, session_id,
-            )
-            await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
-                reason=(
-                    f"Skill '{blocking_skill}' requires environment variable(s) "
-                    f"{unique_missing} which are not configured. "
-                    f"Set them in ObeGee's environment to use this skill."
-                ),
-                code="SKILL_ENV_MISSING",
-                draft_id=req.draft_id,
-            ))
-            return
+        await broadcast_stage(session_id, 6, "done", f"{len(skill_names)} skills determined")
+        logger.info("Skills determined: session=%s count=%d strategy=%s skills=%s",
+                    session_id, len(skill_names), execution_strategy, skill_names)
 
-        # ── QC Sentry — NOW has full skill + tool context for capability_leak ───────
+        # ── QC Sentry — adversarial check ─────────────────────────────────────
         from qc.sentry import run_qc_sentry
         qc = await run_qc_sentry(
             session_id=session_id,
             user_id=user_id,
             transcript=enriched_for_verify,
-            action_class=effective_action,
+            action_class=top.intent,
             intent_summary=top.hypothesis,
             persona_summary=session_ctx.raw_summary if session_ctx else "",
-            skill_risk=skill_risk,
+            skill_risk="low",
             skill_names=skill_names,
         )
         if not qc.overall_pass:
@@ -508,90 +496,18 @@ async def _handle_execute_request(
             logger.warning("EXECUTE_BLOCKED: QC failed: session=%s reason=%s", session_id, qc.block_reason)
             return
 
-        # ── After QC passes: assess agent topology (no LLM, deterministic) ─────
-        from qc.agent_topology import assess_agent_topology, AgentTopology
-        topology: AgentTopology = await assess_agent_topology(
-            intent=top.hypothesis,
-            action_class=effective_action,
-            skill_names=skill_names,
-            built_skills=built_skills,
-        )
-        logger.info(
-            "[AgentTopology] session=%s complexity=%s agents=%d lines=%d",
-            session_id, topology.complexity, len(topology.sub_agents), len(topology.approval_lines),
-        )
-
-        # ── Stage 5: Agent assembly — catalogue match OR skill composition ────────
-        from agents.composer import assemble_agent_collection
-        agent_collection = await assemble_agent_collection(
-            mandate_intent=draft.transcript,
-            action_class=effective_action,
-            matched_skills=matched_skills,
-            skill_names=skill_names,
-            tenant_id=tenant_id,
-            topology_coordination=topology.coordination,
-        )
-        assigned_agent_id = agent_collection.agents[0].agent_id if agent_collection.agents else "default"
-        await broadcast_stage(
-            session_id, 5, "done",
-            f"{len(agent_collection.agents)} agent(s) [{agent_collection.source}]",
-        )
-        logger.info(
-            "[AgentSelect] session=%s agents=%d source=%s coordination=%s approval=%s",
-            session_id,
-            len(agent_collection.agents),
-            agent_collection.source,
-            agent_collection.coordination,
-            agent_collection.approval_lines,
-        )
-
-        # ── Stage 7: Authorization granted ───────────────────────────────────────
+        # ── Authorization granted ──────────────────────────────────────────────
         await broadcast_stage(session_id, 7, "done")
 
-        # ── Dispatch — full skill contracts sent to ObeGee ───────────────────────
-        # Tools derived from the agent collection's actual skills — no hardcoded map.
-        oc_tools = (agent_collection.agents[0].tools
-                    if agent_collection.agents
-                    else {"profile": "messaging", "allow": ["group:messaging"]})
-
+        # ── Dispatch ───────────────────────────────────────────────────────────
         mandate = {
             "mandate_id": req.draft_id,
             "tenant_id": tenant_id,
-            # Primary task string OpenClaw/ObeGee routes to the agent
             "task": top.hypothesis,
-            "intent_raw": draft.transcript,           # original user words (for display)
-            "action_class": effective_action,
-            "dimensions": dim_state.to_dict(),
-            # Skill slugs for ObeGee to install via: clawhub install <slug>
-            "skill_slugs": [s.get("name") for s in matched_skills if s.get("name")],
-            "skill_clawhub_urls": [
-                f"https://clawhub.ai/skills/{s.get('name')}"
-                for s in matched_skills if s.get("name")
-            ],
-            # OpenClaw tool policy — derived from agent collection's tools
-            "tools": agent_collection.agents[0].tools if agent_collection.agents else oc_tools,
-            # Agent collection: one or more agents assembled for this mandate
-            "agent_config": {
-                "agents": [
-                    {
-                        "agent_id": a.agent_id,
-                        "name": a.name,
-                        "purpose": a.purpose,
-                        "skills": a.skills,
-                        "tools": a.tools,
-                        "skill_md": a.skill_md,
-                        "source": a.source,
-                        "is_new": a.is_new,
-                    }
-                    for a in agent_collection.agents
-                ],
-                "coordination": agent_collection.coordination,
-                "source": agent_collection.source,
-                "approval_lines": agent_collection.approval_lines,
-            },
-            # Metadata for audit/RL
-            "skill_risk": skill_risk,
-            "assigned_agent_id": assigned_agent_id,
+            "intent": top.intent,
+            "intent_raw": draft.transcript,
+            "skill_plan": skill_plan.get("skill_plan", []),
+            "execution_strategy": execution_strategy,
             "approved_at": datetime.now(timezone.utc).isoformat(),
             "approved_by": user_id,
         }
