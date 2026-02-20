@@ -1,12 +1,14 @@
-"""Mandate-Ready Dimension Extraction — Intent drives the dimensions.
+"""Mandate-Ready Dimension Extraction — Execution-level granularity.
 
-A Travel Concierge mandate needs: destination, dates, hotel, transport, companions
-A Hiring Pipeline mandate needs: role, count, budget, timeline, team
-An Event Planning mandate needs: event type, venue, guests, catering, date
+Each sub-intent has a SPECIFIC set of dimensions needed for execution.
+  Flight: dep_date, ret_date, time_pref, airline, class, seat, meals
+  Hotel: checkin, checkout, brand, room_type, amenities
+  Car: pickup, dropoff, company, car_type
+  Meeting: date, time, attendees, location, agenda
+  Restaurant: date, time, party_size, cuisine, restaurant_name
 
-The intent tells us WHAT dimensions to extract.
-The Digital Self tells us HOW to resolve them.
-Together they form the Mandate.
+The Digital Self fills preferences. The transcript fills stated values.
+What's left = MISSING = micro-question targets.
 """
 import json
 import logging
@@ -30,11 +32,11 @@ async def extract_mandate_dimensions(
     sub_intents: List[str],
     l1_dimensions: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Extract mandate-ready dimensions driven by the intent.
+    """Extract execution-ready dimensions for each sub-intent.
 
-    The intent determines WHICH dimensions matter.
-    The Digital Self resolves ambiguous references.
-    The output is a complete mandate dimension set.
+    Intent drives WHAT dimensions to extract.
+    Digital Self fills preferences and patterns.
+    MISSING dimensions become micro-question targets.
     """
     settings = get_settings()
     start = time.monotonic()
@@ -46,31 +48,43 @@ async def extract_mandate_dimensions(
     memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=5)
 
     task = (
-        f"The user's intent is: {intent}\n"
-        f"Sub-intents: {', '.join(sub_intents) if sub_intents else 'none identified'}\n"
+        f"Intent: {intent}\n"
+        f"Sub-intents: {', '.join(sub_intents) if sub_intents else 'to be determined'}\n"
         f"User said: \"{transcript}\"\n\n"
-        "Extract ALL dimensions needed to create a complete, executable mandate.\n"
-        "Use the Digital Self memories to resolve every person, place, and preference.\n\n"
-        "Output JSON with:\n"
+        "Extract EXECUTION-READY dimensions for each sub-intent.\n"
+        "Each sub-intent becomes an ACTION with granular dimensions needed to execute it.\n\n"
+        "For EACH action, extract every specific dimension required:\n"
+        "  Flight: dep_date, ret_date, dep_time_pref (morning/afternoon/evening/red-eye), "
+        "airline_pref, class (economy/premium_economy/business/first), seat_pref (window/aisle/any), "
+        "meal_pref, baggage, loyalty_number\n"
+        "  Hotel: checkin_date, checkout_date, nights, brand_pref, room_type (single/double/suite), "
+        "amenities, loyalty_number, breakfast_included\n"
+        "  Car Rental: pickup_date, pickup_location, dropoff_date, dropoff_location, "
+        "company_pref, car_type (compact/sedan/SUV/luxury), insurance\n"
+        "  Meeting: date, time, duration, attendees (names+contacts), location, agenda, "
+        "video_link, recurring\n"
+        "  Restaurant: date, time, party_size, cuisine, restaurant_name, special_requests\n"
+        "  Payment: amount, currency, from_account, to_account, method, reference\n"
+        "  Communication: recipients (name+contact), channel (email/whatsapp/slack), subject, body_summary\n"
+        "  Document: doc_type, title, audience, format, deadline\n"
+        "  Task: description, assignee, due_date, priority, project\n\n"
+        "Use Digital Self memories to FILL dimensions from user preferences and past patterns.\n"
+        "Mark each dimension's source: 'stated' (user said it), 'digital_self' (from memory), "
+        "'inferred' (reasonable default), 'missing' (user must provide).\n\n"
+        "Output JSON:\n"
         "{\n"
-        "  \"intent\": \"<the intent name>\",\n"
-        "  \"mandate_summary\": \"<one sentence: what will be executed>\",\n"
-        "  \"people\": [{\"name\": str, \"role_in_mandate\": str, \"contact\": str}],\n"
-        "  \"actions\": [{\"action\": str, \"details\": str, \"priority\": \"high|medium|low\"}],\n"
-        "  \"timing\": {\"start\": str, \"end\": str, \"deadline\": str, \"duration\": str},\n"
-        "  \"location\": {\"primary\": str, \"details\": str},\n"
-        "  \"preferences\": [{\"category\": str, \"value\": str, \"source\": \"Digital Self|stated|inferred\"}],\n"
+        "  \"intent\": str,\n"
+        "  \"mandate_summary\": str,\n"
+        "  \"actions\": [{\n"
+        "    \"action\": str,\n"
+        "    \"priority\": \"high|medium|low\",\n"
+        "    \"dimensions\": {\"<dim_name>\": {\"value\": str, \"source\": \"stated|digital_self|inferred|missing\"}},\n"
+        "  }],\n"
+        "  \"people\": [{\"name\": str, \"role\": str, \"contact\": str, \"source\": str}],\n"
         "  \"constraints\": [str],\n"
-        "  \"missing\": [str],\n"
+        "  \"missing_critical\": [str],\n"
         "  \"confidence\": 0-1\n"
-        "}\n\n"
-        "RULES:\n"
-        "- Resolve names to full identities from Digital Self (e.g., 'Jacob' → 'Jacob Martinez, CMO')\n"
-        "- Include contact info (email, phone) from Digital Self when available\n"
-        "- Include preferences from Digital Self (hotel brand, flight class, etc.)\n"
-        "- List what's MISSING — dimensions the user didn't specify\n"
-        "- Each action maps to a sub-intent that can be executed\n"
-        "- Be specific: not 'book hotel' but 'book Hilton Sydney, 10 nights from [date]'"
+        "}"
     )
 
     orchestrator = PromptOrchestrator()
@@ -103,11 +117,23 @@ async def extract_mandate_dimensions(
         "memory_used": len(memory_snippets) if memory_snippets else 0,
     }
 
+    # Count dimension stats
+    total_dims = 0
+    filled_dims = 0
+    missing_dims = 0
+    for action in mandate.get("actions", []):
+        for dim_name, dim_val in action.get("dimensions", {}).items():
+            total_dims += 1
+            src = dim_val.get("source", "") if isinstance(dim_val, dict) else ""
+            if src == "missing":
+                missing_dims += 1
+            else:
+                filled_dims += 1
+
     logger.info(
-        "[MandateDim] session=%s intent=%s people=%d actions=%d missing=%d conf=%.2f %.0fms",
-        session_id, intent, len(mandate.get("people", [])),
-        len(mandate.get("actions", [])), len(mandate.get("missing", [])),
-        mandate.get("confidence", 0), latency_ms,
+        "[MandateDim] session=%s intent=%s actions=%d dims=%d/%d filled missing=%d %.0fms",
+        session_id, intent, len(mandate.get("actions", [])),
+        filled_dims, total_dims, missing_dims, latency_ms,
     )
     return mandate
 
@@ -124,16 +150,13 @@ def _parse_mandate(response: str, intent: str) -> Dict[str, Any]:
         return data
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         logger.warning("[MandateDim] Parse failed: %s", e)
-        return {"intent": intent, "mandate_summary": "", "people": [], "actions": [],
-                "timing": {}, "location": {}, "preferences": [], "constraints": [],
-                "missing": ["parse_error"], "confidence": 0.0}
+        return {"intent": intent, "mandate_summary": "", "actions": [],
+                "people": [], "constraints": [], "missing_critical": ["parse_error"],
+                "confidence": 0.0}
 
 
 def _build_mock(transcript: str, intent: str, l1_dims: Optional[Dict] = None) -> Dict[str, Any]:
-    d = l1_dims or {}
     return {"intent": intent, "mandate_summary": transcript[:80],
-            "people": [], "actions": [], "timing": {},
-            "location": {"primary": d.get("where", "")},
-            "preferences": [], "constraints": [],
-            "missing": ["mock_mode"], "confidence": 0.3,
+            "actions": [], "people": [], "constraints": [],
+            "missing_critical": ["mock_mode"], "confidence": 0.3,
             "_meta": {"source": "mock"}}
