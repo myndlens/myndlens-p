@@ -158,6 +158,20 @@ export default function SettingsScreen() {
       saveSettings(next); // fire-and-forget persist
       return next;
     });
+
+    // When notification mode switches to proactive, request OS permission
+    if (patch.notification_mode && patch.notification_mode !== 'silent') {
+      const status = await requestNotificationPermission();
+      if (status === 'granted') {
+        setupNotificationHandler();
+        await setupAndroidChannels();
+      } else if (status === 'denied') {
+        Alert.alert(
+          'Notifications blocked',
+          'Enable notifications for MyndLens in your device Settings to receive mandate updates.',
+        );
+      }
+    }
   }, []);
 
   async function saveNickname() {
