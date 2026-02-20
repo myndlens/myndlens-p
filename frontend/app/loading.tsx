@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { wsClient } from '../src/ws/client';
 import { useSessionStore } from '../src/state/session-store';
@@ -13,12 +13,16 @@ const STATUS_MESSAGES = [
 /**
  * Loading / Activation — masks all backend complexity.
  * Validates SSO, connects WS, starts heartbeat.
- * Human-only status text.
+ *
+ * Auth clearing rules:
+ *   HARD failures (auth_fail, Device ID mismatch) → clearAuth + /login (re-pair)
+ *   SOFT failures (network, timeout, backend down) → show retry UI, NEVER wipe token
  */
 export default function LoadingScreen() {
   const router = useRouter();
   const { setConnectionStatus } = useSessionStore();
   const [statusIdx, setStatusIdx] = useState(0);
+  const [softError, setSoftError] = useState<string | null>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const retryCount = useRef(0);
   const MAX_RETRIES = 8;
