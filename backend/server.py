@@ -327,6 +327,29 @@ async def delivery_webhook(
         },
     )
 
+    # Trigger Skills Reinforcement Learning — update skill scores from execution outcome
+    if payload.status in ("COMPLETED", "FAILED", "PARTIAL"):
+        try:
+            dispatch_record = await db.mandate_dispatches.find_one(
+                {"execution_id": payload.execution_id},
+                {"_id": 0, "mandate": 1},
+            )
+            if dispatch_record:
+                mandate = dispatch_record.get("mandate", {})
+                skill_names = mandate.get("generated_skills", [])
+                action_class = mandate.get("action_class", "")
+                intent = mandate.get("intent", "")
+                if skill_names:
+                    from skills.reinforcement import record_skill_outcome
+                    await record_skill_outcome(
+                        skill_names=skill_names,
+                        intent=intent,
+                        action_class=action_class,
+                        outcome=payload.status,
+                    )
+        except Exception as e:
+            logger.warning("Skill RL update failed for exec=%s: %s", payload.execution_id, str(e))
+
     logger.info(
         "Delivery webhook: exec=%s status=%s channels=%s",
         payload.execution_id, payload.status, payload.delivered_to,
