@@ -150,6 +150,8 @@ async def match_skills_to_intent(
         score = sum(1 for k in keywords if k in name_lower) * 3
         score += sum(1 for k in keywords if k in desc_lower)
         score += min(r.get("stars", 0) / 50, 2)
+        # Apply reinforcement learning modifier (updated by delivery outcomes)
+        score *= r.get("relevance_modifier", 1.0)
         r["relevance_score"] = round(score, 2)
 
     results.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
