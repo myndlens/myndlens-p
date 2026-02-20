@@ -64,77 +64,33 @@ class AgentSpec:
     coverage_score: float = 0.0
 
 
-def _normalise_oc_tool(tool: str) -> str:
-    """Normalise a tool name to OpenClaw format."""
-    tool = tool.strip().lower()
-    if not tool:
-        return ""
-    # Already group: format
-    if tool.startswith("group:") or tool in ("exec", "web_fetch", "web_search",
-                                               "message", "cron", "browser",
-                                               "canvas", "nodes", "sessions_spawn"):
-        return tool
-    # Map common non-OC names to OC groups
-    _MAP = {
-        "smtp": "group:messaging", "email": "group:messaging",
-        "slack": "group:messaging", "discord": "group:messaging",
-        "whatsapp": "group:messaging", "sms": "group:messaging",
-        "http": "web_fetch", "api": "web_fetch", "fetch": "web_fetch",
-        "web": "group:web", "search": "web_search",
-        "file": "group:fs", "fs": "group:fs", "disk": "group:fs",
-        "python": "exec", "bash": "exec", "shell": "exec", "run": "exec",
-        "code": "exec", "runtime": "group:runtime",
-        "calendar": "group:messaging", "contacts": "group:messaging",
-        "database": "group:fs", "sql": "exec",
-    }
-    return _MAP.get(tool, "group:web")  # default to web for unknown tools
-
-
 def derive_required_oc_tools(
-    built_skills: List[Dict[str, Any]],
+    built_skills: list,
     action_class: str,
-) -> tuple[str, List[str]]:
-    """Derive the required OpenClaw tool profile and allow list from matched skills.
+) -> tuple[str, list[str]]:
+    """Derive OpenClaw tool profile and allow list from matched skills' oc_tools.
 
-    Returns (profile, allow_list).
+    No hardcoded action_class → tool maps.
+    The skills themselves carry their tool requirements in the oc_tools field.
+    Profile is the most common profile across the skills; allow list is the union.
     """
-    # Collect all oc_tools from matched skills
     all_tools: set = set()
+    profiles: list[str] = []
+
     for skill in built_skills:
         oc = skill.get("oc_tools", {})
         if isinstance(oc, dict):
             for t in oc.get("allow", []):
-                normalised = _normalise_oc_tool(t)
-                if normalised:
-                    all_tools.add(normalised)
-            # Also use profile hint
+                if t:
+                    all_tools.add(t.strip())
             skill_profile = oc.get("profile", "")
-            if skill_profile in _TOOL_HIERARCHY:
-                all_tools.update(_TOOL_HIERARCHY[skill_profile])
+            if skill_profile:
+                profiles.append(skill_profile)
 
-    # Determine minimum sufficient profile
-    recommended_profile = _ACTION_PROFILE.get(action_class, "messaging")
-
-    # Choose the most restrictive profile that covers all required tools
-    if all_tools.issubset(_TOOL_HIERARCHY.get("messaging", set())):
-        profile = "messaging"
-    elif all_tools.issubset(_TOOL_HIERARCHY.get("web", set())):
-        profile = "web"
-    elif all_tools.issubset(_TOOL_HIERARCHY.get("coding", set())):
-        profile = "coding"
-    else:
-        profile = "full"
-
-    # If action class recommends stricter profile and it covers all tools, use that
-    action_tools = _TOOL_HIERARCHY.get(recommended_profile, set())
-    if all_tools.issubset(action_tools):
-        profile = recommended_profile
-
-    # Build explicit allow list (deduplicated, sorted)
-    allow_list = sorted(set(list(all_tools) + [f"group:{profile}"]))
-    if not allow_list:
-        allow_list = [f"group:{profile}"]
-
+    profile = max(set(profiles), key=profiles.count) if profiles else (
+        "messaging" if "SEND" in action_class else "coding"
+    )
+    allow_list = sorted(all_tools) if all_tools else [f"group:{profile}"]
     return profile, allow_list
 
 
