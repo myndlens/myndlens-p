@@ -157,17 +157,28 @@ async def match_skills_to_intent(
         score += min(r.get("stars", 0) / 50, 2)
         score *= r.get("relevance_modifier", 1.0)
 
-        # Pre-flight: deprioritise skills whose required_env vars are not configured
+        # Pre-flight env check
         required_env = r.get("required_env", [])
         if required_env:
             missing = [e for e in required_env
                        if e not in configured_envs
                        and not any(e.lower() in ck.lower() for ck in configured_envs)]
             if missing:
-                score *= 0.3   # Deprioritise — skill won't work without these
+                score *= 0.3
                 r["_missing_env"] = missing
 
         r["relevance_score"] = round(score, 2)
+
+        # Fire-and-forget LLM risk classification for skills not yet LLM-assessed
+        # This updates MongoDB async so future calls get the accurate risk level
+        if r.get("skill_md") and not r.get("risk_llm_assessed"):
+            import asyncio as _aio
+            _aio.ensure_future(classify_risk_llm(
+                skill_name=r.get("slug", r.get("name", "")),
+                skill_md=r.get("skill_md", ""),
+                required_tools=r.get("required_tools", ""),
+                required_env=r.get("required_env", []),
+            ))
 
     results.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
     return results[:top_n]
