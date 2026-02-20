@@ -90,7 +90,7 @@ def name_composed_agent(mandate_intent: str, action_class: str, skills: list[str
         "CODE_GEN":      "Code",
         "FIN_TRANS":     "Finance",
         "SYS_CONFIG":    "Config",
-        "DRAFT_ONLY":    "Task",
+        "DRAFT_ONLY":    "Execute",   # more descriptive than "Task"
     }
     verb = _ACTION_VERBS.get(action_class, "Task")
 
