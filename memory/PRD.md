@@ -1,53 +1,104 @@
-# MyndLens Handoff — February 20, 2026
+# MyndLens — Feb 20, 2026 (Updated)
 
-## What Was Built Today
+## What Was Built
 
-### The Core Architecture Shift
-We fundamentally rewired MyndLens from a hardcoded action-class bucket system to a fully LLM-driven, Digital Self-powered mandate pipeline. Every decision is now made by the LLM using examples as reference — zero hardcoding.
+### The Core Architecture
+LLM-driven, Digital Self-powered mandate pipeline. Zero hardcoding.
 
-### The Pipeline (as it should work end-to-end):
+### The Pipeline:
 ```
-User speaks broken thoughts
-  → STT (Deepgram)
+User speaks → STT (Deepgram)
   → Gap Filler (enriches with Digital Self context)
-  → L1 Scout: Extracts REAL intent ("Travel Concierge", not "SCHED_MODIFY")
-  → Mandate Dimension Extractor: Execution-level dimensions, source-tagged
-       Each dim tagged: [USER] stated | [DS] Digital Self | [INF] inferred | [???] missing
-  → Micro-Question Generator: Max 3 clubbed whispers for ALL missing dims
-       Secretary tone, max 6 words, DS-powered, never generic
+  → L1 Scout: Extracts REAL intent ("Travel Concierge", not an enum)
+  → Mandate Dimension Extractor: Execution-level dims, source-tagged
+  → Micro-Question Generator: Max 3 whispers for missing dims
   → User responds → Mandate Completion Loop → re-extract until DEFINITIVE
-  → Post-Mandate DS Learning: every stated preference stored back into Digital Self
+  → Post-Mandate DS Learning: preferences stored back into Digital Self
   → L2 Sentry: Shadow verification
   → Skill Determination: LLM reads 73-skill library, decides what skills needed
-       Execution methods: api / browser / hybrid / manual
   → QC Sentry: Adversarial safety check
   → Dispatch to execution
-  → TTS speaks response (warm secretary tone, ElevenLabs with tuned voice settings)
+  → TTS speaks response (ElevenLabs)
 ```
 
-### Key Principles Established
-1. **ZERO HARDCODING** without explicit user permission. The LLM decides everything — intents, dimensions, questions, skills, options. Libraries and schemas are EXAMPLES, not enforced templates.
-2. **Intent is the REAL intent** — "Travel Concierge", "Event Planning", "Hiring Pipeline". NOT action_class buckets like COMM_SEND/SCHED_MODIFY.
-3. **Mandate = Intent + Dimensions**. A mandate cannot execute with any missing dimension.
-4. **Digital Self is the product**. The richer it gets, the fewer questions needed. Trip 1: 30 questions. Trip 10: 0 questions.
-5. **TTS never breaks chain of thought**. Max 6 words. Secretary whisper. Clubbed into max 3 questions.
-6. **Browser scraping is always available** as execution method when no API exists.
+### Key Principles
+1. **ZERO HARDCODING** — The LLM decides everything.
+2. **Intent is REAL** — "Travel Concierge", "Event Planning". NOT enum buckets.
+3. **Mandate = Intent + Dimensions**.
+4. **Digital Self is the product**.
 
 ---
 
-## CRITICAL UNFINISHED WORK
+## COMPLETED WORK (Feb 20, 2026)
 
-### P0: `action_class` → `intent` rename across 12 files
-The field name `action_class` still exists throughout the codebase as parameter names, field names, API schemas, and database fields. The VALUE is now the real intent ("Travel Concierge"), but the FIELD NAME still says `action_class`. This is dangerous — any code that checks `if action_class == "COMM_SEND"` will silently fail.
+### ✅ P0: Codebase-wide rename `action_class` → `intent`
+Completed across ALL live pipeline files (25 files total):
+- `l1/scout.py` — Hypothesis dataclass (action_class field removed), store_draft, get_draft
+- `l2/sentry.py` — L2Verdict.intent, run_l2_sentry(l1_intent=), _parse_l2_response reads data.get('intent')
+- `gateway/ws_server.py` — Uses l1_intent, l2.intent, qc_sentry(intent=), removed from draft_payload
+- `server.py` — L2RunRequest.l1_intent, QCRunRequest.intent, CreateCommitRequest.intent
+- `qc/sentry.py` — run_qc_sentry(intent=...)
+- `qc/agent_topology.py` — assess_agent_topology removes action_class param
+- `skills/library.py` — match_skills_to_intent removes action_class param
+- `skills/reinforcement.py` — record_skill_outcome removes action_class param
+- `commit/state_machine.py` — create_commit(intent=), stored as 'intent' in MongoDB
+- `dispatcher/dispatcher.py` + `http_client.py` — intent field in MIO payload
+- All `intent_rl/` files — runner, runner_v2, rl_loop, full_pipeline_test, __init__.py
+- Test files updated accordingly
 
-**Files that need the rename:**
-- `l1/scout.py` — Hypothesis dataclass field, parser, store_draft
-- `l2/sentry.py` — L2Verdict dataclass, function params, defaults ("DRAFT_ONLY"), parse function
-- `qc/sentry.py` — function parameter
-- `qc/agent_topology.py` — function parameter
-- `skills/library.py` — match_skills_to_intent parameter
-- `skills/reinforcement.py` — record_skill_outcome parameter and DB field
-- `commit/state_machine.py` — function parameter and DB field
+### ✅ P1: Remove _mock_l1 fallback from production path
+- `run_l1_scout` error handler now uses `raise` instead of returning mock
+- `is_mock_llm() or not EMERGENT_LLM_KEY` now raises RuntimeError
+- `_mock_l1` function kept for test compatibility only, not called in production
+
+**Testing: 34/34 backend tests PASSED (Feb 20, 2026)**
+
+---
+
+## UPCOMING TASKS (Priority Order)
+
+### P2: Build and test final production APK
+Critical for user validation of extensive backend changes.
+
+### P3: Activate On-device Native Modules
+Integrate stubbed logic for expo-contacts and expo-calendar (Tier 1 data ingestion).
+
+## FUTURE TASKS (Backlog)
+
+- Implement Digital Twin Module
+- Implement Explainability UI for the Digital Self
+- Add auth to /api/onboarding/* endpoints (deferred pending SSO decision)
+
+---
+
+## Architecture
+
+```
+/app
+├── backend/
+│   ├── l1/scout.py          # L1 Scout: Hypothesis.intent (NL string)
+│   ├── l2/sentry.py         # L2Verdict.intent (NL string)
+│   ├── gateway/ws_server.py # WS orchestrator
+│   ├── qc/sentry.py         # QC Sentry: intent param
+│   ├── commit/state_machine.py # Commits store 'intent' field
+│   ├── dispatcher/          # MIO payload uses 'intent'
+│   ├── skills/library.py    # 73 skills, no action_class filter
+│   ├── skills/reinforcement.py # Outcome tracking by intent
+│   ├── intent_rl/           # RL training data: intent_category key
+│   └── server.py            # All API models use 'intent'
+```
+
+## Key DB Schema
+- **l1_drafts**: stores `intent` (NL string), `dimensions`, no `action_class`
+- **commits**: stores `intent` (NL string), replaces old `action_class`
+- **intent_corrections**: RL feedback for prompt system
+- **skills_library**: usage_log entries use `intent` field
+
+## 3rd Party Integrations
+- Deepgram (STT) — requires user API key
+- ElevenLabs (TTS) — requires user API key
+- Google Gemini (LLM) — uses Emergent LLM Key
+- ClawHub Skills Ecosystem — 73 skills
 - `dispatcher/dispatcher.py` — reads from mio dict
 - `dispatcher/http_client.py` — function parameter and payload field
 - `server.py` — multiple REST API request/response schemas
