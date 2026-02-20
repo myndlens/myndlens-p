@@ -10,16 +10,6 @@ from pydantic import BaseModel, Field
 import uuid
 
 
-class ActionClass(str, Enum):
-    COMM_SEND = "COMM_SEND"
-    SCHED_MODIFY = "SCHED_MODIFY"
-    INFO_RETRIEVE = "INFO_RETRIEVE"
-    DOC_EDIT = "DOC_EDIT"
-    FIN_TRANS = "FIN_TRANS"
-    SYS_CONFIG = "SYS_CONFIG"
-    DRAFT_ONLY = "DRAFT_ONLY"
-
-
 class RiskTier(int, Enum):
     NO_LATCH = 0
     VOICE_LATCH = 1
