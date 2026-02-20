@@ -145,6 +145,14 @@ export default function SettingsScreen() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
+  // Voice & Calling state
+  const [voiceStatus, setVoiceStatus] = useState<{ calls_used: number; calls_limit: number; byovk_active: boolean } | null>(null);
+  const [voiceLoading, setVoiceLoading] = useState(false);
+  const [byovkAppId, setByovkAppId] = useState('');
+  const [byovkKey, setByovkKey] = useState('');
+  const [byovkFrom, setByovkFrom] = useState('');
+  const [voiceSaveStatus, setVoiceSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
   useEffect(() => {
     loadSettings().then(setPrefs);
     loadIMAPCredentials().then(c => c && setImapCreds(c));
