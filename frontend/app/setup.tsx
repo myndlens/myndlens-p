@@ -204,7 +204,7 @@ export default function SetupWizardScreen() {
             clearInterval(poll);
             setProgress(1);
             setActivationStatus('ready');
-            setTimeout(() => { setStep(6); generateCode(); }, 1500);
+            setTimeout(() => { setStep(6); }, 1500);
           }
         } catch { /* keep polling */ }
       }, 2000);
