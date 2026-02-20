@@ -67,32 +67,41 @@ async def load_and_index_library() -> Dict[str, Any]:
     }
 
 
-async def search_skills(query: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """Search skills by keyword similarity."""
+async def search_skills(
+    query: str,
+    limit: int = 10,
+    category_filter: List[str] | None = None,
+) -> List[Dict[str, Any]]:
+    """Search skills by keyword. Optionally pre-filter by category list."""
     db = get_db()
     q = query.lower().strip()
 
-    # Try text search first
+    # Category pre-filter — narrows search before keyword matching
+    base_filter: dict = {}
+    if category_filter:
+        cat_pattern = "|".join(re.escape(c) for c in category_filter)
+        base_filter["category"] = {"$regex": cat_pattern, "$options": "i"}
+
+    # Text search with optional category filter
+    text_filter = {"$text": {"$search": q}, **base_filter}
     cursor = db.skills_library.find(
-        {"$text": {"$search": q}},
+        text_filter,
         {"_id": 0, "search_text": 0, "score": {"$meta": "textScore"}},
     ).sort([("score", {"$meta": "textScore"})]).limit(limit)
-
     results = await cursor.to_list(limit)
-    if results:
-        return results
 
-    # Fallback: regex search on name + description
-    pattern = "|".join(re.escape(w) for w in q.split() if len(w) > 2)
-    if not pattern:
-        return []
+    # If category-filtered text search returned nothing, fall back to regex without category filter
+    if not results:
+        pattern = "|".join(re.escape(w) for w in q.split() if len(w) > 2)
+        if not pattern:
+            return []
+        cursor = db.skills_library.find(
+            {"search_text": {"$regex": pattern, "$options": "i"}},
+            {"_id": 0, "search_text": 0},
+        ).sort("stars", -1).limit(limit)
+        results = await cursor.to_list(limit)
 
-    cursor = db.skills_library.find(
-        {"search_text": {"$regex": pattern}},
-        {"_id": 0, "search_text": 0},
-    ).sort("stars", -1).limit(limit)
-
-    return await cursor.to_list(limit)
+    return results
 
 
 async def match_skills_to_intent(
