@@ -121,7 +121,18 @@ async def run_qc_sentry(
     except Exception as e:
         latency_ms = (time.monotonic() - start) * 1000
         logger.error("QC Sentry failed: session=%s error=%s", session_id, str(e))
-        return _mock_qc(start)
+        # Fail-safe: block on any unhandled exception — never silently pass
+        return QCVerdict(
+            passes=[QCPass(
+                pass_name="qc_system",
+                passed=False,
+                severity="block",
+                reason=f"QC system error: {type(e).__name__}. Blocking for safety.",
+            )],
+            overall_pass=False,
+            block_reason=f"QC system error: {type(e).__name__}",
+            latency_ms=latency_ms,
+        )
 
 
 def _parse_qc_response(response: str, latency_ms: float, prompt_id: str) -> QCVerdict:
