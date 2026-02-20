@@ -98,7 +98,7 @@ async def broadcast_to_session(
 
 async def handle_ws_connection(websocket: WebSocket) -> None:
     """Main WebSocket handler. Protocol:
-    
+
     1. Client connects
     2. Client sends AUTH message with token + device_id
     3. Server validates, creates session, sends AUTH_OK
