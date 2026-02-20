@@ -149,12 +149,15 @@ def check_guardrails(
 ) -> GuardrailCheck:
     """Run deterministic guardrail gates synchronously.
 
+    NOTE: This function is used by test files only. The live pipeline
+    calls _assess_harm_llm() (async, LLM-based) directly.
+
     Deterministic gates (fast, no LLM):
       1. Ambiguity > 30% → SILENCE
       2. Emotional load > 70% → COOLDOWN
       3. L1 confidence < 40% → CLARIFY
 
-    Harm assessment via LLM is called separately (async) in _send_mock_tts_response.
+    Harm assessment via LLM is called separately (async) in the live pipeline.
     """
     # 1. Ambiguity gate
     if dimensions and dimensions.b_set.ambiguity > 0.30:
