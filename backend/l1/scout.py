@@ -61,22 +61,29 @@ async def run_l1_scout(
     try:
         # Use device context capsule if provided (on-device Digital Self)
         # Fall back to server-side recall ONLY if no capsule (legacy / empty PKG)
+        # NOTE: if transcript is already gap-filled (enriched), skip memory_snippets
+        #       to avoid sending the same Digital Self context twice to the LLM.
         memory_snippets = None
-        if context_capsule:
-            import json as _json
-            try:
-                capsule_data = _json.loads(context_capsule)
-                summary = capsule_data.get("summary", "")
-                if summary:
-                    memory_snippets = [{"text": summary, "provenance": "DEVICE_PKG", "distance": 0.0}]
-                    logger.info("L1 Scout: using on-device context capsule for user=%s", user_id)
-            except Exception:
-                logger.warning("L1 Scout: invalid context capsule, falling back to server recall")
+        transcript_is_enriched = transcript.startswith("[") and "\nUser mandate:" in transcript
 
-        if memory_snippets is None and user_id:
-            from memory.retriever import recall
-            memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=3)
-            logger.info("L1 Scout: recalled %d memories (server) for user=%s", len(memory_snippets), user_id)
+        if not transcript_is_enriched:
+            if context_capsule:
+                import json as _json
+                try:
+                    capsule_data = _json.loads(context_capsule)
+                    summary = capsule_data.get("summary", "")
+                    if summary:
+                        memory_snippets = [{"text": summary, "provenance": "DEVICE_PKG", "distance": 0.0}]
+                        logger.info("L1 Scout: using on-device context capsule for user=%s", user_id)
+                except Exception:
+                    logger.warning("L1 Scout: invalid context capsule, falling back to server recall")
+
+            if memory_snippets is None and user_id:
+                from memory.retriever import recall
+                memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=3)
+                logger.info("L1 Scout: recalled %d memories (server) for user=%s", len(memory_snippets), user_id)
+        else:
+            logger.debug("L1 Scout: transcript is pre-enriched — skipping memory_snippets to avoid duplication")
 
         # Fetch per-user optimization adjustments
         from prompting.user_profiles import get_prompt_adjustments
