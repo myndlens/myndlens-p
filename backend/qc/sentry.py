@@ -53,7 +53,7 @@ async def run_qc_sentry(
     session_id: str,
     user_id: str,
     transcript: str,
-    action_class: str,
+    intent: str,
     intent_summary: str,
     persona_summary: str = "",
     skill_risk: str = "low",

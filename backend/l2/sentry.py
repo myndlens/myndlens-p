@@ -180,7 +180,7 @@ def _parse_l2_response(
     except (json.JSONDecodeError, KeyError) as e:
         logger.warning("L2 parse failed: %s", str(e))
         return L2Verdict(
-            action_class="DRAFT_ONLY",
+            intent="",
             confidence=0.3,
             chain_of_logic=f"Parse failed: {response[:100]}",
             latency_ms=latency_ms,
@@ -189,11 +189,11 @@ def _parse_l2_response(
 
 
 def _mock_l2(
-    transcript: str, l1_action: str, l1_conf: float, start_time: float
+    transcript: str, l1_intent: str, l1_conf: float, start_time: float
 ) -> L2Verdict:
     """Mock L2 — returns Unknown when no LLM available."""
     return L2Verdict(
-        action_class="Unknown",
+        intent="Unknown",
         confidence=0.3,
         chain_of_logic="Mock: LLM unavailable",
         shadow_agrees_with_l1=False,
