@@ -392,13 +392,13 @@ async def _handle_execute_request(
         # Stage 4: Oral approval received — done
         await broadcast_stage(session_id, 4, "done")
 
-        # Stage 5: L2 Sentry verification
+        # Stage 5: L2 Sentry verification (with enriched transcript + DS context)
         await broadcast_stage(session_id, 5, "active", "Verifying intent...")
         from l2.sentry import run_l2_sentry
         l2 = await run_l2_sentry(
             session_id=session_id,
             user_id=user_id,
-            transcript=draft.transcript,
+            transcript=enriched_for_verify,
             l1_action_class=top.action_class,
             l1_confidence=top.confidence,
             dimensions=dim_state.to_dict(),
@@ -407,6 +407,16 @@ async def _handle_execute_request(
             "L2 Sentry: session=%s action=%s conf=%.2f agrees=%s",
             session_id, l2.action_class, l2.confidence, l2.shadow_agrees_with_l1,
         )
+
+        # L1/L2 disagreement — use L2 as authoritative (shadow derivation principle)
+        effective_action = l2.action_class
+        if not l2.shadow_agrees_with_l1 and l2.conflicts:
+            logger.warning(
+                "L1/L2 disagreement: session=%s L1=%s L2=%s conflicts=%s",
+                session_id, top.action_class, l2.action_class, l2.conflicts,
+            )
+            # L2 (independent derivation) overrides L1 for dispatch
+            # The user confirmed the intent — L2 resolves the ambiguity silently
 
         # QC Sentry
         from qc.sentry import run_qc_sentry
