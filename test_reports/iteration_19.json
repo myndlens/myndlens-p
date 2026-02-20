@@ -1,0 +1,61 @@
+{
+  "summary": "Backend-only testing for codebase-wide rename: action_class → intent. All 34 tests PASSED. Verified: health endpoint, L2/QC/commit/skills APIs accept and return 'intent' (not 'action_class'), Python syntax clean for all 6 key pipeline files, L1 Scout error handler uses 'raise' (no-fallback policy), L2Verdict/Hypothesis dataclasses use 'intent' field, _parse_l2_response reads data.get('intent') from LLM JSON. Real Gemini LLM calls active (EMERGENT_LLM_KEY set, MOCK_LLM=False).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "l1/scout.py _mock_l1 function",
+        "issue": "_mock_l1() function still exists in scout.py (kept for test compatibility per E1's note), but is correctly NOT called in production path (error handler uses bare 'raise'). This is intentional per spec.",
+        "priority": "INFO"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_intent_rename.py",
+    "/app/test_reports/pytest/intent_rename_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "VERIFIED: l1/scout.py Hypothesis.intent field present, no action_class anywhere in file",
+    "VERIFIED: l2/sentry.py L2Verdict.intent field, run_l2_sentry(l1_intent=...), _parse_l2_response reads data.get('intent')",
+    "VERIFIED: gateway/ws_server.py uses l1_intent=top.intent, l2.intent in execute pipeline",
+    "VERIFIED: qc/sentry.py run_qc_sentry(intent=...) signature",
+    "VERIFIED: commit/state_machine.py create_commit(intent=...) field, stored as 'intent' in MongoDB",
+    "VERIFIED: server.py L2RunRequest.l1_intent, QCRunRequest.intent, CreateCommitRequest.intent",
+    "VERIFIED: L1 Scout raises RuntimeError (no mock fallback) when EMERGENT_LLM_KEY missing",
+    "VERIFIED: L1 Scout except block uses bare 'raise' (not _mock_l1()) — P1 change confirmed",
+    "NOTE: Some test files in /app/backend/tests/ still contain 'action_class' in comments/variable names (not API fields) — these are legacy comments and won't affect runtime",
+    "NOTE: intent_rl/runner.py has 'action_class' in a comment and correction_type string — these are internal RL tracking fields, not API fields, and don't affect the live pipeline"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_intent_rename.py"
+  ],
+  "success_rate": {
+    "backend": "100% (34/34 tests passed)"
+  },
+  "seed_data_creation": "Commit records created for test_session_rename_001/002/003 and random UUIDs — safe to clean up",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Intent rename is fully complete and verified. All 6 key pipeline files use 'intent' instead of 'action_class'. The test suite in test_intent_rename.py covers health, L2, QC, commit create+persist, skills match, syntax checks, no-fallback policy (L1 raise), and absence of action_class in all API responses. Real LLM (Gemini Flash) is active - tests involving LLM calls take ~2 mins total.",
+  "test_breakdown": {
+    "total_tests": 34,
+    "passed": 34,
+    "failed": 0,
+    "test_groups": {
+      "TestHealth": "3/3 passed",
+      "TestL2Sentry": "5/5 passed",
+      "TestQCSentry": "4/4 passed",
+      "TestCommitCreate": "4/4 passed",
+      "TestSkillsMatch": "4/4 passed",
+      "TestPythonSyntax": "6/6 passed",
+      "TestNoActionClassInResponses": "3/3 passed",
+      "TestL1ScoutNoFallback": "2/2 passed",
+      "TestL2ParseIntent": "3/3 passed"
+    }
+  }
+}
