@@ -841,7 +841,85 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
 
     await _emit_stage("digital_self", 1, "done")
 
-    # ── STEP 1.5: Extraction-time coherence check (no LLM, zero latency) ───
+    # ── STEP 1.5: Micro-Question Clarification Loop ─────────────────────────
+    # If L1 has low confidence or missing dimensions, generate personalized
+    # micro-questions (TTS → user → STT → re-run L1 with enriched context)
+    if l1_draft.hypotheses and not l1_draft.is_mock:
+        top_check = l1_draft.hypotheses[0]
+        from intent.micro_questions import should_ask_micro_questions, generate_micro_questions
+
+        if should_ask_micro_questions(top_check.confidence, top_check.dimension_suggestions):
+            # Only attempt clarification once per mandate (no infinite loops)
+            clarify_state = _clarification_state.get(session_id, {})
+            attempt = clarify_state.get("attempts", 0)
+
+            if attempt == 0:
+                logger.info("[MANDATE:1.5:MICRO_Q] session=%s generating micro-questions (conf=%.2f)",
+                            session_id, top_check.confidence)
+                await _emit_stage("digital_self", 1, "active", "Asking to clarify...")
+
+                mq_result = await generate_micro_questions(
+                    session_id=session_id,
+                    user_id=user_id,
+                    transcript=transcript,
+                    hypothesis=top_check.hypothesis,
+                    confidence=top_check.confidence,
+                    dimensions=top_check.dimension_suggestions,
+                )
+
+                if mq_result.questions:
+                    # Pick the best question (first one)
+                    question = mq_result.questions[0]
+
+                    # Store clarification state so response handler knows to re-run
+                    _clarification_state[session_id] = {
+                        "pending": True,
+                        "original_transcript": transcript,
+                        "enriched_transcript": enriched_transcript,
+                        "question_asked": question.question,
+                        "context_capsule": context_capsule,
+                        "attempts": 1,
+                    }
+
+                    # Send the question to the client
+                    clarify_payload = {
+                        "question": question.question,
+                        "why": question.why,
+                        "options": question.options,
+                        "dimension": question.dimension_filled,
+                        "session_id": session_id,
+                    }
+                    data = _make_envelope(WSMessageType.CLARIFICATION_QUESTION, clarify_payload)
+                    await ws.send_text(data)
+
+                    # TTS the question so user HEARS it
+                    tts = get_tts_provider()
+                    tts_result = await tts.synthesize(question.question)
+                    if tts_result.audio_bytes and not tts_result.is_mock:
+                        import base64 as _b64
+                        audio_b64 = _b64.b64encode(tts_result.audio_bytes).decode("ascii")
+                        tts_payload = {
+                            "text": question.question,
+                            "session_id": session_id,
+                            "format": "mp3",
+                            "is_mock": False,
+                            "audio": audio_b64,
+                            "audio_size_bytes": len(tts_result.audio_bytes),
+                            "is_clarification": True,
+                        }
+                        data = _make_envelope(WSMessageType.TTS_AUDIO, tts_payload)
+                        await ws.send_text(data)
+
+                    logger.info(
+                        "[MANDATE:1.5:MICRO_Q] session=%s ASKED: '%s' — waiting for response",
+                        session_id, question.question,
+                    )
+                    # STOP pipeline here — wait for user's spoken/typed response
+                    # The response will come as text_input or audio_chunk
+                    # which will be handled by _handle_clarification_response
+                    return
+
+    # ── STEP 1.5b: Coherence check (legacy, kept for non-clarification path) ─
     if l1_draft.hypotheses:
         top_check = l1_draft.hypotheses[0]
         # Coherence check removed — L1 Scout (Gemini) is the classifier. Trust it.
