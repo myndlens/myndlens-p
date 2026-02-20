@@ -1,8 +1,8 @@
-"""Mandate Question Generator — ONE question per missing dimension.
+"""Mandate Question Generator — LLM-driven, zero hardcoding.
 
-Takes the mandate, finds EVERY [???], generates a whisper-question for each.
-DS-known preferences: confirm with "X again?" 
-Unknown: ask with smart options from the dimension schema.
+The LLM receives the mandate with missing dimensions.
+The LLM generates the right question with the right options.
+No hardcoded option maps. No hardcoded schemas.
 """
 import json
 import logging
@@ -51,35 +51,6 @@ def get_all_missing(mandate: Dict[str, Any]) -> List[Dict[str, str]]:
     return missing
 
 
-# Smart default options per dimension type — no LLM needed for these
-_DIMENSION_OPTIONS = {
-    "dep_time_pref": ["morning", "midday", "afternoon", "evening", "red-eye"],
-    "ret_time_pref": ["morning", "midday", "afternoon", "evening"],
-    "class": ["economy", "premium economy", "business", "first"],
-    "seat_pref": ["window", "aisle", "any"],
-    "meal_pref": ["standard", "vegetarian", "vegan", "halal", "kosher"],
-    "baggage": ["carry-on only", "1 checked bag", "2 checked bags"],
-    "room_type": ["single", "double", "twin", "suite"],
-    "bed_type": ["king", "queen", "twin"],
-    "star_rating": ["3-star", "4-star", "5-star"],
-    "car_type": ["compact", "sedan", "SUV", "luxury", "minivan"],
-    "transmission": ["automatic", "manual"],
-    "insurance": ["basic", "full coverage", "none"],
-    "gps": ["yes", "no"],
-    "child_seat": ["yes", "no"],
-    "direct_only": ["yes", "no"],
-    "breakfast_included": ["yes", "no"],
-    "late_checkout": ["yes", "no"],
-    "additional_driver": ["yes", "no"],
-    "price_range": ["budget", "mid-range", "fine dining"],
-    "urgency": ["immediate", "today", "this week"],
-    "tone": ["formal", "casual"],
-    "format": ["pdf", "docx", "slides", "html"],
-    "length": ["short", "medium", "detailed"],
-    "recurring": ["one-time", "weekly", "biweekly", "monthly"],
-}
-
-
 async def generate_mandate_questions(
     session_id: str,
     user_id: str,
@@ -88,7 +59,7 @@ async def generate_mandate_questions(
     batch_size: int = 50,
     batch_number: int = 1,
 ) -> MicroQuestionBatch:
-    """Generate whisper-questions for ALL missing mandate dimensions."""
+    """Generate whisper-questions for ALL missing mandate dimensions. Zero hardcoding."""
     settings = get_settings()
     start = time.monotonic()
 
@@ -96,7 +67,6 @@ async def generate_mandate_questions(
     if not all_missing:
         return MicroQuestionBatch(questions=[], total_missing=0, batch_number=batch_number)
 
-    # Priority order: high actions first
     priority_order = {"high": 0, "medium": 1, "low": 2}
     all_missing.sort(key=lambda x: priority_order.get(x["priority"], 1))
     batch = all_missing[:batch_size]
@@ -110,25 +80,22 @@ async def generate_mandate_questions(
     from memory.retriever import recall
     memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=5)
 
-    # Build explicit list — ONE line per dimension
-    dim_lines = []
-    for d in batch:
-        opts = _DIMENSION_OPTIONS.get(d["dimension"], [])
-        opt_str = f" (options: {'/'.join(opts)})" if opts else ""
-        dim_lines.append(f"  {len(dim_lines)+1}. [{d['action']}] {d['dimension']}{opt_str}")
+    # Build the missing list — just action + dimension name
+    dim_lines = "\n".join(
+        f"  {i+1}. [{d['action']}] {d['dimension']}"
+        for i, d in enumerate(batch)
+    )
 
     task = (
         f"Intent: {mandate.get('intent', '')}\n"
         f"User said: \"{transcript}\"\n\n"
-        f"Generate EXACTLY {len(batch)} questions — one per missing dimension:\n"
-        + "\n".join(dim_lines) + "\n\n"
-        "RULES:\n"
-        "- EXACTLY one question per dimension listed above. Count must match.\n"
-        "- Max 6 words. Secretary whisper tone.\n"
-        "- If Digital Self has a pattern, reference it: 'Window again?', 'Hertz like usual?'\n"
-        "- If options exist, pick the most likely and confirm: 'Automatic, right?'\n"
-        "- If no DS data and no default, ask directly: 'GPS needed?', 'King or queen bed?'\n"
-        "- NEVER skip a dimension. NEVER combine two into one question.\n\n"
+        f"These {len(batch)} dimensions are MISSING from the mandate:\n{dim_lines}\n\n"
+        f"Generate EXACTLY {len(batch)} whisper-questions — one per missing dimension.\n\n"
+        "For each question:\n"
+        "- Use Digital Self to personalize (reference names, brands, past patterns)\n"
+        "- Provide realistic options where the dimension has a finite set of choices\n"
+        "- Max 6 words. Secretary whisper. You KNOW this person.\n"
+        "- NEVER generic. NEVER skip a dimension.\n\n"
         "Output JSON:\n"
         "{\"questions\": [\n"
         + ",\n".join(
@@ -165,8 +132,8 @@ async def generate_mandate_questions(
     questions = _parse_questions(response)
 
     logger.info(
-        "[MandateMQ] session=%s batch=%d asked=%d/%d total_missing=%d %.0fms",
-        session_id, batch_number, len(questions), len(batch), len(all_missing), latency_ms,
+        "[MandateMQ] session=%s asked=%d/%d total_missing=%d %.0fms",
+        session_id, len(questions), len(batch), len(all_missing), latency_ms,
     )
 
     return MicroQuestionBatch(
