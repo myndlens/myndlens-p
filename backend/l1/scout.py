@@ -169,7 +169,7 @@ def _parse_l1_response(response: str, transcript: str, latency_ms: float, prompt
 
     return L1DraftObject(
         hypotheses=hypotheses,
-        transcript=transcript,
+        transcript=transcript,  # stored as-is (enriched for LLM, but user-facing display uses this)
         latency_ms=latency_ms,
         prompt_id=prompt_id,
     )
