@@ -53,7 +53,6 @@ def _tool_label(tool: str) -> str:
 
 async def assess_agent_topology(
     intent: str,
-    action_class: str,
     skill_names: List[str],
     built_skills: List[Dict[str, Any]],
 ) -> AgentTopology:
@@ -147,7 +146,7 @@ async def assess_agent_topology(
     topology.approval_lines = lines
 
     logger.info(
-        "[AgentTopology] action=%s complexity=%s agents=%d coordination=%s",
-        action_class, topology.complexity, len(topology.sub_agents), topology.coordination,
+        "[AgentTopology] intent=%s complexity=%s agents=%d coordination=%s",
+        intent, topology.complexity, len(topology.sub_agents), topology.coordination,
     )
     return topology

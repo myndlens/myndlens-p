@@ -86,7 +86,7 @@ async def run_qc_sentry(
             user_id=user_id,
             transcript=transcript,
             task_description=(
-                f"QC Adversarial Review: intent='{intent_summary}' action={action_class}.{persona_context}{skills_context}\n"
+            f"QC Adversarial Review: intent='{intent_summary}' intent={intent}.{persona_context}{skills_context}\n"
                 f"Run 3 adversarial checks:\n"
                 f"1. persona_drift: Does this action match the user's known communication style above? "
                 f"Flag if the request contradicts their established patterns.\n"
