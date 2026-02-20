@@ -109,6 +109,10 @@ async def init_indexes() -> None:
     await db.vector_store.create_index("doc_id", unique=True)
     await db.vector_store.create_index([("metadata.user_id", 1)])
 
+    # AgentGuard security reports: execution_id lookup
+    await db.agentguard_reports.create_index("execution_id")
+    await db.agentguard_reports.create_index("reported_at")
+
     # Rate limits: TTL auto-cleanup
     await db.rate_limits.create_index("expires_at", expireAfterSeconds=0)
     await db.rate_limits.create_index([("bucket", 1), ("timestamp", -1)])
