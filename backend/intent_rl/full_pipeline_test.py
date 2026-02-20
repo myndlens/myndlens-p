@@ -108,7 +108,7 @@ async def _execute_pipeline(batch_size: int, delay: float) -> None:
 
             pipe_result.stages.append(PipelineStageResult(
                 stage="L1_SCOUT", latency_ms=l1.latency_ms, success=True,
-                data={"hypothesis": l1_hyp[:80], "action_class": l1_class, "confidence": l1_conf},
+                data={"hypothesis": l1_hyp[:80], "intent": l1_class, "confidence": l1_conf},
             ))
         except Exception as e:
             pipe_result.stages.append(PipelineStageResult(
@@ -176,13 +176,13 @@ async def _execute_pipeline(batch_size: int, delay: float) -> None:
         try:
             l2 = await run_l2_sentry(
                 session_id=session_id, user_id=RL_USER_ID, transcript=transcript,
-                l1_action_class=l1_class, l1_confidence=l1_conf, dimensions=dims,
+                l1_intent=l1_class, l1_confidence=l1_conf, dimensions=dims,
             )
             agrees, reason = check_l1_l2_agreement(l1_class, l1_conf, l2)
             pipe_result.l1_l2_agreement = agrees
             pipe_result.stages.append(PipelineStageResult(
                 stage="L2_SENTRY", latency_ms=l2.latency_ms, success=True,
-                data={"action_class": l2.intent, "confidence": l2.confidence,
+                data={"intent": l2.intent, "confidence": l2.confidence,
                       "agrees_with_l1": agrees, "risk_tier": l2.risk_tier,
                       "chain_of_logic": l2.chain_of_logic[:60]},
             ))

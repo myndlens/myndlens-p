@@ -135,7 +135,7 @@ async def _execute_v2_batch(dataset: list, delay: float) -> None:
             for h in draft.hypotheses:
                 all_hyps.append({
                     "hypothesis": h.hypothesis,
-                    "action_class": h.intent,
+                    "intent": h.intent,
                     "confidence": h.confidence,
                     "dimensions": h.dimension_suggestions,
                 })
@@ -277,7 +277,7 @@ _INTENT_KEYWORDS = {
 }
 
 
-def _check_intent_match(hypothesis: str, action_class: str, all_hyps: list, ground_truth: str) -> bool:
+def _check_intent_match(hypothesis: str, intent: str, all_hyps: list, ground_truth: str) -> bool:
     """Check if the LLM identified the correct main intent."""
     combined = hypothesis.lower()
     for h in all_hyps:

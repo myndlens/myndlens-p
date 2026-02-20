@@ -84,13 +84,13 @@ async def _execute_rl_loop(n_iterations: int, delay: float) -> None:
                     user_id=RL_USER_ID,
                     transcript=case["broken_thoughts"],
                 )
-                all_hyps = [{"hypothesis": h.hypothesis, "action_class": h.intent,
+                all_hyps = [{"hypothesis": h.hypothesis, "intent": h.intent,
                              "confidence": h.confidence, "dimensions": h.dimension_suggestions}
                             for h in draft.hypotheses]
 
                 top = draft.hypotheses[0] if draft.hypotheses else None
                 extracted_hyp = top.hypothesis if top else ""
-                extracted_class = top.action_class if top else "NONE"
+                extracted_class = top.intent if top else "NONE"
 
                 intent_match = _check_intent_match(extracted_hyp, extracted_class, all_hyps, case["main_intent"])
                 _, sub_cov = _check_sub_intents(extracted_hyp, all_hyps, case["sub_intents"])
