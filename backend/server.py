@@ -1836,6 +1836,49 @@ async def api_test_clarification_loop(req: ClarificationLoopRequest):
     }
 
 
+# ── Full Pipeline Test: L1 → Micro-Q → Dimensions → L2 → QC ──
+
+@api_router.post("/pipeline/test/run")
+async def api_run_pipeline_test(batch_size: int = 10, seed: bool = True):
+    """Run full pipeline test: L1 → Micro-Q → Dimensions → L2 Sentry → QC Sentry."""
+    from intent_rl.full_pipeline_test import run_full_pipeline_test, get_pipeline_state
+    state = get_pipeline_state()
+    if state["running"]:
+        return {"status": "already_running", "progress": f"{state['completed']}/{state['total']}"}
+    if seed:
+        from intent_rl.seed_digital_self import seed_digital_self, clear_digital_self
+        await clear_digital_self()
+        await seed_digital_self()
+    result = await run_full_pipeline_test(batch_size=min(batch_size, 40))
+    return {"status": result, "total_cases": min(batch_size, 40)}
+
+
+@api_router.get("/pipeline/test/status")
+async def api_pipeline_test_status():
+    """Get full pipeline test status."""
+    from intent_rl.full_pipeline_test import get_pipeline_state
+    state = get_pipeline_state()
+    return {
+        "running": state["running"],
+        "progress": f"{state['completed']}/{state['total']}",
+        "summary": state.get("summary", {}),
+        "started_at": state.get("started_at"),
+        "completed_at": state.get("completed_at"),
+    }
+
+
+@api_router.get("/pipeline/test/results")
+async def api_pipeline_test_results():
+    """Get full pipeline test case-by-case results."""
+    from intent_rl.full_pipeline_test import get_pipeline_state
+    state = get_pipeline_state()
+    return {
+        "running": state["running"],
+        "summary": state.get("summary", {}),
+        "results": state.get("results", []),
+    }
+
+
 
 # Include REST router
 app.include_router(api_router)
