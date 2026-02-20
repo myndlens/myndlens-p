@@ -213,8 +213,12 @@ async def compose_from_skills(
 
     composed: list[AssembledAgent] = []
     mandate_context = f"Mandate: {mandate_intent}"
+    seen_categories: set = set()  # prevent duplicate agents for same category
 
     for cat, skills in groups.items():
+        if cat in seen_categories:
+            continue
+        seen_categories.add(cat)
         slugs = [s.get("slug", s.get("name", "")) for s in skills]
         name = name_composed_agent(mandate_intent, action_class, slugs)
 
