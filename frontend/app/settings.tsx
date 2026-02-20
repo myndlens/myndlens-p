@@ -158,6 +158,7 @@ export default function SettingsScreen() {
     loadIMAPCredentials().then(c => c && setImapCreds(c));
     loadGmailToken().then(t => t && setGmailToken(t));
     loadLinkedInCredentials().then(c => c && setLinkedinToken(c?.access_token ?? ''));
+    loadVoiceStatus();
     if (userId) {
       fetch(`${ENV.API_URL}/nickname/${userId}`)
         .then(r => r.json())
@@ -165,6 +166,69 @@ export default function SettingsScreen() {
         .catch(() => {});
     }
   }, [userId]);
+
+  async function loadVoiceStatus() {
+    setVoiceLoading(true);
+    try {
+      const token = await getStoredToken();
+      const data = await obegee('/voice/status', undefined, token ?? undefined);
+      setVoiceStatus({
+        calls_used: data.calls_used ?? 0,
+        calls_limit: data.calls_limit ?? 5,
+        byovk_active: data.byovk_active ?? false,
+      });
+    } catch {
+      // Voice status not critical — fail silently
+    } finally {
+      setVoiceLoading(false);
+    }
+  }
+
+  async function handleSaveVoiceConfig() {
+    if (!byovkAppId.trim() || !byovkKey.trim() || !byovkFrom.trim()) {
+      Alert.alert('Missing fields', 'Application ID, private key, and phone number are all required.');
+      return;
+    }
+    setVoiceSaveStatus('saving');
+    try {
+      const token = await getStoredToken();
+      await obegee('/voice/config', {
+        method: 'POST',
+        body: JSON.stringify({
+          app_id: byovkAppId.trim(),
+          private_key: byovkKey.trim(),
+          from_number: byovkFrom.trim(),
+        }),
+      }, token ?? undefined);
+      setVoiceSaveStatus('saved');
+      await loadVoiceStatus();
+      setTimeout(() => setVoiceSaveStatus('idle'), 3000);
+    } catch (e: any) {
+      setVoiceSaveStatus('error');
+      Alert.alert('Save failed', e.message || 'Could not save Vonage credentials.');
+      setTimeout(() => setVoiceSaveStatus('idle'), 3000);
+    }
+  }
+
+  async function handleRemoveVoiceConfig() {
+    Alert.alert(
+      'Remove Vonage credentials',
+      'Your calls will revert to the free tier (5 calls/month via ObeGee). Your existing call history is kept.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: async () => {
+          try {
+            const token = await getStoredToken();
+            await obegee('/voice/config', { method: 'DELETE' }, token ?? undefined);
+            setByovkAppId(''); setByovkKey(''); setByovkFrom('');
+            await loadVoiceStatus();
+          } catch (e: any) {
+            Alert.alert('Error', e.message || 'Could not remove credentials.');
+          }
+        }},
+      ],
+    );
+  }
 
   const update = useCallback(async (patch: Partial<UserSettings>) => {
     // Use functional state update to avoid stale closure — reads latest prefs
