@@ -569,11 +569,15 @@ async def _handle_execute_request(
             ],
             # OpenClaw tool policy (actual OpenClaw tool names, not custom strings)
             "tools": oc_tools,
-            # Agent configuration in OpenClaw format
+            # Agent configuration: full spec sent to ObeGee for provisioning
             "agent_config": {
-                "id": assigned_agent_id or "default",
-                "profile": oc_tools["profile"],
-                "coordination": topology.coordination,    # sequential | parallel | hybrid
+                "id": agent_spec.agent_id,
+                "profile": agent_spec.profile,
+                "tools": {"allow": agent_spec.tools_allow, "deny": agent_spec.tools_deny},
+                "model": agent_spec.model,
+                "workspace": agent_spec.workspace,
+                "source": agent_spec.source,   # "existing" → reuse; "dynamic" → provision
+                "coordination": topology.coordination,
                 "sub_agent_roles": [
                     {"role": a.role, "skills": a.skills}
                     for a in topology.sub_agents
@@ -581,7 +585,7 @@ async def _handle_execute_request(
             },
             # Metadata for audit/RL
             "skill_risk": skill_risk,
-            "assigned_agent_id": assigned_agent_id or "default",
+            "assigned_agent_id": agent_spec.agent_id,
             "approved_at": datetime.now(timezone.utc).isoformat(),
             "approved_by": user_id,
         }
