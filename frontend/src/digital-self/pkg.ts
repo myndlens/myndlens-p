@@ -17,8 +17,31 @@ import * as SecureStore from 'expo-secure-store';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type NodeType = 'Person' | 'Place' | 'Event' | 'Trait' | 'Interest' | 'Source' | 'User';
-export type EdgeType = 'RELATIONSHIP' | 'ASSOCIATED_WITH' | 'HAS_TRAIT' | 'HAS_INTEREST' | 'DERIVED_FROM';
+// Node types: base types + ontology-aligned types from ClawHub `ontology` skill
+export type NodeType =
+  | 'Person'     // Contact, colleague, family member
+  | 'User'       // The MyndLens user themselves
+  | 'Place'      // Location, city, venue, address
+  | 'Event'      // Calendar event, meeting, appointment
+  | 'Trait'      // Behavioural pattern (Night Owl, Traveller)
+  | 'Interest'   // Topic of interest, domain
+  | 'Source'     // Data provenance node
+  | 'Task'       // Actionable item with status/due date (from ontology skill)
+  | 'Project'    // Collection of tasks with goals (from ontology skill)
+  | 'Document';  // File, report, article, URL (from ontology skill)
+
+// Edge types: base + ontology relationship types
+export type EdgeType =
+  | 'RELATIONSHIP'      // Person ↔ Person (manager, colleague, friend)
+  | 'ASSOCIATED_WITH'   // General association
+  | 'HAS_TRAIT'         // User → Trait
+  | 'HAS_INTEREST'      // User → Interest
+  | 'DERIVED_FROM'      // Node derived from another
+  | 'WORKS_ON'          // Person → Task / Project (from ontology)
+  | 'PART_OF'           // Task → Project (from ontology)
+  | 'DEPENDS_ON'        // Task → Task dependency (from ontology)
+  | 'INVOLVES'          // Event → Person (from ontology)
+  | 'CONTAINS';         // Project → Document (from ontology)
 
 export interface PKGNode {
   id: string;
