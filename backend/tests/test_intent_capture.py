@@ -66,7 +66,7 @@ def _pipeline(transcript: str) -> dict:
     return {
         "transcript": transcript,
         "hypotheses": draft.hypotheses,
-        "action_class": draft.hypotheses[0].action_class if draft.hypotheses else "NONE",
+        "intent": draft.hypotheses[0].intent if draft.hypotheses else "NONE",
         "confidence": draft.hypotheses[0].confidence if draft.hypotheses else 0.0,
         "ambiguity": dim.b_set.ambiguity,
         "guardrail": guardrail.result.value,
@@ -99,52 +99,52 @@ class TestCodingMandates:
 
     def test_hello_world_python(self):
         r = _pipeline("Create Hello World code in Python")
-        print(f"\n[T01] {r['transcript']} → action={r['action_class']} conf={r['confidence']:.2f} guardrail={r['guardrail']}")
+        print(f"\n[T01] {r['transcript']} → action={r['intent']} conf={r['confidence']:.2f} guardrail={r['guardrail']}")
         _assert_passes(r)
 
     def test_hello_world_javascript(self):
         r = _pipeline("Write a Hello World program in JavaScript")
-        print(f"\n[T02] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T02] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_sort_algorithm(self):
         r = _pipeline("Write a bubble sort algorithm in Python")
-        print(f"\n[T03] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T03] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_api_endpoint(self):
         r = _pipeline("Create a REST API endpoint for user registration in FastAPI")
-        print(f"\n[T04] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T04] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_fibonacci(self):
         r = _pipeline("Write a Fibonacci sequence function in Python")
-        print(f"\n[T05] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T05] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_sql_query(self):
         r = _pipeline("Write a SQL query to find all users who registered in the last 30 days")
-        print(f"\n[T06] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T06] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_unit_test(self):
         r = _pipeline("Write a unit test for the login function")
-        print(f"\n[T07] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T07] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_docker_compose(self):
         r = _pipeline("Create a Docker Compose file for a Python Flask app with Redis")
-        print(f"\n[T08] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T08] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_regex_pattern(self):
         r = _pipeline("Write a regex pattern to validate email addresses")
-        print(f"\n[T09] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T09] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_data_pipeline(self):
         r = _pipeline("Build a data pipeline to read CSV files and store them in MongoDB")
-        print(f"\n[T10] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T10] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
 
@@ -156,52 +156,52 @@ class TestCommunicationMandates:
 
     def test_send_email_simple(self):
         r = _pipeline("Send an email to John about tomorrow's meeting")
-        print(f"\n[T11] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T11] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_send_whatsapp(self):
         r = _pipeline("Send a WhatsApp message to Sarah saying I'll be late")
-        print(f"\n[T12] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T12] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_send_slack(self):
         r = _pipeline("Post a message in the engineering Slack channel about the deployment")
-        print(f"\n[T13] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T13] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_reply_email(self):
         r = _pipeline("Reply to the last email from Bob confirming the contract")
-        print(f"\n[T14] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T14] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_draft_email(self):
         r = _pipeline("Draft an email to the client explaining the project delay")
-        print(f"\n[T15] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T15] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_send_sms(self):
         r = _pipeline("Send an SMS to my wife that I'm on my way home")
-        print(f"\n[T16] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T16] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_forward_message(self):
         r = _pipeline("Forward the invoice email to the finance team")
-        print(f"\n[T17] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T17] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_send_report(self):
         r = _pipeline("Send the weekly report to my manager")
-        print(f"\n[T18] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T18] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_notify_team(self):
         r = _pipeline("Notify the entire team that the server will be down for maintenance tonight")
-        print(f"\n[T19] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T19] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_send_invitation(self):
         r = _pipeline("Send a calendar invite to Alice and Bob for a standup at 9am")
-        print(f"\n[T20] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T20] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
 
@@ -213,42 +213,42 @@ class TestSchedulingMandates:
 
     def test_schedule_meeting(self):
         r = _pipeline("Schedule a team meeting for Monday at 10am")
-        print(f"\n[T21] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T21] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_reschedule(self):
         r = _pipeline("Reschedule my 3pm meeting to tomorrow at 4pm")
-        print(f"\n[T22] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T22] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_cancel_meeting(self):
         r = _pipeline("Cancel my dentist appointment on Friday")
-        print(f"\n[T23] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T23] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_block_time(self):
         r = _pipeline("Block two hours on Thursday afternoon for deep work")
-        print(f"\n[T24] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T24] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_recurring_meeting(self):
         r = _pipeline("Set up a weekly recurring standup every Monday at 9am")
-        print(f"\n[T25] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T25] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_find_free_slot(self):
         r = _pipeline("Find a free 30-minute slot this week for a client call")
-        print(f"\n[T26] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T26] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_set_reminder(self):
         r = _pipeline("Remind me to submit the expense report by end of day Friday")
-        print(f"\n[T27] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T27] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_add_to_calendar(self):
         r = _pipeline("Add my flight to London on December 15th at 6am to my calendar")
-        print(f"\n[T28] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T28] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
 
@@ -260,42 +260,42 @@ class TestInfoRetrievalMandates:
 
     def test_find_document(self):
         r = _pipeline("Find the Q3 financial report from last month")
-        print(f"\n[T29] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T29] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_summarize(self):
         r = _pipeline("Summarize the last 10 emails from the sales team")
-        print(f"\n[T30] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T30] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_check_status(self):
         r = _pipeline("What is the current status of the AWS deployment?")
-        print(f"\n[T31] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T31] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_search_web(self):
         r = _pipeline("Search for the latest Python 3.13 release notes")
-        print(f"\n[T32] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T32] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_lookup_contact(self):
         r = _pipeline("Look up John Smith's phone number in my contacts")
-        print(f"\n[T33] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T33] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_check_availability(self):
         r = _pipeline("Check if Alice is available for a meeting on Wednesday")
-        print(f"\n[T34] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T34] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_track_package(self):
         r = _pipeline("Track my Amazon package with order number 12345")
-        print(f"\n[T35] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T35] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_get_weather(self):
         r = _pipeline("Get the weather forecast for London tomorrow")
-        print(f"\n[T36] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T36] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
 
@@ -307,32 +307,32 @@ class TestDocumentMandates:
 
     def test_create_report(self):
         r = _pipeline("Create a monthly progress report for the engineering team")
-        print(f"\n[T37] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T37] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_edit_document(self):
         r = _pipeline("Edit the project proposal to update the budget section to $50,000")
-        print(f"\n[T38] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T38] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_translate_document(self):
         r = _pipeline("Translate the contract document from English to French")
-        print(f"\n[T39] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T39] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_format_document(self):
         r = _pipeline("Format the meeting notes into a structured PDF report")
-        print(f"\n[T40] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T40] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_create_spreadsheet(self):
         r = _pipeline("Create a spreadsheet to track daily expenses for December")
-        print(f"\n[T41] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T41] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_generate_invoice(self):
         r = _pipeline("Generate an invoice for the consulting work done in November")
-        print(f"\n[T42] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T42] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
 
@@ -393,33 +393,33 @@ class TestEdgeCaseMandates:
     def test_very_short_mandate(self):
         """Very short but clear mandates must not trigger clarification."""
         r = _pipeline("Send email to Bob")
-        print(f"\n[T51] SHORT → action={r['action_class']} guardrail={r['guardrail']}")
+        print(f"\n[T51] SHORT → action={r['intent']} guardrail={r['guardrail']}")
         _assert_passes(r)
 
     def test_mandate_with_numbers(self):
         r = _pipeline("Schedule 3 meetings with 5 team members every 2 weeks")
-        print(f"\n[T52] → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T52] → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_compound_mandate(self):
         r = _pipeline("Send the report to Alice and then schedule a follow-up meeting for next week")
-        print(f"\n[T53] COMPOUND → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T53] COMPOUND → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_mandate_with_context(self):
         r = _pipeline("Given that the deadline is tomorrow, send a status update to all stakeholders")
-        print(f"\n[T54] WITH_CONTEXT → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T54] WITH_CONTEXT → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_technical_jargon(self):
         r = _pipeline("Spin up a new EC2 t3.medium instance in us-east-1 with nginx")
-        print(f"\n[T55] TECH_JARGON → action={r['action_class']} conf={r['confidence']:.2f}")
+        print(f"\n[T55] TECH_JARGON → action={r['intent']} conf={r['confidence']:.2f}")
         _assert_passes(r)
 
     def test_previous_bug_case(self):
         """The original reported bug case — must never trigger clarification."""
         r = _pipeline("Create Hello World Code using Python")
-        print(f"\n[T56] ORIGINAL_BUG → action={r['action_class']} guardrail={r['guardrail']} ambiguity={r['ambiguity']:.3f}")
+        print(f"\n[T56] ORIGINAL_BUG → action={r['intent']} guardrail={r['guardrail']} ambiguity={r['ambiguity']:.3f}")
         assert r["guardrail"] == GuardrailResult.PASS.value, (
             f"Original bug case still triggering guardrail: {r['guardrail']}"
         )
@@ -458,7 +458,7 @@ class TestPipelineSteps:
             assert draft.hypotheses[0].confidence > 0, f"Zero confidence for: '{t}'"
         print(f"\n[STEP1] L1 Scout: all {len(cases)} cases returned hypothesis ✓")
 
-    def test_step1_l1_action_classes_are_valid(self):
+    def test_step1_l1_intents_are_valid(self):
         """STEP 1: All action classes are known values."""
         VALID = {"COMM_SEND", "SCHED_MODIFY", "INFO_RETRIEVE", "DOC_EDIT",
                  "FIN_TRANS", "SYS_CONFIG", "DRAFT_ONLY"}
@@ -469,7 +469,7 @@ class TestPipelineSteps:
         ]
         for t in cases:
             draft = _mock_l1(t, time.monotonic())
-            ac = draft.hypotheses[0].action_class
+            ac = draft.hypotheses[0].intent
             assert ac in VALID, f"Unknown action class '{ac}' for: '{t}'"
         print("\n[STEP1] L1 action classes: all valid ✓")
 

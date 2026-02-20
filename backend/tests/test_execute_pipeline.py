@@ -139,10 +139,10 @@ class TestDraftPersistence:
             assert retrieved.hypotheses, "Retrieved draft should have hypotheses"
             h = retrieved.hypotheses[0]
             assert hasattr(h, "hypothesis"), "Hypothesis should have 'hypothesis' field"
-            assert hasattr(h, "action_class"), "Hypothesis should have 'action_class' field"
+            assert hasattr(h, "intent"), "Hypothesis should have 'action_class' field"
             assert hasattr(h, "confidence"), "Hypothesis should have 'confidence' field"
 
-            print(f"[D04] Hypothesis structure: action={h.action_class} conf={h.confidence:.2f}")
+            print(f"[D04] Hypothesis structure: action={h.intent} conf={h.confidence:.2f}")
 
         run_async(_test())
 
@@ -541,19 +541,19 @@ class TestExecutePipelineIntegration:
                 session_id=session_id,
                 user_id=user_id,
                 transcript=transcript,
-                l1_action_class=top.action_class,
+                l1_intent=top.intent,
                 l1_confidence=top.confidence,
                 dimensions=dim_state.to_dict(),
             )
-            assert l2.action_class, "L2 should return action_class"
-            print(f"[P01] L2: action={l2.action_class} conf={l2.confidence:.2f} agrees={l2.shadow_agrees_with_l1}")
+            assert l2.intent, "L2 should return action_class"
+            print(f"[P01] L2: action={l2.intent} conf={l2.confidence:.2f} agrees={l2.shadow_agrees_with_l1}")
             
             # Step 4: QC Sentry
             qc = await run_qc_sentry(
                 session_id=session_id,
                 user_id=user_id,
                 transcript=transcript,
-                action_class=l2.action_class,
+                action_class=l2.intent,
                 intent_summary=top.hypothesis,
             )
             print(f"[P01] QC: overall_pass={qc.overall_pass} reason={qc.block_reason or 'N/A'}")
