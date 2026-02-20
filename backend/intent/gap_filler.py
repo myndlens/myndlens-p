@@ -219,9 +219,19 @@ async def enrich_transcript(
     else:
         final = enriched
 
+    if final != transcript:
+        logger.info(
+            "[GapFiller] session_user=%s | '%s' -> '%s'",
+            session_ctx.user_name or session_ctx.user_id,
+            transcript[:50],
+            enriched[:50],
+        )
+
+    return final
 
 
-# Lightweight extraction-time coherence check (no LLM call)
+# ── Lightweight extraction-time coherence check (no LLM call) ────────────────
+
 _ACTION_SIGNAL_MAP: dict = {
     "COMM_SEND": {"send", "email", "message", "tell", "notify", "text", "whatsapp", "slack", "reply", "forward"},
     "SCHED_MODIFY": {"schedule", "meeting", "book", "appointment", "calendar", "reschedule", "cancel", "remind", "block"},
