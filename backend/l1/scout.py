@@ -159,10 +159,11 @@ def _parse_l1_response(response: str, transcript: str, latency_ms: float, prompt
                 dimension_suggestions=h.get("dimension_suggestions", {}),
             ))
     except (json.JSONDecodeError, KeyError, TypeError) as e:
-        logger.warning("L1 parse failed, creating single hypothesis from text: %s", str(e))
-        # Fallback: create a single hypothesis from the raw response
+        logger.warning("L1 parse failed (%s) for transcript='%s...' response='%s...'",
+                       type(e).__name__, transcript[:40], response[:80] if response else "")
+        # Fallback: return mock-style hypothesis — never expose raw LLM text to user
         hypotheses.append(Hypothesis(
-            hypothesis=response[:200] if response else "Unable to interpret",
+            hypothesis=f"User wants to: {transcript[:60]}",
             action_class="DRAFT_ONLY",
             confidence=0.3,
         ))
