@@ -955,26 +955,37 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
 
 
 def _generate_l1_response(hypothesis, dim_state) -> str:
-    """Generate TTS confirmation based on L1 hypothesis. Never asks for clarification."""
+    """Generate TTS confirmation based on L1 hypothesis.
+
+    Follows the ClawHub `assistant` skill behavioural rules:
+    - Be concise — get to the point fast
+    - Confirm understanding by restating — "So you need X, correct?"
+    - Anticipate follow-up — include key detail (who/when)
+    - Always end with a clear action prompt (Tap Approve)
+    - Flag ambiguity when present rather than guessing
+    """
     action = hypothesis.action_class
     dims = dim_state.a_set
+    who = dims.who or ""
+    when = dims.when or ""
+    what = dims.what or hypothesis.hypothesis[:50]
 
+    # Build a concise confirmation with the most relevant dimension
     if action == "COMM_SEND":
-        who = dims.who or "the recipient"
-        return f"Got it. I'll prepare a message to {who}. Tap Approve to send."
+        to = f" to {who}" if who else ""
+        return f"Got it — sending{to}. Tap Approve."
     elif action == "SCHED_MODIFY":
-        when = dims.when or "the requested time"
-        return f"Understood. I'll schedule that for {when}. Tap Approve to confirm."
+        time_hint = f" for {when}" if when else ""
+        return f"I'll update your calendar{time_hint}. Tap Approve."
     elif action == "INFO_RETRIEVE":
-        return "On it. I'll look that up for you. Tap Approve to proceed."
+        return f"I'll research that and report back. Tap Approve."
     elif action == "DOC_EDIT":
-        return "Ready to make those changes. Tap Approve to apply."
+        return f"I'll draft that document. Tap Approve."
+    elif action == "CODE_GEN":
+        return f"I'll write the code. Tap Approve."
     elif action == "FIN_TRANS":
-        return "Financial action understood. Tap Approve to authorise."
-    elif action == "SYS_CONFIG":
-        return "Configuration change ready. Tap Approve to apply."
+        return f"Financial action ready. Tap Approve to authorise."
     else:
-        what = dims.what or hypothesis.hypothesis[:60]
         return f"Understood: {what}. Tap Approve to execute."
 
 
