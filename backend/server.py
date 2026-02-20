@@ -2010,6 +2010,44 @@ async def api_complete_mandate(req: MandateCompleteRequest):
     }
 
 
+class SkillDetermineRequest(BaseModel):
+    transcript: str
+    user_id: str = "rl_test_user"
+
+@api_router.post("/mandate/skills")
+async def api_determine_skills(req: SkillDetermineRequest):
+    """Full pipeline: broken thoughts → mandate → skill determination.
+    LLM reads the 73-skill library and decides what's needed."""
+    from l1.scout import run_l1_scout
+    from dimensions.extractor import extract_mandate_dimensions
+    from skills.determine import determine_skills
+    import uuid
+    session_id = f"skills_{uuid.uuid4().hex[:8]}"
+
+    draft = await run_l1_scout(session_id=session_id, user_id=req.user_id, transcript=req.transcript)
+    top = draft.hypotheses[0] if draft.hypotheses else None
+    intent = top.intent if top else "Unknown"
+    sub_intents = top.sub_intents if top else []
+
+    mandate = await extract_mandate_dimensions(
+        session_id=session_id, user_id=req.user_id, transcript=req.transcript,
+        intent=intent, sub_intents=sub_intents,
+        l1_dimensions=top.dimension_suggestions if top else None,
+    )
+
+    skills = await determine_skills(session_id=session_id, user_id=req.user_id, mandate=mandate)
+
+    return {
+        "intent": intent,
+        "mandate_summary": mandate.get("mandate_summary", ""),
+        "actions_count": len(mandate.get("actions", [])),
+        "skill_plan": skills.get("skill_plan", []),
+        "execution_strategy": skills.get("execution_strategy", ""),
+        "risk_assessment": skills.get("risk_assessment", ""),
+        "estimated_complexity": skills.get("estimated_complexity", ""),
+    }
+
+
 
 # Include REST router
 app.include_router(api_router)
