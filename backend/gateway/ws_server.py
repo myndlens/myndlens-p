@@ -459,6 +459,31 @@ async def _handle_execute_request(
         logger.info("Skills matched: session=%s count=%d risk=%s skills=%s",
                     session_id, len(skill_names), skill_risk, skill_names)
 
+        # ── Phase 3: Pre-flight env check — block if critical env vars missing ──
+        all_missing: list[str] = []
+        blocking_skill: str = ""
+        for skill in matched_skills:
+            missing = skill.get("_missing_env", [])
+            if missing:
+                all_missing.extend(missing)
+                blocking_skill = blocking_skill or skill.get("name", "")
+        if all_missing:
+            unique_missing = sorted(set(all_missing))
+            logger.warning(
+                "Pre-flight: missing env vars for skill=%s missing=%s session=%s",
+                blocking_skill, unique_missing, session_id,
+            )
+            await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
+                reason=(
+                    f"Skill '{blocking_skill}' requires environment variable(s) "
+                    f"{unique_missing} which are not configured. "
+                    f"Set them in ObeGee's environment to use this skill."
+                ),
+                code="SKILL_ENV_MISSING",
+                draft_id=req.draft_id,
+            ))
+            return
+
         # ── QC Sentry — NOW has full skill + tool context for capability_leak ───────
         from qc.sentry import run_qc_sentry
         qc = await run_qc_sentry(
