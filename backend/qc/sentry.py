@@ -55,9 +55,15 @@ async def run_qc_sentry(
     transcript: str,
     action_class: str,
     intent_summary: str,
-    persona_summary: str = "",  # Digital Self summary for persona_drift baseline
+    persona_summary: str = "",
+    skill_risk: str = "low",
+    skill_names: Optional[List[str]] = None,
 ) -> QCVerdict:
-    """Run all 3 QC adversarial passes."""
+    """Adversarial QC Sentry -- 3 passes with full context.
+
+    skill_risk and skill_names come from skills matching (which now runs before QC)
+    so capability_leak can check whether granted tool risk matches the intent.
+    """
     settings = get_settings()
     start = time.monotonic()
 
@@ -67,8 +73,11 @@ async def run_qc_sentry(
     try:
         orchestrator = PromptOrchestrator()
         persona_context = (
-            f"\nUser's Digital Self context (persona baseline for drift check): {persona_summary}"
+            f"\nUser's Digital Self (persona baseline): {persona_summary}"
             if persona_summary else ""
+        )
+        skills_context = (
+            f"\nSkills to be granted: {', '.join(skill_names or [])} (aggregate risk: {skill_risk})"
         )
         ctx = PromptContext(
             purpose=PromptPurpose.VERIFY,
@@ -77,14 +86,13 @@ async def run_qc_sentry(
             user_id=user_id,
             transcript=transcript,
             task_description=(
-                f"QC Adversarial Review for intent: '{intent_summary}' (action: {action_class}).{persona_context}\n"
-                f"Run 3 checks and output JSON:\n"
-                f"1. persona_drift: Does this action match the user's known communication style and Digital Self profile above? "
-                f"If no persona context provided, assume consistent unless obvious mismatch.\n"
-                f"2. capability_leak: Does this action request MORE capability than needed? "
-                f"Minimum necessary skill only.\n"
-                f"3. harm_projection: Could this action cause harm? Map any negative interpretation "
-                f"to SPECIFIC transcript spans (start/end positions).\n\n"
+                f"QC Adversarial Review: intent='{intent_summary}' action={action_class}.{persona_context}{skills_context}\n"
+                f"Run 3 adversarial checks:\n"
+                f"1. persona_drift: Does this action match the user's known communication style above? "
+                f"Flag if the request contradicts their established patterns.\n"
+                f"2. capability_leak: Does granting these skills ({', '.join(skill_names or ['unknown'])}) "
+                f"exceed the minimum capability needed? Risk={skill_risk} -- flag if high-risk skills are granted for a simple request.\n"
+                f"3. harm_projection: Could this action cause harm? Cite SPECIFIC transcript spans.\n\n"
                 f"Output: {{\"passes\": [{{\"pass_name\": \"...\", \"passed\": true/false, "
                 f"\"severity\": \"none|nudge|block\", \"reason\": \"...\", "
                 f"\"cited_spans\": [{{\"text\": \"...\", \"start\": 0, \"end\": 10}}]}}, ...]}}"
