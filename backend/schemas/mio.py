@@ -32,7 +32,7 @@ class MIOConstraints(BaseModel):
 
 class MIOIntentEnvelope(BaseModel):
     action: str  # e.g. "openclaw.v1.whatsapp.send"
-    action_class: ActionClass
+    intent: str  # e.g. "Travel Concierge", "Event Planning"
     params: Dict[str, Any] = Field(default_factory=dict)
     constraints: MIOConstraints
 
