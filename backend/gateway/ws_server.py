@@ -418,14 +418,15 @@ async def _handle_execute_request(
             # L2 (independent derivation) overrides L1 for dispatch
             # The user confirmed the intent — L2 resolves the ambiguity silently
 
-        # QC Sentry
+        # QC Sentry (with enriched transcript + Digital Self persona baseline)
         from qc.sentry import run_qc_sentry
         qc = await run_qc_sentry(
             session_id=session_id,
             user_id=user_id,
-            transcript=draft.transcript,
-            action_class=l2.action_class,
+            transcript=enriched_for_verify,
+            action_class=effective_action,
             intent_summary=top.hypothesis,
+            persona_summary=session_ctx.raw_summary if session_ctx else "",
         )
         if not qc.overall_pass:
             await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
