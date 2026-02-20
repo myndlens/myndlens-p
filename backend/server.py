@@ -1692,6 +1692,55 @@ async def api_intent_rl_v2_results():
     }
 
 
+# ── Intent RL Loop: 10-iteration reinforcement learning ──
+
+@api_router.post("/intent-rl/loop/start")
+async def api_start_rl_loop(iterations: int = 10):
+    """Start the 10-iteration RL loop with feedback injection."""
+    from intent_rl.rl_loop import run_rl_loop, get_rl_loop_state
+    from intent_rl.seed_digital_self import seed_digital_self, clear_digital_self
+    state = get_rl_loop_state()
+    if state["running"]:
+        return {"status": "already_running", "iteration": state["current_iteration"], "total": state["total_iterations"]}
+    # Fresh seed before loop
+    await clear_digital_self()
+    seed_stats = await seed_digital_self()
+    result = await run_rl_loop(n_iterations=min(iterations, 10))
+    return {"status": result, "iterations": min(iterations, 10), "digital_self_seeded": seed_stats}
+
+
+@api_router.get("/intent-rl/loop/status")
+async def api_rl_loop_status():
+    """Get live RL loop status — accuracy progression across iterations."""
+    from intent_rl.rl_loop import get_rl_loop_state
+    state = get_rl_loop_state()
+    summary = []
+    for it in state.get("iterations", []):
+        summary.append({
+            "iteration": it["iteration"],
+            "accuracy": it["intent_accuracy"],
+            "sub_coverage": it["sub_intent_coverage"],
+            "entity_coverage": it["entity_coverage"],
+            "failures": it["failure_count"],
+            "corrections": it["corrections_added"],
+        })
+    return {
+        "running": state["running"],
+        "current_iteration": state["current_iteration"],
+        "total_iterations": state["total_iterations"],
+        "progression": summary,
+        "started_at": state.get("started_at"),
+        "completed_at": state.get("completed_at"),
+    }
+
+
+@api_router.get("/intent-rl/loop/details")
+async def api_rl_loop_details():
+    """Get detailed RL loop results with failure breakdown per iteration."""
+    from intent_rl.rl_loop import get_rl_loop_state
+    return get_rl_loop_state()
+
+
 # Include REST router
 app.include_router(api_router)
 
