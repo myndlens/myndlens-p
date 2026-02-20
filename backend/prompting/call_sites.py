@@ -49,8 +49,15 @@ CALL_SITES: Dict[str, CallSite] = {
         call_site_id="GUARDRAILS_CLASSIFIER",
         allowed_purposes=frozenset({PromptPurpose.SAFETY_GATE}),
         owner_module="guardrails.engine",
-        description="Continuous guardrails evaluation.",
-        status="reserved",
+        description="LLM harm and policy classification via SAFETY_GATE. Active at extraction time.",
+        status="active",
+    ),
+    "SKILL_RISK_CLASSIFIER": CallSite(
+        call_site_id="SKILL_RISK_CLASSIFIER",
+        allowed_purposes=frozenset({PromptPurpose.SAFETY_GATE}),
+        owner_module="skills.library",
+        description="LLM skill risk tier assessment from full SKILL.md content. Async, cached.",
+        status="active",
     ),
     "SUMMARIZER": CallSite(
         call_site_id="SUMMARIZER",
