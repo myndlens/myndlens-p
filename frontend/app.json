@@ -14,6 +14,12 @@
     },
     "plugins": [
       [
+        "expo-av",
+        {
+          "microphonePermission": "MyndLens needs the microphone to hear your voice mandates. Your audio is processed on-device and never stored."
+        }
+      ],
+      [
         "expo-contacts",
         {
           "contactsPermission": "MyndLens uses your contacts to personalise your Digital Self and reduce how many questions it needs to ask you."
