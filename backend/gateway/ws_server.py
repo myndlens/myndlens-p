@@ -15,7 +15,6 @@ EXECUTION GUARDRAIL (Patch 5 / §3.2):
 import asyncio
 import json
 import logging
-import re
 from datetime import datetime, timezone
 from typing import Dict
 
