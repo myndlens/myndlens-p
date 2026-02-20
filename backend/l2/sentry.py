@@ -120,18 +120,18 @@ async def run_l2_sentry(
         return _mock_l2(transcript, l1_intent, l1_confidence, start)
 
 
-def check_l1_l2_agreement(l1_action: str, l1_conf: float, l2: L2Verdict) -> tuple[bool, str]:
+def check_l1_l2_agreement(l1_intent: str, l1_conf: float, l2: L2Verdict) -> tuple[bool, str]:
     """Check L1/L2 conflict resolution per spec 5.4.
 
-    Normalizes both action classes before comparison since L2 may
-    return variant names (e.g. "Recruiting" for "TASK_CREATE").
+    Normalizes both intents before comparison since L2 may
+    return variant names (e.g. "Recruiting" for "Task Creation").
     """
     from intent_rl.runner import _normalize_class
-    l1_norm = _normalize_class(l1_action)
-    l2_norm = _normalize_class(l2.action_class)
+    l1_norm = _normalize_class(l1_intent)
+    l2_norm = _normalize_class(l2.intent)
 
     if l1_norm != l2_norm:
-        return False, f"Action mismatch: L1={l1_action}({l1_norm}) L2={l2.action_class}({l2_norm})"
+        return False, f"Intent mismatch: L1={l1_intent}({l1_norm}) L2={l2.intent}({l2_norm})"
 
     delta = abs(l1_conf - l2.confidence)
     if delta > 0.25:
@@ -155,11 +155,11 @@ def _parse_l2_response(
             text = text.split("```")[1].split("```")[0].strip()
 
         data = json.loads(text)
-        action = data.get("action_class", "DRAFT_ONLY")
+        action = data.get("intent", "")
         confidence = float(data.get("confidence", 0.5))
 
         verdict = L2Verdict(
-            action_class=action,
+            intent=action,
             canonical_target=data.get("canonical_target", ""),
             primary_outcome=data.get("primary_outcome", ""),
             risk_tier=int(data.get("risk_tier", 0)),
