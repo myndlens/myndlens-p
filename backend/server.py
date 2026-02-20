@@ -613,7 +613,7 @@ async def api_run_qc(req: QCRunRequest):
         session_id=req.session_id,
         user_id=req.user_id,
         transcript=req.transcript,
-        action_class=req.action_class,
+        intent=req.intent,
         intent_summary=req.intent_summary,
     )
     return {
@@ -1765,7 +1765,7 @@ async def api_test_micro_questions(req: MicroQuestionTestRequest):
 
     hypothesis = top.hypothesis if top else ""
     confidence = top.confidence if top else 0.0
-    action_class = top.action_class if top else "NONE"
+    intent = top.intent if top else ""
     dimensions = top.dimension_suggestions if top else {}
 
     # Step 2: Check if micro-questions needed
@@ -1780,7 +1780,7 @@ async def api_test_micro_questions(req: MicroQuestionTestRequest):
     return {
         "intent_extraction": {
             "hypothesis": hypothesis,
-            "action_class": action_class,
+            "intent": intent,
             "confidence": confidence,
             "dimensions": dimensions,
             "latency_ms": round(draft.latency_ms, 1),
