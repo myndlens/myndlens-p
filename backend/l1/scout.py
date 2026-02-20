@@ -23,11 +23,14 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Hypothesis:
-    hypothesis: str
-    action_class: str  # COMM_SEND, SCHED_MODIFY, etc.
+    hypothesis: str        # summary of what user wants
+    intent: str            # the REAL intent: "Travel Concierge", "Event Planning", etc.
     confidence: float
+    sub_intents: list = field(default_factory=list)  # ["book flight", "reserve hotel"]
     evidence_spans: List[Dict[str, Any]] = field(default_factory=list)
     dimension_suggestions: Dict[str, Any] = field(default_factory=dict)
+    # Legacy compat — skill matcher reads this
+    action_class: str = ""
 
 
 @dataclass
