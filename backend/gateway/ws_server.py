@@ -418,7 +418,31 @@ async def _handle_execute_request(
             # L2 (independent derivation) overrides L1 for dispatch
             # The user confirmed the intent — L2 resolves the ambiguity silently
 
-        # QC Sentry (with enriched transcript + Digital Self persona baseline)
+        # ── Stage 6: Skills matching — BEFORE QC so QC sees tool requirements ─────
+        await broadcast_stage(session_id, 6, "active", "Matching skills...")
+        from skills.library import match_skills_to_intent, build_skill, classify_risk
+        matched_skills = await match_skills_to_intent(
+            enriched_for_verify, top_n=3, action_class=effective_action,
+        )
+        skill_names = [s.get("name", "") for s in matched_skills if s.get("name")]
+        # Aggregate risk across all matched skills (take highest)
+        risk_rank = {"low": 0, "medium": 1, "high": 2}
+        skill_risk = max(
+            (classify_risk(s.get("description", ""), s.get("required_tools", ""))
+             for s in matched_skills),
+            key=lambda r: risk_rank.get(r, 0),
+            default="low",
+        ) if matched_skills else "low"
+        # Build full skill contracts — ObeGee needs SKILL.md + tools + source refs
+        built_skills = []
+        for skill in matched_skills:
+            built = await build_skill([skill], draft.transcript)
+            built_skills.append(built)
+        await broadcast_stage(session_id, 6, "done", f"{len(skill_names)} skills ({skill_risk} risk)")
+        logger.info("Skills matched: session=%s count=%d risk=%s skills=%s",
+                    session_id, len(skill_names), skill_risk, skill_names)
+
+        # ── QC Sentry — NOW has full skill + tool context for capability_leak ───────
         from qc.sentry import run_qc_sentry
         qc = await run_qc_sentry(
             session_id=session_id,
@@ -427,6 +451,8 @@ async def _handle_execute_request(
             action_class=effective_action,
             intent_summary=top.hypothesis,
             persona_summary=session_ctx.raw_summary if session_ctx else "",
+            skill_risk=skill_risk,
+            skill_names=skill_names,
         )
         if not qc.overall_pass:
             await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
@@ -437,42 +463,59 @@ async def _handle_execute_request(
             logger.warning("EXECUTE_BLOCKED: QC failed: session=%s reason=%s", session_id, qc.block_reason)
             return
 
-        # Stage 5: Agent assignment (L2/QC complete, now assign agent)
+        # ── Stage 5: Agent assignment — with tool compatibility check ─────────────
         assigned_agent_id = None
+        assigned_agent_name = "default"
         if tenant_id:
             from agents.builder import AgentBuilder
             builder = AgentBuilder()
+            # Collect all required tools from matched skills
+            required_tools = set()
+            for s in matched_skills:
+                for tool in re.split(r'[,\s]+', s.get("required_tools", "")):
+                    if tool.strip():
+                        required_tools.add(tool.strip())
+            # Find agent that covers the required tools (or best match)
             tenant_agents = await builder.list_agents(tenant_id)
-            if tenant_agents:
+            for agent in tenant_agents:
+                agent_tools = set(agent.get("tools", {}).get("allow", []))
+                if not required_tools or required_tools.issubset(agent_tools):
+                    assigned_agent_id = agent["agent_id"]
+                    assigned_agent_name = agent.get("name", assigned_agent_id)
+                    break
+            # Fallback: use first agent even if tools don't fully match
+            if not assigned_agent_id and tenant_agents:
                 assigned_agent_id = tenant_agents[0]["agent_id"]
-                agent_name = tenant_agents[0].get("name", assigned_agent_id)
-                logger.info("Agent assigned: session=%s agent=%s", session_id, assigned_agent_id)
-                await broadcast_stage(session_id, 5, "done", f"Agent: {agent_name}")
-            else:
-                await broadcast_stage(session_id, 5, "done", "Default agent")
+                assigned_agent_name = tenant_agents[0].get("name", assigned_agent_id)
+                logger.warning("Agent tool mismatch: session=%s agent=%s missing tools=%s",
+                               session_id, assigned_agent_id, required_tools)
+            await broadcast_stage(session_id, 5, "done", f"Agent: {assigned_agent_name}")
         else:
             await broadcast_stage(session_id, 5, "done", "Agent assigned")
 
-        # Stage 6: Skills matching
-        await broadcast_stage(session_id, 6, "active", "Matching skills...")
-        from skills.library import match_skills_to_intent
-        matched_skills = await match_skills_to_intent(draft.transcript, top_n=3)
-        skill_names = [s.get("name", "") for s in matched_skills if s.get("name")]
-        await broadcast_stage(session_id, 6, "done", f"{len(skill_names)} skills matched")
-        logger.info("Skills matched: session=%s count=%d skills=%s", session_id, len(skill_names), skill_names)
-
-        # Stage 7: Authorization granted
+        # ── Stage 7: Authorization granted ───────────────────────────────────────
         await broadcast_stage(session_id, 7, "done")
 
-        # Dispatch mandate
+        # ── Dispatch — full skill contracts sent to ObeGee ───────────────────────
         mandate = {
             "mandate_id": req.draft_id,
             "tenant_id": tenant_id,
             "intent": top.hypothesis,
-            "action_class": l2.action_class,
+            "action_class": effective_action,
             "dimensions": dim_state.to_dict(),
-            "generated_skills": skill_names,
-            "assigned_agent_id": assigned_agent_id,
+            "generated_skills": skill_names,           # names for routing
+            "skill_contracts": [                        # full SKILL.md + tools for execution
+                {
+                    "name": b["name"],
+                    "skill_md": b["skill_md"],
+                    "required_tools": b["required_tools"],
+                    "risk": b["risk"],
+                    "install_command": b["install_command"],
+                    "source_references": b.get("source_references", []),
+                }
+                for b in built_skills
+            ],
+            "assigned_agent_id": assigned_agent_id or "default",
         }
         result = await dispatch_mandate(session_id, mandate, api_token=auth_token)
 
