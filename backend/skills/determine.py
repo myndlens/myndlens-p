@@ -100,7 +100,7 @@ async def determine_skills(
     from prompting.llm_gateway import call_llm
     response = await call_llm(
         artifact=artifact,
-        call_site_id="L1_SCOUT",  # PLAN purpose is allowed on L1_SCOUT
+        call_site_id="SKILL_DETERMINER",
         model_provider="gemini",
         model_name="gemini-2.0-flash",
         session_id=f"skill-det-{session_id}",
