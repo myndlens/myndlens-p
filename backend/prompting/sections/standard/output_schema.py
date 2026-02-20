@@ -40,6 +40,15 @@ _SCHEMAS = {
         "{risk_tier: 0-3, harmful: bool, policy_violation: bool, "
         "escalation_needed: bool, reason: str}"
     ),
+    PromptPurpose.MICRO_QUESTION: (
+        "{questions: [{question: str (short, conversational, TTS-friendly), "
+        "why: str (what gap this fills), "
+        "options: [str] (if applicable, suggested answers), "
+        "dimension_filled: str (which dimension: who/what/when/where/how)}], "
+        "max_questions: 3}\n"
+        "Generate 1-3 personalized micro-questions. Use Digital Self context. "
+        "Questions must be natural spoken language (will be read via TTS). Keep under 15 words each."
+    ),
 }
 
 
