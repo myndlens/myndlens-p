@@ -839,15 +839,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     # ── STEP 1.5: Extraction-time coherence check (no LLM, zero latency) ───
     if l1_draft.hypotheses:
         top_check = l1_draft.hypotheses[0]
-        coherent, adjusted_conf = check_extraction_coherence(
-            transcript, top_check.action_class, top_check.confidence
-        )
-        if not coherent:
-            top_check.confidence = adjusted_conf
-            logger.info(
-                "[MANDATE:1.5:COHERENCE] session=%s action=%s downgraded to conf=%.2f",
-                session_id, top_check.action_class, adjusted_conf,
-            )
+        # Coherence check removed — L1 Scout (Gemini) is the classifier. Trust it.
 
     # ── STEP 2: Dimensions extraction ───────────────────────────────────────
     logger.info("[MANDATE:2:DIMENSIONS] session=%s updating A-set + B-set", session_id)
