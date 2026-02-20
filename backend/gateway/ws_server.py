@@ -495,8 +495,12 @@ async def _handle_audio_chunk(ws: WebSocket, session_id: str, payload: dict, use
         ))
 
 
-async def _handle_stream_end(ws: WebSocket, session_id: str) -> None:
-    """Handle end of audio stream (user stopped speaking or cancelled)."""
+async def _handle_stream_end(ws: WebSocket, session_id: str, user_id: str = "") -> None:
+    """Handle end of audio stream — single authority for final transcript + TTS response.
+
+    Called from both VAD auto-stop (cancel message) and explicit stream end.
+    user_id enables Digital Self server-side recall for voice mandates.
+    """
     try:
         stt = get_stt_provider()
         final_fragment = await stt.end_stream(session_id)
@@ -512,9 +516,9 @@ async def _handle_stream_end(ws: WebSocket, session_id: str) -> None:
                 confidence=final_fragment.confidence,
                 span_ids=[s.span_id for s in state.get_spans()],
             ))
-            # Save and respond with TTS
+            # Save and respond with TTS — now with user_id for Digital Self recall
             await save_transcript(state)
-            await _send_mock_tts_response(ws, session_id, state.get_current_text())
+            await _send_mock_tts_response(ws, session_id, state.get_current_text(), user_id=user_id)
 
         # Cleanup transcript state
         transcript_assembler.cleanup(session_id)
