@@ -729,7 +729,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             "[MANDATE:1:L1_SCOUT] session=%s DONE is_mock=%s hypotheses=%d "
             "top_action=%s top_confidence=%.2f top_hypothesis='%s' latency_ms=%.0f",
             session_id, l1_draft.is_mock, len(l1_draft.hypotheses),
-            top_h.action_class, top_h.confidence, top_h.hypothesis[:60],
+            top_h.intent, top_h.confidence, top_h.hypothesis[:60],
             l1_draft.latency_ms,
         )
     else:
