@@ -228,7 +228,8 @@ async def enrich_transcript(
 # ── Lightweight extraction-time coherence check (no LLM call) ────────────────
 
 _ACTION_SIGNAL_MAP: dict = {
-    "COMM_SEND": {"send", "email", "message", "tell", "notify", "text", "whatsapp", "slack", "reply", "forward"},
+    "COMM_SEND": {"send", "email", "message", "tell", "notify", "text", "whatsapp",
+                  "slack", "reply", "forward", "post", "publish", "share", "announce"},
     "SCHED_MODIFY": {"schedule", "meeting", "book", "appointment", "calendar", "reschedule", "cancel", "remind", "block"},
     "INFO_RETRIEVE": {"find", "search", "look", "check", "what", "who", "when", "where", "show", "get", "fetch"},
     "DOC_EDIT": {"write", "draft", "create", "edit", "update", "change", "document", "report", "proposal"},
