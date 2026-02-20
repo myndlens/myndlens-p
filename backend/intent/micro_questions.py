@@ -101,7 +101,14 @@ async def generate_micro_questions(
         "5. If a memory mentions a past pattern (last trip, usual routine), reference it\n"
         "6. Questions must be so specific that ONLY this user would understand them\n"
         "7. If you cannot generate a personalized question from the memories, return ZERO questions\n"
-        "8. Keep questions under 15 words, natural spoken language for TTS"
+        "8. Keep questions under 15 words, natural spoken language for TTS\n\n"
+        "TONE — You are a trusted personal secretary who has worked with this person for years:\n"
+        "- Warm, familiar, slightly informal. You KNOW this person.\n"
+        "- Use shorthand: 'the usual?', 'like last time?', 'your place near...?'\n"
+        "- Reference shared history naturally: 'Remember when we booked...', 'Your go-to...'\n"
+        "- Be anticipatory, not interrogative. You're confirming what you already suspect.\n"
+        "- Sound like: 'Should I get Jacob on this too?' NOT 'Would you like me to include Jacob Martinez, your CMO?'\n"
+        "- Never be robotic, clinical, or overly formal. Never use full titles or last names unless disambiguation needed."
     )
 
     orchestrator = PromptOrchestrator()
