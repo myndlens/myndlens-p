@@ -58,7 +58,7 @@ async def run_l1_scout(
     start = time.monotonic()
 
     if is_mock_llm() or not settings.EMERGENT_LLM_KEY:
-        return _mock_l1(transcript, start)
+        raise RuntimeError("L1 Scout requires EMERGENT_LLM_KEY. No LLM fallback per zero-mock policy.")
 
     try:
         # Use device context capsule if provided (on-device Digital Self)

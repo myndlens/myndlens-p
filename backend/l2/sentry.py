@@ -45,7 +45,7 @@ async def run_l2_sentry(
     session_id: str,
     user_id: str,
     transcript: str,
-    l1_action_class: str = "",
+    l1_intent: str = "",
     l1_confidence: float = 0.0,
     dimensions: Optional[Dict[str, Any]] = None,
 ) -> L2Verdict:
