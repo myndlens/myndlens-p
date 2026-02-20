@@ -57,18 +57,19 @@ _TOOL_LABELS = {
 
 
 def _tools_from_skill(skill: Dict[str, Any]) -> List[str]:
-    """Extract tool names from a skill's required_tools field."""
-    raw = skill.get("required_tools", "")
-    if not raw:
-        return []
-    return [t.strip() for t in re.split(r"[,\s]+", raw) if t.strip()]
+    """Extract tool names from a skill's oc_tools allow list."""
+    oc = skill.get("oc_tools", {})
+    if isinstance(oc, dict):
+        return [t for t in oc.get("allow", []) if t]
+    return []
 
 
 def _tool_label(tool: str) -> str:
-    for prefix, label in _TOOL_LABELS.items():
-        if tool.lower().startswith(prefix):
-            return label
-    return f"use {tool}"
+    """Convert an OpenClaw tool name to plain English."""
+    if tool.startswith("group:"):
+        group = tool.replace("group:", "")
+        return f"{group} access"
+    return tool
 
 
 async def assess_agent_topology(
