@@ -33,27 +33,6 @@ class AgentTopology:
 
 
 # Action class -> natural language role name
-_ROLE_NAMES = {
-    "COMM_SEND": "Message Composer",
-    "SCHED_MODIFY": "Calendar Manager",
-    "INFO_RETRIEVE": "Research Agent",
-    "DOC_EDIT": "Document Editor",
-    "CODE_GEN": "Code Generator",
-    "FIN_TRANS": "Finance Agent",
-    "SYS_CONFIG": "System Configurator",
-}
-
-# Tool category labels for the approval card
-_TOOL_LABELS = {
-    "smtp": "send emails",
-    "calendar": "read/write your calendar",
-    "contacts": "read your contacts",
-    "files": "access your files",
-    "web": "search the web",
-    "code": "execute code",
-    "payment": "process payments",
-    "api": "call external APIs",
-}
 
 
 def _tools_from_skill(skill: Dict[str, Any]) -> List[str]:
