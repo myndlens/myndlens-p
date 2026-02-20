@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 class L2Verdict:
     """L2 authoritative validation result."""
     verdict_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    action_class: str = "DRAFT_ONLY"
+    intent: str = ""
     canonical_target: str = ""
     primary_outcome: str = ""
     risk_tier: int = 0

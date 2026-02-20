@@ -29,8 +29,6 @@ class Hypothesis:
     sub_intents: list = field(default_factory=list)  # ["book flight", "reserve hotel"]
     evidence_spans: List[Dict[str, Any]] = field(default_factory=list)
     dimension_suggestions: Dict[str, Any] = field(default_factory=dict)
-    # Legacy compat — skill matcher reads this
-    action_class: str = ""
 
 
 @dataclass
