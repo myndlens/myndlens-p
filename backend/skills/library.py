@@ -109,49 +109,75 @@ async def match_skills_to_intent(
     top_n: int = 5,
     action_class: str = "",
 ) -> List[Dict[str, Any]]:
-    """Match skills to a user intent. Filters by action_class category first,
-    then keyword + semantic scoring.
+    """Match skills to intent using full-text search across name, description AND skill_md body.
 
-    action_class filters to relevant categories before keyword search, improving
-    precision (COMM_SEND -> email/messaging, SCHED_MODIFY -> calendar, etc).
+    ClawHub-ingested skills now include full SKILL.md content, enabling semantic
+    matching against the complete instruction text — not just the description line.
+
+    action_class filters by category before keyword search (higher precision).
+    required_env pre-flight: skills needing unconfigured env vars are deprioritised.
     """
-    # Action class → relevant skill categories
     ACTION_CATEGORIES = {
-        "COMM_SEND": ["communication", "email", "messaging", "notification"],
-        "SCHED_MODIFY": ["scheduling", "calendar", "productivity"],
-        "INFO_RETRIEVE": ["search", "data", "api", "utility"],
-        "DOC_EDIT": ["writing", "documents", "productivity"],
-        "CODE_GEN": ["coding", "development", "tools", "utility"],
-        "FIN_TRANS": ["finance", "payment", "commerce"],
+        "COMM_SEND":     ["communication", "email", "messaging", "social"],
+        "SCHED_MODIFY":  ["scheduling", "calendar", "productivity"],
+        "INFO_RETRIEVE": ["search", "data", "api", "utility", "monitoring"],
+        "DOC_EDIT":      ["writing", "documents", "productivity", "marketing"],
+        "CODE_GEN":      ["coding", "development", "tools", "utility"],
+        "FIN_TRANS":     ["finance", "payment", "commerce"],
     }
+
+    # Env vars configured in backend settings (pre-flight availability check)
+    from config.settings import get_settings
+    settings = get_settings()
+    configured_envs: set = set()
+    for field_name, val in settings.__dict__.items():
+        if val and isinstance(val, str) and len(val) > 4:
+            configured_envs.add(field_name.upper())
+    # Add known-configured Maton/integration vars from env
+    import os
+    for k in os.environ:
+        if os.environ[k]:
+            configured_envs.add(k.upper())
 
     stop_words = {
         "i", "want", "to", "the", "a", "an", "my", "me", "is", "do",
         "can", "you", "please", "for", "with", "on", "in", "of", "and", "or",
-        # Strip gap-filler annotations from keyword extraction
         "user", "context", "contacts", "locations", "traits", "manager",
         "colleague", "mandate",
     }
-    keywords = [w for w in re.findall(r'\w+', intent.lower()) if w not in stop_words and len(w) > 2]
-    query = " ".join(keywords[:6])
+    keywords = [w for w in re.findall(r'\w+', intent.lower())
+                if w not in stop_words and len(w) > 2]
+    query = " ".join(keywords[:8])
 
     if not query:
         return []
 
-    # Build category filter if action_class maps to categories
     category_filter = ACTION_CATEGORIES.get(action_class.upper(), [])
 
-    results = await search_skills(query, limit=top_n * 2, category_filter=category_filter)
+    results = await search_skills(query, limit=top_n * 3, category_filter=category_filter)
 
-    # Score by keyword relevance + popularity
     for r in results:
         name_lower = r.get("name", "").lower()
         desc_lower = r.get("description", "").lower()
-        score = sum(1 for k in keywords if k in name_lower) * 3
-        score += sum(1 for k in keywords if k in desc_lower)
+        # Include skill_md body in scoring (ClawHub skills have full instruction text)
+        skill_body = r.get("skill_md", "")[:2000].lower()
+
+        score = sum(1 for k in keywords if k in name_lower) * 4
+        score += sum(1 for k in keywords if k in desc_lower) * 2
+        score += sum(1 for k in keywords if k in skill_body)
         score += min(r.get("stars", 0) / 50, 2)
-        # Apply reinforcement learning modifier (updated by delivery outcomes)
         score *= r.get("relevance_modifier", 1.0)
+
+        # Pre-flight: deprioritise skills whose required_env vars are not configured
+        required_env = r.get("required_env", [])
+        if required_env:
+            missing = [e for e in required_env
+                       if e not in configured_envs
+                       and not any(e.lower() in ck.lower() for ck in configured_envs)]
+            if missing:
+                score *= 0.3   # Deprioritise — skill won't work without these
+                r["_missing_env"] = missing
+
         r["relevance_score"] = round(score, 2)
 
     results.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
