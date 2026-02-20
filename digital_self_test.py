@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List
 
 # Test configuration - using frontend env for backend URL
-BACKEND_URL = "https://myndlens-audit.preview.emergentagent.com"
+BACKEND_URL = "https://mandate-pipeline-1.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 WS_URL = f"wss://voice-assistant-dev.preview.emergentagent.com/api/ws"
 

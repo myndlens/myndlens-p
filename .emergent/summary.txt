@@ -1,161 +1,139 @@
 <analysis>**original_problem_statement**:
-The user wants to continue building MyndLens, a sophisticated, voice-driven personal assistant. The project's direction is guided by a series of detailed specification documents provided by an ObeGee Dev Agent. The primary goal is to build a production-ready application, including creating a distributable APK, integrating with live ObeGee services, and ensuring the architecture aligns with the specs, which emphasize on-device processing and data privacy.
+The user wants to continue building MyndLens, a sophisticated, voice-driven personal assistant. The project's direction is guided by a series of detailed specification documents provided by an ObeGee Dev Agent. The primary goal is to build a production-ready application.
 
-PRODUCT REQUIREMENTS:
-- Implement a multi-phase plan based on a comprehensive suite of specification documents.
-- The Digital Self (user's personal knowledge graph) must be on-device, encrypted, and not sync to the cloud.
-- The intent extraction engine must be sophisticated enough to handle fragmented user thoughts by leveraging the Digital Self.
-- The system must be dynamic, data-driven, and avoid hardcoded logic, instead using an LLM-powered prompt system.
-- Integrate a large library of ClawHub skills to provide a wide range of capabilities.
-- The agent selection process should be dynamic, creating agents from skills as needed for each mandate.
-- Create a production-ready APK that points to the correct production endpoints.
-- All code must be pushed to the  GitHub repository.
+The core architectural principles, reinforced by the user, are:
+- A completely LLM-driven system with **ZERO hardcoding**. The LLM makes decisions using data (Digital Self, skill library) as reference material.
+- The **Digital Self is the core product**, enabling hyper-personalized interactions and reducing user friction. It must be on-device and private.
+- The system must understand a user's true, high-level **Intent** (e.g., Travel Concierge) from fragmented thoughts, not force it into a fixed category.
+- A **Mandate = Intent + Dimensions**. The system must extract all necessary execution-level dimensions to form a Definitive Mandate before acting.
+- When uncertain, the system must engage in a **conversational clarification loop**, asking brief, personalized whisper questions powered by the Digital Self.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The application is feature-rich and has undergone multiple deep code review passes, resulting in a robust and stable codebase.
+The backend has undergone a massive architectural refactoring to align with the user's zero hardcoding principle. The old, rigid -based system has been completely purged from the live pipeline and replaced with a dynamic, LLM-driven workflow:
 
--   **Backend**: A FastAPI backend with a sophisticated, multi-stage intent extraction pipeline (L1 Scout, Gap Filler, L2 Sentry, QC Sentry). It features a session-ambient Digital Self context, a dynamic skill-matching engine that queries a MongoDB library of ~138 skills (including ~60 ingested from ClawHub), and a dynamic agent composer. Hardcoded logic for harm detection and risk classification has been replaced with calls to a versioned Dynamic Prompt System. All integration points for ObeGee services are configured and ready.
--   **Frontend**: An Expo (React Native) application with a refined UI. The main Talk screen features a non-breaking floating chat modal and a Siri-like VAD waveform button. A comprehensive, multi-section Settings screen allows for granular control over the Digital Self and data sources.
--   **Digital Self**: The architecture has been successfully shifted to be on-device first. It uses  for the encrypted data blob and  for hardware-backed key storage (AES-256-GCM), ensuring no personal data leaves the device. The data schema is aligned with the  skill spec.
--   **Build Process**: The production APK build process using EAS has been thoroughly debugged and is now functional.
+1.  **Natural Language Intent Extraction**: The L1 Scout now extracts the user's true intent as a plain string (e.g., Event Planning).
+2.  **Intent-Aware Dimension Extraction**: A new engine dynamically identifies and extracts execution-level parameters based on the intent, using the Digital Self to pre-fill known data and marking missing information.
+3.  **Conversational Clarification Loop**: A Micro-Question Generator creates bundled, personalized, secretary-like questions to fill any missing dimensions. This loop repeats until a Definitive Mandate is formed.
+4.  **LLM-Driven Skill Determination**: Once a mandate is definitive, an LLM analyzes it and selects the necessary skills from a library of 73, determining the execution method (e.g., direct API call or browser scraping).
+5.  **Post-Mandate Learning**: A mechanism is in place to feed the choices from a completed mandate back into the Digital Self, progressively reducing future friction.
+6.  **Cleanup**: A major code cleanup has removed all legacy components related to the old architecture (pre-defined agents, static selectors, hardcoded guardrails).
 
 **Last working item**:
--   Last item agent was working: The agent had just finished replacing all major hardcoded logic (harm detection, risk classification, agent selection rules) with calls to the existing Dynamic Prompt System, as per the user's direction. The user's last instruction was to perform a comprehensive audit of the codebase against all specification documents to identify any remaining deviations.
--   Status: IN PROGRESS
--   Agent Testing Done: Y
--   Which testing method agent to use? NA (The task is a code audit, not a feature implementation).
+-   Last item agent was working: The agent conducted a final codebase scan and discovered that the legacy field name  still exists in **12 files**. Although the live pipeline was refactored, this inconsistent and misleading naming convention represents a significant source of technical debt and potential bugs. The agent proposed a systematic, codebase-wide rename of  to .
+-   Status: BLOCKED
+-   Agent Testing Done: N/A
+-   Which testing method agent to use? After the refactor is complete, use the **backend testing agent** to run a full regression test on the entire  pipeline using the existing test endpoints.
 -   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Conduct a comprehensive audit of the entire codebase against all specification documents. (P0)
-    -   **Details**:
-        -   **Attempted fixes**: The agent was about to start this task by reading all documentation files.
-        -   **Next debug checklist**:
-            1.  Read all  and  specification documents in the repository.
-            2.  Systematically compare the current implementation (backend and frontend) against each requirement in the documents.
-            3.  Create a detailed gap analysis report listing every deviation, from major architectural differences to minor UI inconsistencies.
-            4.  Present the report to the user for confirmation before proceeding with fixes.
-        -   **Why fix this issue and what will be achieved with the fix?**: This is the user's highest priority. It will ensure the final product aligns perfectly with the detailed specifications and no requirements have been missed.
-        -   **Status**: NOT STARTED
-        -   **Is recurring issue?**: N
-        -   **Should Test frontend/backend/both after fix?**: Both
-        -   **Blocked on other issue**: None.
+-   Issue 1: Systematically rename  to  across the entire codebase. (P0)
+
+    -   **Attempted fixes**: The agent has identified the 12 files that require changes but has not started the refactoring, as per the user's request to create a handoff.
+    -   **Next debug checklist**:
+        1.  Use the ERROR: Please provide a comma-separated list of file or directory paths tool to review the 12 identified files to confirm the scope of changes.
+        2.  Use parallel  calls to rename all occurrences of  to  in all 12 files. This includes Pydantic model fields, function parameters, variable names, and dictionary keys.
+        3.  After the refactor, restart the backend service.
+        4.  Execute a full pipeline test using the endpoints in  to confirm that no regressions were introduced and the system is fully functional with the new, consistent naming.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical code quality and correctness task. The name  reflects an obsolete, hardcoded architecture. Renaming it to  aligns the code with its actual purpose, improves clarity, and eliminates a major source of potential bugs and developer confusion.
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: backend
+    -   **Blocked on other issue**: None.
 
 **In progress Task List**:
--   Task 1: Comprehensive code audit against all specification documents.
-    -   **Details**:
-        -   **Where to resume**: The agent has read the files. The next step is to perform the analysis and generate the gap report.
-        -   **What will be achieved with this?**: A complete list of deviations between the current codebase and the official specifications.
-        -   **Status**: IN PROGRESS
-        -   **Should Test frontend/backend/both after fix?**: Both
-        -   **Blocked on something**: None.
+-   None.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   **(P0) Build and test the final production APK**: The build process is fixed, but a new APK is needed to incorporate all recent changes (on-device Digital Self, new settings screen, UI fixes). This is critical for user validation.
-    -   **(P1) Activate On-device Native Modules**: The logic for mobile ONNX, , and  is stubbed out. The next build should include these native dependencies to enable on-device AI and Tier 1 data ingestion.
-    -   **(P2) Final End-to-End Test with ObeGee**: Once the new APK is ready and ObeGee has configured their side (Stripe webhook, etc.), perform a full user-facing test of the setup and mandate execution flow.
+    -   (P1) **Remove Final Mock Fallback**: Delete the  function in  as per user's no fallback crap rule.
+    -   (P2) **Build and test the final production APK**: This is a long-standing critical task to allow user validation of the extensive backend changes.
+    -   (P3) **Activate On-device Native Modules**: Integrate the stubbed-out logic for  and  to enable Tier 1 data ingestion.
 
 -   **Future Tasks**:
-    -   **(P3) Implement Digital Twin Module**: Build the full Digital Twin functionality as per the spec, including Tier 2 data scraping.
-    -   **(P3) Implement Micro-questions Engine**: Build the UI and logic for the agent to ask clarifying micro-questions.
-    -   **(P3) Implement Explainability UI**: Add UI to show the provenance (why I learned this) for each piece of data in the Digital Self.
+    -   Implement the Digital Twin Module.
+    -   Implement the Explainability UI for the Digital Self.
 
 **Completed work in this session**
--   **Production APK Build**: Fully debugged and fixed the complex EAS build process.
--   **Exhaustive Code Reviews**: Conducted over 8 passes of deep-dive code reviews, identifying and fixing more than 60 issues related to security, performance, memory leaks, and architectural integrity.
--   **Digital Self Architecture**: Successfully re-architected the Digital Self to be **on-device first**, using hardware-backed encryption () and removing cloud dependency.
--   **Intent Pipeline Overhaul**: Re-architected the intent pipeline to use a session-ambient, pre-loaded Digital Self context and a Gap Filler to enrich user fragments before they reach the LLM, dramatically improving contextual understanding.
--   **Dynamic Agent Composition**: Replaced a static agent selection model with a dynamic engine that composes agents from a catalogue of skills based on the mandate's specific needs.
--   **ClawHub Skill Ingestion**: Successfully ingested and processed over 60 skills from ClawHub, enriching the system's capabilities and storing them in the MongoDB skills library.
--   **Hardcoding Elimination**: Systematically removed all major hardcoded logic (harm detection, risk classification, agent selection rules) and replaced it with robust, versioned calls to the existing Dynamic Prompt System.
--   **UI/UX Refinement**:
-    -   Redesigned the Talk screen with a non-breaking floating chat bubble and modal UI.
-    -   Redesigned the Speak button with an integrated, Siri-like waveform animation.
-    -   Built a comprehensive, multi-section Settings screen from scratch based on new specifications.
--   **Live Integration Fixes**: Diagnosed and guided the fixes for all live integration issues with ObeGee endpoints, including URLs, authentication tokens, and payload formats.
+-   **Architectural Revolution**: Replaced the entire hardcoded intent system with a fully LLM-driven  pipeline.
+-   **Conversational AI Implemented**: Built and integrated the end-to-end conversational clarification loop (personalized micro-questions, TTS/STT, context enrichment).
+-   **Prompt-based RL System**: Created a reinforcement learning loop that correctly feeds corrections into the prompt system as few-shot examples, improving intent extraction accuracy.
+-   **LLM-Driven Skill Selection**: Implemented a system where an LLM determines the required skills and execution methods (API vs. browser scraping) to fulfill a mandate.
+-   **Massive Code Sterilization**: Performed a deep-dive audit and systematically deleted dozens of legacy files and code blocks containing hardcoded logic, including the entire  module and  enums.
 
 **Earlier issues found/mentioned but not fixed**
--   **L2/QC Sentry Disagreement Logic**: The current logic has L2 override L1 on disagreement. A more sophisticated flow could involve user clarification, but the current implementation is a functional and deterministic default.
--   **Onboarding Endpoints Auth**: The  endpoints lack authentication. This was documented as requiring a larger architectural decision on SSO middleware.
+-   **Onboarding Endpoints Auth**: The  endpoints still lack authentication. This was deferred pending a larger decision on SSO.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **On-device Digital Self**: A Personal Knowledge Graph (PKG) stored locally on the user's device using , with its encryption key stored in the hardware keystore ( for Secure Enclave/StrongBox). This ensures zero PII leaves the device.
--   **Session-Ambient Context**: The user's Digital Self summary is loaded into server-side session memory upon authentication, making it instantly available for all subsequent operations in that session without repeated DB lookups.
--   **Gap-Filler Engine**: A pre-processing step that enriches fragmented user transcripts with context from the session-ambient Digital Self before the transcript is sent to the L1 Scout LLM.
--   **Dynamic Agent Composition**: Instead of selecting from a fixed list, the system now dynamically assembles a collection of agents from a catalogue based on the specific skills required by a mandate. If no pre-defined agent fits, it composes a new one on the fly.
--   **Dynamic Prompt System**: The codebase now heavily relies on a versioned, monitored prompting infrastructure (, , ) to replace hardcoded logic for tasks like harm detection and risk classification.
--   **ClawHub Skills**: A library of ~60 third-party skills that provide a vast range of capabilities, from sending emails and booking meetings to analyzing stock market data and generating social media content.
--   **Expo Application Services (EAS)**: The cloud build service used to create the production APK. The build process is complex and relies on a correctly configured  and .
+-   **Mandate = Intent + Dimensions**: The new core data model. The  is a natural language string, and  are the specific parameters needed for execution.
+-   **Progressive Mandate Completion**: The process of iteratively filling a mandate's missing dimensions via a conversational loop until it becomes .
+-   **LLM-as-Router**: The core principle where the LLM is used to make all key decisions (what is the intent, what dimensions are needed, what questions to ask, what skills to use), using the codebase's data and schemas as reference material.
+-   **Zero Hardcoding**: A strict, user-enforced rule that forbids hardcoded logic, maps, or enums in the decision-making pipeline.
 
 **key DB schema**
--   **skills_library**: Now contains the full  content,  (OpenClaw tool profile), , and an RL-updated .
--   **agents**: The new collection for the 14 pre-defined agents, with fields for , , , .
--   **l1_drafts**: Caches L1 scout results with a 24hr TTL.
--   **mio_keys**: Securely stores the MIO signing keypair, encrypted at rest.
--   **agentguard_reports**: Stores security reports from the  monitoring skill.
+-   **intent_corrections**: **NEW** collection storing feedback for the prompt system's reinforcement learning ().
+-   **l1_drafts**: Schema updated to store a natural language  string and a complex  object, replacing the old  enum.
 
 **All files of reference**
--   : The core of the on-device, encrypted Digital Self.
--   : The engine that enriches user fragments with DS context.
--   : The new dynamic agent assembly engine.
--   : The central component of the Dynamic Prompt System.
--   : Completely refactored with a floating chat modal and waveform button.
--   : Completely rebuilt with dozens of new controls for the Digital Self.
--   : The configuration file for the production APK build.
--   All  and  files under  and  are the source of truth for all requirements.
+-   **Files to be Refactored (Issue 1)**: The 12 files identified in the last agent message that still contain .
+-   : The orchestrator for the entire live user-facing pipeline.
+-   : Defines the core  object and its completion logic.
+-   : The new LLM-driven skill selection engine.
+-   : The engine for creating personalized clarification questions.
+-   : Contains the REST endpoints crucial for testing the new architecture.
+
+**Areas that need refactoring**:
+-   **Codebase-wide rename of  to **. This is the highest priority task for the next agent.
+
+**key api endpoints**
+-   : (POST) Tests transcript -> Incomplete Mandate + Questions.
+-   : (POST) Tests answering questions -> more complete Mandate.
+-   : (POST) Tests Definitive Mandate -> Skill Plan.
+-   : The live WebSocket endpoint.
 
 **Critical Info for New Agent**
--   **The user's last request is the highest priority**: Conduct a comprehensive audit of the codebase against all specification documents and report any deviations.
--   **The architecture is now on-device first for the Digital Self.** All PII must remain on the device. Data is encrypted using a hardware-backed key. Only context capsules (summaries) are sent to the backend.
--   **Hardcoding is forbidden.** All rule-based logic has been replaced with calls to the Dynamic Prompt System. Understand how this system works before making changes.
--   **The build process (EAS) is sensitive.** Changes to , , or native dependencies can easily break the build. Follow the established patterns.
--   **The system is data-driven.** Agent selection, skill matching, and tool profiles are derived from the data in the MongoDB  and  collections, not hardcoded maps.
+-   **Your first and only task is to perform the codebase-wide rename of  to **. The user has specifically forked this job for this purpose. This is a large but critical refactor across 12 files. Do not proceed to other tasks until this is complete and verified.
+-   **Adhere strictly to the ZERO HARDCODING principle**. The entire architecture is now built on the LLM making decisions. Do not re-introduce any static logic.
+-   The  model is the central concept.  is a natural language string extracted by the LLM.
 
 **documents and test reports created in this job**
 -   
 -   
--   Numerous test files under  for intent extraction, VAD/STT/TTS, and the gap-filler engine.
+-   
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Instructs the agent to proceed with creating agents from skills for each mandate.
-2.  **Agent**: Acknowledges and starts to implement a dynamic agent creation flow.
-3.  **User**: NO. NO. NO. Step Back. Asks the agent to discuss the approach before executing.
-4.  **Agent**: Apologizes, stops, and presents a detailed understanding of the architecture for discussion, asking for clarification on key design questions.
-5.  **User**: Clarifies that the 14 pre-defined agents can be a catalogue and for a given mandate, a collection of these agents can be assembled.
-6.  **Agent**: Confirms understanding of the multi-agent assembly approach.
-7.  **User**: Adds that if a mandate doesn't fit any catalogue agent, the system should tweak the closest available skill, name it, and use it as a new agent.
-8.  **Agent**: Confirms understanding of the complete two-path (catalogue assembly + dynamic composition) architecture and proceeds to implement it.
-9.  **User**: After implementation, asks what Mock vs Real Gemini means.
-10. **User**: NO HARDCODING. NEVER. and ABSOLUTELY. RIGHT NOW. - Instructs the agent to immediately remove all hardcoded logic from the system. This leads to the final major refactoring pass.
+1.  **User**: Instructs to fix all 16 issues found in the audit. (Completed)
+2.  **User**: Fallback is dangerous. Do not keep any fallback crap. Stick to the truth. (Partially complete, one mock remains).
+3.  **User**: Agrees to delete the old, unused agent system files. (Completed)
+4.  **User**: Questions Call Site as potential hardwiring, leading to its removal. (Completed)
+5.  **User**: Confirms the LLM should use browser scraping if a direct API for a skill isn't available. (Completed)
+6.  **User**: Asks for a deep-dive audit of the codebase. (Completed)
+7.  **User**: Asks for an even more detailed audit. (Completed)
+8.  **User**: Re-iterates to fix all identified issues. (Completed)
+9.  **User**: How do you know if something is harmless? Until it starts harming you. - Instructs agent to remove all remaining legacy code, even seemingly harmless comments. (Completed)
+10. **User**: After agent proposes the  rename, user says: **Create a Hand off Document. We will switch to a large content window.** (This is the final, pending instruction).
 
 **Project Health Check:**
--   **Broken**: No part of the code is critically broken. The main gap is that the latest APK, with all the recent UI and architectural changes, has not been built and tested by the user.
--   **Mocked**: The L1 Scout () is used in some backend unit tests for speed, but the live WS pipeline correctly uses the real Gemini model. ObeGee's final execution step is the only remaining external dependency that was failing in the last E2E test (an issue on their side).
+-   **Broken**: The codebase is in a fragile, inconsistent state. The core logic relies on a field () whose name is fundamentally misleading. This technical debt poses a high risk of bugs and must be resolved before any new features are built.
+-   **Mocked**: All critical mocks have been removed. One non-critical mock function () remains, which should be deleted.
 
 **3rd Party Integrations**
 -   **Deepgram (STT)** — requires User API Key.
 -   **ElevenLabs (TTS)** — requires User API Key.
 -   **Google Gemini (LLM)** — uses Emergent LLM Key.
 -   **GitHub (VCS)** — requires SSH keys.
--   **ClawHub Skills Ecosystem**: This is a major integration point, bringing in ~60 unique skills which in turn have their own dependencies:
-    -   **Maton API Gateway**: A single  unlocks , , , , , , and 100+ others.
-    -   **Google CLI ()**: Requires Google OAuth.
-    -   **Twilio API**: For SMS and voice calls.
-    -   **Brave/Tavily Search**: For web research.
-    -   **Post Bridge/Upload-Post**: For social media publishing.
-    -   And many more, each with its own credential/dependency requirements (, , etc.).
+-   **ClawHub Skills Ecosystem**: A library of 73 skills used as reference material, with various underlying dependencies (Maton API, Twilio, etc.).
 
 **Testing status**
--   **Testing agent used after significant changes**: YES, extensively for backend unit and integration tests.
+-   **Testing agent used after significant changes**: NO
 -   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: Yes, many files under  to cover the intent pipeline, gap-filler, and agent composer.
--   **Known regressions**: None known. The last test pass before the final user request was a comprehensive E2E verification.
+-   **Test files created**: Yes,  was created to provide REST endpoints for testing the new modular pipeline.
+-   **Known regressions**: None confirmed, but the pending 12-file refactor has a high risk of causing them.
 
 **What agent forgot to execute**
-The agent was about to begin the comprehensive documentation audit as requested by the user. This is the main pending task for the next agent.</analysis>
+-   The primary task of renaming  to  was deferred by the user to this new session.
+-   The final mock fallback function  in  has not been deleted yet, despite the user's clear instruction to remove all fallbacks.</analysis>

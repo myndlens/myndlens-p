@@ -11,7 +11,7 @@ import math
 import struct
 
 # Backend URL
-BACKEND_URL = "https://myndlens-audit.preview.emergentagent.com"
+BACKEND_URL = "https://mandate-pipeline-1.preview.emergentagent.com"
 
 def test_health():
     """Test health endpoint"""
