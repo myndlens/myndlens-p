@@ -404,7 +404,7 @@ export default function SetupWizardScreen() {
               </TouchableOpacity>
             </View>
             <TouchableOpacity
-              style={[styles.primaryBtn, !phone.trim() && styles.primaryBtnDisabled]}
+              style={[styles.primaryBtn, !phone.trim() && styles.disabledBtn]}
               onPress={handlePreferences}
               disabled={!phone.trim()}
               data-testid="setup-save-prefs"
