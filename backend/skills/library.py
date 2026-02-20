@@ -132,13 +132,21 @@ async def match_skills_to_intent(
     # attribute names (MONGO_URL, JWT_SECRET) that are unrelated to skill credentials.
     configured_envs: set = {k.upper() for k, v in os.environ.items() if v}
 
+    # If the intent is a gap-filled enriched transcript, extract ONLY the mandate
+    # line for keyword extraction. The context prefix contains role labels like
+    # "(assistant)", "(manager)" which pollute skill matching.
+    if "\nUser mandate:" in intent:
+        mandate_line = intent.split("\nUser mandate:", 1)[1].strip()
+    else:
+        mandate_line = intent
+
     stop_words = {
         "i", "want", "to", "the", "a", "an", "my", "me", "is", "do",
         "can", "you", "please", "for", "with", "on", "in", "of", "and", "or",
         "user", "context", "contacts", "locations", "traits", "manager",
-        "colleague", "mandate",
+        "colleague", "mandate", "assistant", "director", "doctor", "lawyer",
     }
-    keywords = [w for w in re.findall(r'\w+', intent.lower())
+    keywords = [w for w in re.findall(r'\w+', mandate_line.lower())
                 if w not in stop_words and len(w) > 2]
     query = " ".join(keywords[:8])
 
