@@ -1887,36 +1887,53 @@ class MandateRequest(BaseModel):
 
 @api_router.post("/mandate/build")
 async def api_build_mandate(req: MandateRequest):
-    """Full mandate pipeline: broken thoughts → Intent → Dimensions → Mandate.
+    """Full mandate pipeline: broken thoughts → Intent → Dimensions → Missing Questions.
     
-    Returns the complete mandate ready for execution.
+    Returns the mandate + whisper-questions for every missing dimension.
+    No mandate can execute with missing dimensions.
     """
     from l1.scout import run_l1_scout
     from dimensions.extractor import extract_mandate_dimensions
+    from intent.mandate_questions import generate_mandate_questions, get_all_missing
     import uuid
     session_id = f"mandate_{uuid.uuid4().hex[:8]}"
 
-    # Step 1: Extract intent
+    # Step 1: Intent
     draft = await run_l1_scout(session_id=session_id, user_id=req.user_id, transcript=req.transcript)
     top = draft.hypotheses[0] if draft.hypotheses else None
     intent = top.intent if top else "Unknown"
-    summary = top.hypothesis if top else ""
     sub_intents = top.sub_intents if top else []
-    l1_dims = top.dimension_suggestions if top else {}
 
-    # Step 2: Extract mandate-ready dimensions (intent-driven)
+    # Step 2: Execution-ready dimensions
     mandate = await extract_mandate_dimensions(
         session_id=session_id, user_id=req.user_id, transcript=req.transcript,
-        intent=intent, sub_intents=sub_intents, l1_dimensions=l1_dims,
+        intent=intent, sub_intents=sub_intents,
+        l1_dimensions=top.dimension_suggestions if top else None,
     )
+
+    # Step 3: Questions for ALL missing dimensions
+    all_missing = get_all_missing(mandate)
+    questions_batch = await generate_mandate_questions(
+        session_id=session_id, user_id=req.user_id, transcript=req.transcript,
+        mandate=mandate, batch_size=len(all_missing),  # ask ALL
+    )
+
+    # Build definitive status
+    definitive = len(all_missing) == 0
 
     return {
         "intent": intent,
-        "summary": summary,
+        "summary": top.hypothesis if top else "",
         "sub_intents": sub_intents,
         "confidence": top.confidence if top else 0,
         "mandate": {k: v for k, v in mandate.items() if k != "_meta"},
-        "meta": mandate.get("_meta", {}),
+        "status": "DEFINITIVE" if definitive else "INCOMPLETE",
+        "missing_count": len(all_missing),
+        "questions": [
+            {"question": q.question, "action": q.fills_action,
+             "dimension": q.fills_dimension, "options": q.options}
+            for q in questions_batch.questions
+        ],
     }
 
 
