@@ -28,8 +28,8 @@ export default function LoadingScreen() {
   const MAX_RETRIES = 8;
 
   useEffect(() => {
-    // Rotate status text
     const interval = setInterval(() => {
+      if (softError) return; // stop rotating when showing error
       Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
         setStatusIdx((i) => (i + 1) % STATUS_MESSAGES.length);
         Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
@@ -41,13 +41,13 @@ export default function LoadingScreen() {
   }, []);
 
   async function activate() {
+    setSoftError(null);
     try {
       setConnectionStatus('connecting');
       await wsClient.connect();
       setConnectionStatus('authenticated');
 
       // Send Digital Self context immediately after auth
-      // Server stores this in session memory for gap-filling all mandates
       try {
         const userId = wsClient.userId ?? '';
         if (userId) {
@@ -59,7 +59,6 @@ export default function LoadingScreen() {
         }
       } catch { /* context sync is best-effort — never blocks auth */ }
 
-      // Check if first-time setup is needed
       const { getItem } = require('../src/utils/storage');
       const setupDone = await getItem('setup_wizard_complete');
       if (setupDone === 'true') {
@@ -76,7 +75,8 @@ export default function LoadingScreen() {
         return;
       }
 
-      // HARD auth failure — token is genuinely invalid, clear it and re-pair
+      // HARD auth failure — token genuinely rejected by server (wrong device, revoked, mismatched)
+      // Only in this case do we clear the token and force re-pairing.
       if (
         msg.includes('auth_fail') ||
         msg.includes('AUTH_ERROR') ||
@@ -89,19 +89,40 @@ export default function LoadingScreen() {
         return;
       }
 
-      // SOFT failure — network error, timeout, backend unavailable
-      // Token is still valid. Retry with backoff up to MAX_RETRIES.
+      // SOFT failure — network error, timeout, backend temporarily unavailable.
+      // Token is still valid. Retry with backoff. NEVER wipe the token.
       setConnectionStatus('disconnected');
       retryCount.current += 1;
-      if (retryCount.current >= MAX_RETRIES) {
-        // Give up — send to login so user can re-pair
-        const { clearAuth } = require('../src/ws/auth');
-        await clearAuth();
-        router.replace('/login');
-        return;
+
+      if (retryCount.current < MAX_RETRIES) {
+        // Auto-retry silently
+        setTimeout(() => activate(), 3000);
+      } else {
+        // Give up auto-retrying — show manual retry UI.
+        // Token is preserved. User taps "Try Again" to re-attempt.
+        setSoftError('Could not connect. Check your internet connection.');
       }
-      setTimeout(() => activate(), 3000);
     }
+  }
+
+  // Soft error state — show retry without losing the pairing
+  if (softError) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.spinnerBox}>
+          <Text style={styles.errorText}>{softError}</Text>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={() => {
+              retryCount.current = 0;
+              activate();
+            }}
+          >
+            <Text style={styles.retryText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   }
 
   return (
