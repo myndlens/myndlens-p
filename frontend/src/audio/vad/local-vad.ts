@@ -26,7 +26,7 @@ export interface VADConfig {
 
 const DEFAULT_CONFIG: VADConfig = {
   energyThreshold: 0.015,
-  silenceDurationMs: 1200,
+  silenceDurationMs: 2000,
   minSpeechDurationMs: 300,
 };
 
