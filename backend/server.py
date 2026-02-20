@@ -1879,6 +1879,47 @@ async def api_pipeline_test_results():
     }
 
 
+# ── Mandate Builder: Intent + Dimensions = Mandate ──
+
+class MandateRequest(BaseModel):
+    transcript: str
+    user_id: str = "rl_test_user"
+
+@api_router.post("/mandate/build")
+async def api_build_mandate(req: MandateRequest):
+    """Full mandate pipeline: broken thoughts → Intent → Dimensions → Mandate.
+    
+    Returns the complete mandate ready for execution.
+    """
+    from l1.scout import run_l1_scout
+    from dimensions.extractor import extract_mandate_dimensions
+    import uuid
+    session_id = f"mandate_{uuid.uuid4().hex[:8]}"
+
+    # Step 1: Extract intent
+    draft = await run_l1_scout(session_id=session_id, user_id=req.user_id, transcript=req.transcript)
+    top = draft.hypotheses[0] if draft.hypotheses else None
+    intent = top.intent if top else "Unknown"
+    summary = top.hypothesis if top else ""
+    sub_intents = top.sub_intents if top else []
+    l1_dims = top.dimension_suggestions if top else {}
+
+    # Step 2: Extract mandate-ready dimensions (intent-driven)
+    mandate = await extract_mandate_dimensions(
+        session_id=session_id, user_id=req.user_id, transcript=req.transcript,
+        intent=intent, sub_intents=sub_intents, l1_dimensions=l1_dims,
+    )
+
+    return {
+        "intent": intent,
+        "summary": summary,
+        "sub_intents": sub_intents,
+        "confidence": top.confidence if top else 0,
+        "mandate": {k: v for k, v in mandate.items() if k != "_meta"},
+        "meta": mandate.get("_meta", {}),
+    }
+
+
 
 # Include REST router
 app.include_router(api_router)
