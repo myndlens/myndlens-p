@@ -214,7 +214,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                 await _handle_heartbeat(websocket, session_id, payload)
 
             elif msg_type == WSMessageType.AUDIO_CHUNK.value:
-                await _handle_audio_chunk(websocket, session_id, payload)
+                await _handle_audio_chunk(websocket, session_id, payload, user_id=user_id_resolved or "")
 
             elif msg_type == WSMessageType.EXECUTE_REQUEST.value:
                 await _handle_execute_request(
