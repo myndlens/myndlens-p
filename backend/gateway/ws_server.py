@@ -783,14 +783,22 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     )
     await _emit_stage("capture", 0, "done")
 
-    # ── STEP 0.5: Gap filling — enrich fragment with Digital Self ───────────
+    # ── STEP 0.5: Gap filling ──────────────────────────────────────────────────
     session_ctx = _session_contexts.get(session_id)
     if session_ctx:
         enriched_transcript = await enrich_transcript(transcript, session_ctx)
         if enriched_transcript != transcript:
-            logger.info("[MANDATE:0:GAPFILL] session=%s enriched (DS entities=%d)", session_id, len(session_ctx.entities))
+            logger.info("[MANDATE:0:GAPFILL] session=%s enriched (DS entities=%d)",
+                        session_id, len(session_ctx.entities))
     else:
         enriched_transcript = transcript
+
+    # Extract DS summary for harm check (from session context or capsule)
+    context_capsule_summary = ""
+    if context_capsule and session_ctx:
+        context_capsule_summary = session_ctx.raw_summary
+    elif session_ctx:
+        context_capsule_summary = session_ctx.raw_summary
 
     # Update context_capsule from session if not provided per-request
     if not context_capsule and session_ctx and session_ctx.raw_summary:
