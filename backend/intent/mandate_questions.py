@@ -151,15 +151,18 @@ def _parse_questions(response: str) -> List[MicroQuestion]:
         elif "```" in text:
             text = text.split("```")[1].split("```")[0].strip()
         data = json.loads(text)
-        return [
-            MicroQuestion(
+        results = []
+        for q in data.get("questions", [])[:3]:  # Max 3
+            fills = q.get("fills", [])
+            # Flatten fills into a readable string
+            fills_str = ", ".join(f"{f.get('action','')}.{f.get('dimension','')}" for f in fills)
+            results.append(MicroQuestion(
                 question=q.get("question", ""),
-                fills_action=q.get("fills_action", ""),
-                fills_dimension=q.get("fills_dimension", ""),
+                fills_action=fills_str,
+                fills_dimension=str(len(fills)) + " dimensions",
                 options=q.get("options", []),
-            )
-            for q in data.get("questions", [])
-        ]
+            ))
+        return results
     except (json.JSONDecodeError, KeyError) as e:
         logger.warning("[MandateMQ] Parse failed: %s", e)
         return []
