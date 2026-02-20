@@ -951,96 +951,73 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         top_check = l1_draft.hypotheses[0]
         # Coherence check removed — L1 Scout (Gemini) is the classifier. Trust it.
 
-    # ── STEP 2: Dimensions extraction ───────────────────────────────────────
-    logger.info("[MANDATE:2:DIMENSIONS] session=%s updating A-set + B-set", session_id)
-    await _emit_stage("dimensions", 2, "active", "Extracting dimensions...")
+    # ── STEP 2: Mandate Dimensions (intent-driven, execution-level) ─────────
+    logger.info("[MANDATE:2:DIMENSIONS] session=%s building mandate dimensions", session_id)
+    await _emit_stage("dimensions", 2, "active", "Building mandate...")
 
-    dim_state = get_dimension_state(session_id)
-    if l1_draft.hypotheses:
+    if l1_draft.hypotheses and not l1_draft.is_mock:
         top = l1_draft.hypotheses[0]
-        dim_state.update_from_suggestions(top.dimension_suggestions)
-
-    logger.info(
-        "[MANDATE:2:DIMENSIONS] session=%s DONE a_set=%s "
-        "ambiguity=%.2f urgency=%.2f emotional_load=%.2f turn=%d",
-        session_id, dim_state.a_set.to_dict(),
-        dim_state.b_set.ambiguity, dim_state.b_set.urgency,
-        dim_state.b_set.emotional_load, dim_state.turn_count,
-    )
-    await _emit_stage("dimensions", 2, "done")
-
-    # ── STEP 3: Guardrails — deterministic gates first, then async LLM harm check ─
-    logger.info("[MANDATE:3:GUARDRAILS] session=%s running deterministic gates", session_id)
-    await _emit_stage("mandate", 3, "active", "Safety check...")
-
-    guardrail = check_guardrails(transcript, dim_state, l1_draft,
-                                  session_id=session_id, user_id=user_id,
-                                  ds_context=context_capsule_summary)
-
-    # Async LLM harm assessment via SAFETY_GATE (runs at extraction time per spec)
-    from guardrails.engine import _assess_harm_llm
-    harm_check = await _assess_harm_llm(
-        transcript=transcript,
-        ds_context=context_capsule_summary,
-        session_id=session_id,
-        user_id=user_id,
-    )
-    # If LLM detects harm, override the deterministic pass
-    if harm_check.block_execution and not guardrail.block_execution:
-        guardrail = harm_check
-
-    logger.info(
-        "[MANDATE:3:GUARDRAILS] session=%s result=%s block=%s reason='%s'",
-        session_id, guardrail.result.value, guardrail.block_execution, guardrail.reason,
-    )
-
-    if guardrail.block_execution:
-        response_text = guardrail.nudge or "I need a bit more clarity before proceeding."
-        logger.warning(
-            "[MANDATE:3:GUARDRAILS] BLOCKED session=%s result=%s nudge='%s'",
-            session_id, guardrail.result.value, response_text[:60],
+        from dimensions.extractor import extract_mandate_dimensions
+        mandate = await extract_mandate_dimensions(
+            session_id=session_id, user_id=user_id, transcript=transcript,
+            intent=top.intent, sub_intents=top.sub_intents,
+            l1_dimensions=top.dimension_suggestions,
         )
-    elif l1_draft.hypotheses and not l1_draft.is_mock:
-        top = l1_draft.hypotheses[0]
-        response_text = _generate_l1_response(top, dim_state)
+        from intent.mandate_questions import get_all_missing
+        missing = get_all_missing(mandate)
         logger.info(
-            "[MANDATE:4:RESPONSE] session=%s source=llm action=%s confidence=%.2f response='%s'",
-            session_id, top.action_class, top.confidence, response_text[:60],
+            "[MANDATE:2:DIMENSIONS] session=%s intent=%s actions=%d missing=%d",
+            session_id, top.intent, len(mandate.get("actions", [])), len(missing),
         )
     else:
-        response_text = _generate_mock_response(transcript)
-        logger.info(
-            "[MANDATE:4:RESPONSE] session=%s source=mock response='%s'",
-            session_id, response_text[:60],
-        )
+        mandate = None
+        missing = []
 
+    await _emit_stage("dimensions", 2, "done")
+
+    # ── STEP 3: Guardrails — LLM harm check ─────────────────────────────────
+    logger.info("[MANDATE:3:GUARDRAILS] session=%s safety check", session_id)
+    await _emit_stage("mandate", 3, "active", "Safety check...")
+
+    from guardrails.engine import _assess_harm_llm
+    harm_check = await _assess_harm_llm(
+        transcript=transcript, ds_context=context_capsule_summary,
+        session_id=session_id, user_id=user_id,
+    )
+
+    if harm_check.block_execution:
+        response_text = harm_check.nudge or "I can't assist with that."
+        logger.warning("[MANDATE:3:GUARDRAILS] BLOCKED session=%s", session_id)
+    elif mandate and l1_draft.hypotheses and not l1_draft.is_mock:
+        top = l1_draft.hypotheses[0]
+        # Build response from the mandate — NOT hardcoded
+        summary = mandate.get("mandate_summary", top.hypothesis)
+        missing_count = len(missing)
+        if missing_count == 0:
+            response_text = f"Got it. {summary}. Tap Approve."
+        else:
+            response_text = f"{summary}. I have a few quick questions first."
+    else:
+        top_h = l1_draft.hypotheses[0].hypothesis if l1_draft.hypotheses else transcript[:50]
+        response_text = f"Understood: {top_h}. Tap Approve."
+
+    logger.info("[MANDATE:3:GUARDRAILS] session=%s result=PASS", session_id)
     await _emit_stage("mandate", 3, "done")
 
-    # ── STEP 4: Draft update — includes approval preview for user gate ───────
+    # ── STEP 4: Draft update ─────────────────────────────────────────────────
     if l1_draft.hypotheses:
         top = l1_draft.hypotheses[0]
-        # Quick approval preview (no skills yet — uses action_class heuristic)
-        action_preview = {
-            "COMM_SEND": "I'll send a message on your behalf.",
-            "SCHED_MODIFY": "I'll update your calendar.",
-            "INFO_RETRIEVE": "I'll research and report back.",
-            "DOC_EDIT": "I'll edit the document.",
-            "CODE_GEN": "I'll write the code.",
-            "FIN_TRANS": "I'll process the financial action.",
-        }.get(top.action_class, "I'll carry out this mandate.")
         draft_payload = {
             "draft_id": l1_draft.draft_id,
+            "intent": top.intent,
             "hypothesis": top.hypothesis,
+            "sub_intents": top.sub_intents,
             "action_class": top.action_class,
             "confidence": top.confidence,
-            "dimensions": dim_state.to_dict(),
+            "mandate": {k: v for k, v in (mandate or {}).items() if k != "_meta"} if mandate else {},
+            "missing_count": len(missing),
             "is_mock": l1_draft.is_mock,
-            "approval_preview": action_preview,   # shown in approval gate card
         }
-        logger.info(
-            "[MANDATE:4:DRAFT] session=%s draft_id=%s action=%s confidence=%.2f",
-            session_id, l1_draft.draft_id[:8], top.action_class, top.confidence,
-        )
         data = _make_envelope(WSMessageType.DRAFT_UPDATE, draft_payload)
         await ws.send_text(data)
 
