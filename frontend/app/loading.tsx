@@ -42,6 +42,19 @@ export default function LoadingScreen() {
       await wsClient.connect();
       setConnectionStatus('authenticated');
 
+      // Send Digital Self context immediately after auth
+      // Server stores this in session memory for gap-filling all mandates
+      try {
+        const userId = wsClient.userId ?? '';
+        if (userId) {
+          const { buildContextCapsule } = require('../src/digital-self');
+          const capsule = await buildContextCapsule(userId, '');
+          if (capsule.summary) {
+            wsClient.send('context_sync', { summary: capsule.summary });
+          }
+        }
+      } catch { /* context sync is best-effort — never blocks auth */ }
+
       // Check if first-time setup is needed
       const { getItem } = require('../src/utils/storage');
       const setupDone = await getItem('setup_wizard_complete');
