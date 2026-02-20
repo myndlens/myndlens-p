@@ -518,35 +518,24 @@ async def _handle_execute_request(
             session_id, topology.complexity, len(topology.sub_agents), len(topology.approval_lines),
         )
 
-        # ── Stage 5: Agent assignment (tool-compatible) ───────────────────────
-        assigned_agent_id = None
-        assigned_agent_name = "default"
-        if tenant_id:
-            from agents.builder import AgentBuilder
-            builder = AgentBuilder()
-            # Collect all required tools from matched skills
-            required_tools = set()
-            for s in matched_skills:
-                for tool in re.split(r'[,\s]+', s.get("required_tools", "")):
-                    if tool.strip():
-                        required_tools.add(tool.strip())
-            # Find agent that covers the required tools (or best match)
-            tenant_agents = await builder.list_agents(tenant_id)
-            for agent in tenant_agents:
-                agent_tools = set(agent.get("tools", {}).get("allow", []))
-                if not required_tools or required_tools.issubset(agent_tools):
-                    assigned_agent_id = agent["agent_id"]
-                    assigned_agent_name = agent.get("name", assigned_agent_id)
-                    break
-            # Fallback: use first agent even if tools don't fully match
-            if not assigned_agent_id and tenant_agents:
-                assigned_agent_id = tenant_agents[0]["agent_id"]
-                assigned_agent_name = tenant_agents[0].get("name", assigned_agent_id)
-                logger.warning("Agent tool mismatch: session=%s agent=%s missing tools=%s",
-                               session_id, assigned_agent_id, required_tools)
-            await broadcast_stage(session_id, 5, "done", f"Agent: {assigned_agent_name}")
-        else:
-            await broadcast_stage(session_id, 5, "done", "Agent assigned")
+        # ── Stage 5: Agent selection — functionality-based (not by name/order) ──
+        from agents.selector import select_agent, derive_required_oc_tools
+        agent_spec = await select_agent(
+            tenant_id=tenant_id,
+            action_class=effective_action,
+            built_skills=built_skills,
+            skill_names=skill_names,
+        )
+        assigned_agent_id = agent_spec.agent_id
+        await broadcast_stage(
+            session_id, 5, "done",
+            f"Agent: {agent_spec.name} ({agent_spec.profile}) [{agent_spec.source}]"
+        )
+        logger.info(
+            "[AgentSelect] session=%s agent=%s profile=%s tools=%s source=%s score=%.2f",
+            session_id, assigned_agent_id, agent_spec.profile,
+            agent_spec.tools_allow, agent_spec.source, agent_spec.coverage_score,
+        )
 
         # ── Stage 7: Authorization granted ───────────────────────────────────────
         await broadcast_stage(session_id, 7, "done")
