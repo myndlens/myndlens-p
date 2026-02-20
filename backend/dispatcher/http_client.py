@@ -46,7 +46,7 @@ async def submit_mio_to_adapter(
     submission = {
         "mio": {
             "mio_id": mio_id,
-            "action_class": action_class,
+            "intent": intent,
             "params": params,
             "session_id": session_id,
             "expires_at": expires_at,
