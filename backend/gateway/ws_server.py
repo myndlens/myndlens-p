@@ -665,9 +665,15 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     l1_draft = await run_l1_scout(
         session_id=session_id,
         user_id=user_id,
-        transcript=transcript,
+        transcript=enriched_transcript,  # gap-filled — not the raw fragment
         context_capsule=context_capsule,
     )
+
+    # Update session's recent transcript history for next mandate's gap-filling
+    if session_ctx:
+        session_ctx.recent_transcripts.append(transcript[:80])
+        if len(session_ctx.recent_transcripts) > 5:
+            session_ctx.recent_transcripts.pop(0)
 
     if l1_draft.hypotheses:
         top_h = l1_draft.hypotheses[0]
