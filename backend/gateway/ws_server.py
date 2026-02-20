@@ -62,6 +62,11 @@ active_connections: Dict[str, WebSocket] = {}
 execution_sessions: Dict[str, str] = {}
 # Per-session Digital Self context (pre-loaded at auth, lives for session duration)
 _session_contexts: Dict[str, SessionContext] = {}
+# Per-session clarification state (tracks pending micro-question loops)
+_clarification_state: Dict[str, dict] = {}
+# session_id -> { "pending": True, "original_transcript": str,
+#                  "enriched_transcript": str, "questions": [...],
+#                  "l1_draft": ..., "context_capsule": ..., "attempts": int }
 
 
 def _make_envelope(msg_type: WSMessageType, payload: dict) -> str:
