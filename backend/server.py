@@ -1633,6 +1633,65 @@ async def api_intent_rl_history(limit: int = 10):
     return {"runs": await get_historical_runs(limit)}
 
 
+# ── Intent RL v2: Broken Thoughts with Main Intent + Sub-Intents ──
+
+@api_router.post("/intent-rl/v2/run")
+async def api_start_intent_rl_v2(batch_size: int = 40, seed: bool = True):
+    """Start v2 RL test — broken thoughts, main intent, sub-intents, entity resolution."""
+    from intent_rl.runner_v2 import run_v2_batch, get_current_v2_run
+    current = get_current_v2_run()
+    if current and current.in_progress:
+        return {"status": "already_running", "run_id": current.run_id, "progress": f"{current.completed}/{current.total}"}
+    if seed:
+        from intent_rl.seed_digital_self import seed_digital_self, clear_digital_self
+        await clear_digital_self()
+        seed_stats = await seed_digital_self()
+    else:
+        seed_stats = None
+    run_id = await run_v2_batch(batch_size=min(batch_size, 40))
+    return {"status": "started", "run_id": run_id, "total_cases": min(batch_size, 40), "digital_self_seeded": seed_stats}
+
+
+@api_router.get("/intent-rl/v2/status")
+async def api_intent_rl_v2_status():
+    """Get v2 batch status — intent accuracy, sub-intent coverage, entity resolution."""
+    from intent_rl.runner_v2 import get_current_v2_run
+    run = get_current_v2_run()
+    if not run:
+        return {"status": "no_run"}
+    return {
+        "run_id": run.run_id, "version": "v2", "in_progress": run.in_progress,
+        "progress": f"{run.completed}/{run.total}",
+        "intent_accuracy": round(run.intent_accuracy * 100, 1),
+        "avg_sub_intent_coverage": round(run.avg_sub_intent_coverage * 100, 1),
+        "avg_entity_coverage": round(run.avg_entity_coverage * 100, 1),
+        "intent_correct": run.intent_correct,
+        "avg_latency_ms": round(run.avg_latency_ms, 1),
+        "per_intent": run.per_intent,
+        "failure_count": len(run.failures),
+        "started_at": run.started_at, "completed_at": run.completed_at,
+    }
+
+
+@api_router.get("/intent-rl/v2/results")
+async def api_intent_rl_v2_results():
+    """Get full v2 results."""
+    from intent_rl.runner_v2 import get_current_v2_run
+    run = get_current_v2_run()
+    if not run:
+        return {"status": "no_run"}
+    return {
+        "run_id": run.run_id, "version": "v2",
+        "in_progress": run.in_progress,
+        "total": run.total, "completed": run.completed,
+        "intent_accuracy": round(run.intent_accuracy * 100, 1),
+        "avg_sub_intent_coverage": round(run.avg_sub_intent_coverage * 100, 1),
+        "avg_entity_coverage": round(run.avg_entity_coverage * 100, 1),
+        "per_intent": run.per_intent,
+        "failures": run.failures, "cases": run.cases,
+    }
+
+
 # Include REST router
 app.include_router(api_router)
 
