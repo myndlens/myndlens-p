@@ -18,25 +18,36 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 # OpenClaw tool group hierarchy (superset → subset)
-_TOOL_HIERARCHY = {
-    "full":        {"group:messaging", "group:web", "group:fs", "group:runtime",
-                    "group:sessions", "exec", "web_fetch", "web_search", "message", "cron"},
-    "coding":      {"group:fs", "group:runtime", "exec", "group:sessions", "web_fetch"},
-    "messaging":   {"group:messaging", "message", "web_fetch"},
-    "web":         {"group:web", "web_fetch", "web_search", "browser"},
-}
+def derive_required_oc_tools(
+    built_skills: list,
+    action_class: str,
+) -> tuple[str, list[str]]:
+    """Derive OpenClaw tool profile and allow list from matched skills' oc_tools.
 
-# action_class → recommended OpenClaw tool profile
-_ACTION_PROFILE = {
-    "COMM_SEND":     "messaging",
-    "SCHED_MODIFY":  "messaging",
-    "INFO_RETRIEVE": "web",
-    "DOC_EDIT":      "coding",
-    "CODE_GEN":      "coding",
-    "FIN_TRANS":     "messaging",
-    "SYS_CONFIG":    "coding",
-    "DRAFT_ONLY":    "messaging",
-}
+    No hardcoded action_class → tool maps.
+    The skills themselves carry their tool requirements in the oc_tools field.
+    Profile is the most common profile across the skills; allow list is the union.
+    """
+    all_tools: set = set()
+    profiles: list[str] = []
+
+    for skill in built_skills:
+        oc = skill.get("oc_tools", {})
+        if isinstance(oc, dict):
+            for t in oc.get("allow", []):
+                if t:
+                    all_tools.add(t.strip())
+            skill_profile = oc.get("profile", "")
+            if skill_profile:
+                profiles.append(skill_profile)
+
+    # Profile = most common across skills; default to messaging for COMM_SEND actions
+    profile = max(set(profiles), key=profiles.count) if profiles else (
+        "messaging" if "SEND" in action_class else "coding"
+    )
+
+    allow_list = sorted(all_tools) if all_tools else [f"group:{profile}"]
+    return profile, allow_list
 
 
 @dataclass
