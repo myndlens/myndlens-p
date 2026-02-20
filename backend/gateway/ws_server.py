@@ -75,7 +75,43 @@ async def _send(ws: WebSocket, msg_type: WSMessageType, payload_model) -> None:
     await ws.send_text(data)
 
 
-async def broadcast_to_session(
+async def _preload_session_context(session_id: str, user_id: str) -> None:
+    """Pre-load Digital Self into session memory immediately after auth.
+
+    Falls back to server-side ONNX recall when no device capsule is available yet.
+    The device sends a context_sync message shortly after auth_ok which will
+    replace this with richer on-device PKG data.
+    """
+    ctx = SessionContext(user_id=user_id)
+    if user_id:
+        try:
+            from memory.retriever import recall
+            snippets = await recall(user_id=user_id, query_text="contact person relationship", n_results=10)
+            if snippets:
+                summary_parts = [s.get("text", "")[:60] for s in snippets[:3] if s.get("text")]
+                ctx.raw_summary = " | ".join(summary_parts)
+                ctx = parse_capsule_summary(ctx.raw_summary, user_id)
+                logger.info("[SessionCtx] Pre-loaded %d entities for session=%s", len(ctx.entities), session_id[:12])
+        except Exception as e:
+            logger.debug("[SessionCtx] Server-side preload skipped: %s", str(e))
+    _session_contexts[session_id] = ctx
+
+
+async def _handle_context_sync(session_id: str, user_id: str, payload: dict) -> None:
+    """Handle context_sync WS message — device sends PKG summary immediately after auth.
+
+    This upgrades the session context from server-side fallback to the richer
+    on-device PKG data. Runs once per session, shortly after auth_ok.
+    """
+    summary = payload.get("summary", "")
+    if not summary:
+        return
+    ctx = parse_capsule_summary(summary, user_id)
+    _session_contexts[session_id] = ctx
+    logger.info(
+        "[SessionCtx] Updated from device PKG: session=%s entities=%d user=%s",
+        session_id[:12], len(ctx.entities), ctx.user_name,
+    )
     execution_id: str, message_type: str, payload: dict
 ) -> bool:
     """Broadcast a message to the WS client associated with an execution.
