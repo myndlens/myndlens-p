@@ -177,6 +177,25 @@ _POLICIES: Dict[PromptPurpose, PurposePolicy] = {
         allowed_tools=frozenset(),  # minimal
         token_budget=2048,
     ),
+    PromptPurpose.MICRO_QUESTION: PurposePolicy(
+        required_sections=frozenset({
+            SectionID.IDENTITY_ROLE,
+            SectionID.PURPOSE_CONTRACT,
+            SectionID.OUTPUT_SCHEMA,
+            SectionID.TASK_CONTEXT,
+        }),
+        optional_sections=frozenset({
+            SectionID.MEMORY_RECALL_SNIPPETS,
+        }),
+        banned_sections=frozenset({
+            SectionID.TOOLING,
+            SectionID.SKILLS_INDEX,
+            SectionID.WORKSPACE_BOOTSTRAP,
+            SectionID.SAFETY_GUARDRAILS,
+        }),
+        allowed_tools=frozenset(),
+        token_budget=2048,
+    ),
 }
 
 
