@@ -696,12 +696,8 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     else:
         enriched_transcript = transcript
 
-    # Extract DS summary for harm check (from session context or capsule)
-    context_capsule_summary = ""
-    if context_capsule and session_ctx:
-        context_capsule_summary = session_ctx.raw_summary
-    elif session_ctx:
-        context_capsule_summary = session_ctx.raw_summary
+    # Extract DS summary for harm check
+    context_capsule_summary = session_ctx.raw_summary if session_ctx else ""
 
     # Update context_capsule from session if not provided per-request
     if not context_capsule and session_ctx and session_ctx.raw_summary:

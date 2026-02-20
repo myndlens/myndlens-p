@@ -47,7 +47,7 @@ async def broadcast_stage(
     stage_name = STAGE_NAMES.get(stage_index, f"Stage {stage_index}")
 
     payload = {
-        "stage_id": list(STAGE_NAMES.keys())[stage_index] if stage_index < len(STAGE_NAMES) else str(stage_index),
+        "stage_id": STAGE_NAMES.get(stage_index, f"stage_{stage_index}"),
         "stage_index": stage_index,
         "total_stages": 10,
         "status": status,
