@@ -256,7 +256,7 @@ asyncio.run(count())
         # Check draft_update
         if draft_update:
             payload = draft_update.get("payload", {})
-            action_class = payload.get("action_class", "")
+            action_class = payload.get("intent", "")
             draft_id = payload.get("draft_id", "")
             approval_preview = payload.get("approval_preview", "")
             
@@ -491,7 +491,7 @@ asyncio.run(count())
         
         if draft_update:
             payload = draft_update.get("payload", {})
-            action_class = payload.get("action_class", "")
+            action_class = payload.get("intent", "")
             draft_id = payload.get("draft_id", "")
             
             print(f"draft_update:")
@@ -575,7 +575,7 @@ asyncio.run(count())
         
         if draft_update:
             payload = draft_update.get("payload", {})
-            action_class = payload.get("action_class", "")
+            action_class = payload.get("intent", "")
             draft_id = payload.get("draft_id", "")
             
             print(f"draft_update:")

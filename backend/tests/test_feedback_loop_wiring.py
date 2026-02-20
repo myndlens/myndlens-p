@@ -172,7 +172,7 @@ class TestL2SentryFetchesAdjustments:
             "session_id": f"TEST_session_{uuid.uuid4().hex[:8]}",
             "user_id": self.user_id,
             "transcript": "Send a message to John about the meeting tomorrow",
-            "l1_action_class": "COMM_SEND",
+            "l1_intent": "COMM_SEND",
             "l1_confidence": 0.85
         }
         
@@ -182,13 +182,13 @@ class TestL2SentryFetchesAdjustments:
         
         # Verify L2 ran successfully
         assert "verdict_id" in verdict
-        assert "action_class" in verdict
+        assert "intent" in verdict
         assert "confidence" in verdict
         assert "latency_ms" in verdict
         
         # Note: In mock mode, L2 skips orchestrator, so we can't verify adjustments were applied
         # But the API call should succeed with the user_id
-        print(f"✓ L2 run with user profile: action={verdict['action_class']}, is_mock={verdict['is_mock']}")
+        print(f"✓ L2 run with user profile: action={verdict['intent']}, is_mock={verdict['is_mock']}")
 
     def test_l2_run_with_new_user_defaults(self):
         """POST /api/l2/run works with new user (uses default adjustments)."""
@@ -198,7 +198,7 @@ class TestL2SentryFetchesAdjustments:
             "session_id": f"TEST_session_{uuid.uuid4().hex[:8]}",
             "user_id": new_user_id,
             "transcript": "Schedule a meeting with the team",
-            "l1_action_class": "SCHED_MODIFY",
+            "l1_intent": "SCHED_MODIFY",
             "l1_confidence": 0.80
         }
         
@@ -207,9 +207,9 @@ class TestL2SentryFetchesAdjustments:
         verdict = l2_resp.json()
         
         assert "verdict_id" in verdict
-        assert "action_class" in verdict
+        assert "intent" in verdict
         
-        print(f"✓ L2 run with new user defaults: action={verdict['action_class']}")
+        print(f"✓ L2 run with new user defaults: action={verdict['intent']}")
 
 
 class TestL1ScoutFetchesAdjustments:
@@ -298,7 +298,7 @@ class TestFeedbackLoopIntegration:
             "session_id": f"TEST_session_{uuid.uuid4().hex[:8]}",
             "user_id": self.user_id,
             "transcript": "Send a message to John about the meeting",
-            "l1_action_class": "COMM_SEND",
+            "l1_intent": "COMM_SEND",
             "l1_confidence": 0.85
         }
         
@@ -505,7 +505,7 @@ class TestEdgeCases:
             "session_id": f"TEST_session_{uuid.uuid4().hex[:8]}",
             "user_id": user_id,
             "transcript": "",
-            "l1_action_class": "DRAFT_ONLY",
+            "l1_intent": "DRAFT_ONLY",
             "l1_confidence": 0.5
         }
         

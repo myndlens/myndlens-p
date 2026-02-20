@@ -139,7 +139,7 @@ class TestDraftPersistence:
             assert retrieved.hypotheses, "Retrieved draft should have hypotheses"
             h = retrieved.hypotheses[0]
             assert hasattr(h, "hypothesis"), "Hypothesis should have 'hypothesis' field"
-            assert hasattr(h, "intent"), "Hypothesis should have 'action_class' field"
+            assert hasattr(h, "intent"), "Hypothesis should have 'intent' field"
             assert hasattr(h, "confidence"), "Hypothesis should have 'confidence' field"
 
             print(f"[D04] Hypothesis structure: action={h.intent} conf={h.confidence:.2f}")
@@ -250,7 +250,7 @@ class TestTTSConfirmationResponses:
         
         h = Hypothesis(
             hypothesis="User wants to send a message to Alice",
-            action_class="COMM_SEND",
+            intent="COMM_SEND",
             confidence=0.85,
         )
         dim_state = DimensionState()
@@ -271,7 +271,7 @@ class TestTTSConfirmationResponses:
         
         h = Hypothesis(
             hypothesis="User wants to schedule a meeting",
-            action_class="SCHED_MODIFY",
+            intent="SCHED_MODIFY",
             confidence=0.80,
         )
         dim_state = DimensionState()
@@ -291,7 +291,7 @@ class TestTTSConfirmationResponses:
         
         h = Hypothesis(
             hypothesis="User wants to look up information",
-            action_class="INFO_RETRIEVE",
+            intent="INFO_RETRIEVE",
             confidence=0.75,
         )
         dim_state = DimensionState()
@@ -310,7 +310,7 @@ class TestTTSConfirmationResponses:
         
         h = Hypothesis(
             hypothesis="User wants to edit a document",
-            action_class="DOC_EDIT",
+            intent="DOC_EDIT",
             confidence=0.78,
         )
         dim_state = DimensionState()
@@ -329,7 +329,7 @@ class TestTTSConfirmationResponses:
         
         h = Hypothesis(
             hypothesis="User wants to do something general",
-            action_class="DRAFT_ONLY",
+            intent="DRAFT_ONLY",
             confidence=0.65,
         )
         dim_state = DimensionState()
@@ -526,7 +526,7 @@ class TestExecutePipelineIntegration:
             # Step 1: L1 Scout (creates draft)
             draft = await run_l1_scout(session_id, user_id, transcript)
             assert draft and draft.hypotheses, "L1 should produce hypotheses"
-            print(f"[P01] L1: draft_id={draft.draft_id[:8]} action={draft.hypotheses[0].action_class}")
+            print(f"[P01] L1: draft_id={draft.draft_id[:8]} action={draft.hypotheses[0].intent}")
             
             # Step 2: Verify draft persistence
             retrieved = await get_draft(draft.draft_id)
@@ -553,7 +553,7 @@ class TestExecutePipelineIntegration:
                 session_id=session_id,
                 user_id=user_id,
                 transcript=transcript,
-                action_class=l2.intent,
+                intent=l2.intent,
                 intent_summary=top.hypothesis,
             )
             print(f"[P01] QC: overall_pass={qc.overall_pass} reason={qc.block_reason or 'N/A'}")
