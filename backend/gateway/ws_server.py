@@ -453,7 +453,7 @@ def get_active_session_count() -> int:
 #  Batch 2: Audio Chunk + Transcript + TTS Handlers
 # =====================================================
 
-async def _handle_audio_chunk(ws: WebSocket, session_id: str, payload: dict) -> None:
+async def _handle_audio_chunk(ws: WebSocket, session_id: str, payload: dict, user_id: str = "") -> None:
     """Process an audio chunk: validate → STT → transcript → respond."""
     try:
         audio_bytes, seq, error = decode_audio_payload(payload)
@@ -482,20 +482,10 @@ async def _handle_audio_chunk(ws: WebSocket, session_id: str, payload: dict) -> 
                 span_ids=[span.span_id],
             ))
 
-            # If STT declares final (end of utterance), send transcript_final
-            if fragment.is_final:
-                await _send(ws, WSMessageType.TRANSCRIPT_FINAL, TranscriptPayload(
-                    text=state.get_current_text(),
-                    is_final=True,
-                    fragment_count=len(state.fragments),
-                    confidence=fragment.confidence,
-                    span_ids=[s.span_id for s in state.get_spans()],
-                ))
-                # Save transcript to DB and clean up in-memory state
-                await save_transcript(state)
-                transcript_assembler.cleanup(session_id)
-                # Send TTS response
-                await _send_mock_tts_response(ws, session_id, state.get_current_text())
+            # C2 FIX: only trigger TTS from is_final if no cancel is expected.
+            # We intentionally skip triggering from is_final here and let
+            # _handle_stream_end be the single authority for final processing.
+            # is_final from chunk is used only for partial display; stream_end drives TTS.
 
     except Exception as e:
         logger.error("Audio chunk error: session=%s error=%s", session_id, str(e), exc_info=True)
