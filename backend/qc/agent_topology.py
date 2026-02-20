@@ -105,7 +105,8 @@ async def assess_agent_topology(
         all_tools = []
         for s in built_skills:
             all_tools.extend(_tools_from_skill(s))
-        role = _ROLE_NAMES.get(action_class, "Execution Agent")
+        # Role name from agent category — not hardcoded by action class
+        role = f"{cat.replace('-', ' ').title()} Agent"
         topology.sub_agents = [SubAgentSpec(
             role=role,
             skills=skill_names,
