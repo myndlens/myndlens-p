@@ -4,12 +4,15 @@ Continuous evaluation of intents against safety constraints.
 Checked as thought capture progresses, not just at execution.
 
 Gates:
-  - Ambiguity >30% → Silence/Clarify (no draft promoted)
-  - Harm detection → tactful refusal
-  - Policy violation → immediate block
-  - Emotional load high → stability cooldown
+  - Ambiguity >30%      → Silence/Clarify (deterministic — dimension score)
+  - Emotional load high → Cooldown (deterministic — dimension score)
+  - Harm / policy       → SAFETY_GATE LLM (dynamic — context-aware, not keyword)
+  - Low confidence      → Clarify (deterministic — L1 score)
 """
+import asyncio
+import json
 import logging
+import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -32,84 +35,169 @@ class GuardrailResult(str, Enum):
 class GuardrailCheck:
     result: GuardrailResult
     reason: str
-    nudge: Optional[str] = None  # Tactful message for user
+    nudge: Optional[str] = None
     block_execution: bool = False
 
 
-# ---- Blocked patterns (simple keyword-based for now) ----
-# Note: Use word boundaries or full phrases to avoid false positives
-# e.g., "hackernews" should not trigger "hack" block
-_HARM_PATTERNS = [
-    "hack into", "hack the", "hacking", "steal", "illegal", "kill", "attack", "exploit",
-    "password", "credentials", "bypass security",
-]
+async def _assess_harm_llm(
+    transcript: str,
+    ds_context: str,
+    session_id: str,
+    user_id: str,
+) -> GuardrailCheck:
+    """Use SAFETY_GATE LLM call to assess harm — no hardcoded patterns.
 
-_POLICY_VIOLATIONS = [
-    "send money to myself", "transfer all funds",
-    "delete all", "wipe everything", "override safety",
-]
+    Uses the existing PromptPurpose.SAFETY_GATE + GUARDRAILS_CLASSIFIER call site.
+    Output schema: {risk_tier: 0-3, harmful: bool, policy_violation: bool,
+                    escalation_needed: bool, reason: str}
+    """
+    from config.settings import get_settings
+    from config.feature_flags import is_mock_llm
+    settings = get_settings()
+
+    # Fast path: mock mode or no LLM key
+    if is_mock_llm() or not settings.EMERGENT_LLM_KEY:
+        return _mock_harm_check(transcript)
+
+    try:
+        from prompting.orchestrator import PromptOrchestrator
+        from prompting.llm_gateway import call_llm
+        from prompting.types import PromptContext, PromptPurpose, PromptMode
+
+        ctx = PromptContext(
+            purpose=PromptPurpose.SAFETY_GATE,
+            mode=PromptMode.SILENT,
+            session_id=session_id,
+            user_id=user_id,
+            transcript=transcript,
+            task_description=(
+                f"Assess this mandate for harm, illegal intent, or policy violation.\n"
+                f"User context: {ds_context or 'No Digital Self context available.'}\n\n"
+                f"Important: Normal business requests (send email, schedule meeting, "
+                f"research topics, write code, manage finances) are NOT harmful. "
+                f"Only flag genuine harm: unauthorized system access, fraud, harassment, "
+                f"illegal activity, or direct harm to others."
+            ),
+        )
+        orchestrator = PromptOrchestrator()
+        artifact, _ = orchestrator.build(ctx)
+
+        start = time.monotonic()
+        response = await call_llm(
+            artifact=artifact,
+            call_site_id="GUARDRAILS_CLASSIFIER",
+            model_provider="gemini",
+            model_name="gemini-2.0-flash",
+            session_id=f"guardrails-{session_id}",
+        )
+        latency_ms = (time.monotonic() - start) * 1000
+
+        # Parse response
+        raw = response.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        data = json.loads(raw)
+
+        harmful = data.get("harmful", False)
+        policy_violation = data.get("policy_violation", False)
+        risk_tier = int(data.get("risk_tier", 0))
+        reason = data.get("reason", "")
+
+        logger.info(
+            "[SAFETY_GATE] session=%s harmful=%s policy=%s risk=%d latency=%.0fms",
+            session_id, harmful, policy_violation, risk_tier, latency_ms,
+        )
+
+        if harmful or policy_violation or risk_tier >= 3:
+            return GuardrailCheck(
+                result=GuardrailResult.REFUSE,
+                reason=reason,
+                nudge="I can't assist with that. Is there something else I can help with?",
+                block_execution=True,
+            )
+
+        return GuardrailCheck(
+            result=GuardrailResult.PASS,
+            reason=reason or "SAFETY_GATE: no harm detected",
+            block_execution=False,
+        )
+
+    except Exception as e:
+        logger.error("[SAFETY_GATE] LLM assessment failed: %s — defaulting PASS", str(e))
+        # Fail open for system errors (not for harm): the QC sentry is another layer
+        return GuardrailCheck(
+            result=GuardrailResult.PASS,
+            reason=f"SAFETY_GATE unavailable ({type(e).__name__}) — passed to QC",
+            block_execution=False,
+        )
+
+
+def _mock_harm_check(transcript: str) -> GuardrailCheck:
+    """Fast deterministic fallback for mock/test mode."""
+    lower = transcript.lower()
+    OBVIOUS_HARM = ["hack into", "steal credentials", "exploit the", "illegal"]
+    for pattern in OBVIOUS_HARM:
+        if pattern in lower:
+            return GuardrailCheck(
+                result=GuardrailResult.REFUSE,
+                reason=f"Mock guardrail: obvious harm pattern '{pattern}'",
+                nudge="I can't help with that.",
+                block_execution=True,
+            )
+    return GuardrailCheck(result=GuardrailResult.PASS, reason="Mock: passed", block_execution=False)
 
 
 def check_guardrails(
     transcript: str,
     dimensions: Optional[DimensionState] = None,
     l1_draft: Optional[L1DraftObject] = None,
+    session_id: str = "",
+    user_id: str = "",
+    ds_context: str = "",
 ) -> GuardrailCheck:
-    """Run all guardrail checks. Returns the most restrictive result."""
+    """Run deterministic guardrail gates synchronously.
 
-    # 1. Ambiguity gate (§11.1)
+    Deterministic gates (fast, no LLM):
+      1. Ambiguity > 30% → SILENCE
+      2. Emotional load > 70% → COOLDOWN
+      3. L1 confidence < 40% → CLARIFY
+
+    Harm assessment via LLM is called separately (async) in _send_mock_tts_response.
+    """
+    # 1. Ambiguity gate
     if dimensions and dimensions.b_set.ambiguity > 0.30:
         return GuardrailCheck(
             result=GuardrailResult.SILENCE,
-            reason=f"Ambiguity score {dimensions.b_set.ambiguity:.0%} exceeds 30% threshold",
+            reason=f"Ambiguity {dimensions.b_set.ambiguity:.0%} > 30%",
             nudge="I want to make sure I understand correctly. Could you tell me a bit more?",
             block_execution=True,
         )
 
-    # 2. Emotional load cooldown (§11.3)
+    # 2. Emotional load cooldown
     if dimensions and dimensions.b_set.emotional_load > 0.7:
         return GuardrailCheck(
             result=GuardrailResult.COOLDOWN,
-            reason=f"Emotional load {dimensions.b_set.emotional_load:.0%} exceeds stability threshold",
+            reason=f"Emotional load {dimensions.b_set.emotional_load:.0%} > 70%",
             nudge="Let's take a moment. Would you like to review this before proceeding?",
             block_execution=True,
         )
 
-    # 3. Harm detection
-    lower = transcript.lower()
-    for pattern in _HARM_PATTERNS:
-        if pattern in lower:
-            return GuardrailCheck(
-                result=GuardrailResult.REFUSE,
-                reason=f"Potential harmful intent detected: pattern='{pattern}'",
-                nudge="I can't help with that request. Is there something else I can assist with?",
-                block_execution=True,
-            )
-
-    # 4. Policy violations
-    for pattern in _POLICY_VIOLATIONS:
-        if pattern in lower:
-            return GuardrailCheck(
-                result=GuardrailResult.REFUSE,
-                reason=f"Policy violation detected: pattern='{pattern}'",
-                nudge="That action isn't permitted. How else can I help?",
-                block_execution=True,
-            )
-
-    # 5. Low confidence gate
+    # 3. Low confidence gate
     if l1_draft and l1_draft.hypotheses:
         top = l1_draft.hypotheses[0]
         if top.confidence < 0.4:
             return GuardrailCheck(
                 result=GuardrailResult.CLARIFY,
-                reason=f"L1 confidence too low: {top.confidence:.2f}",
+                reason=f"L1 confidence {top.confidence:.2f} < 0.40",
                 nudge="I'm not quite sure what you'd like to do. Could you rephrase that?",
                 block_execution=True,
             )
 
-    # All gates passed
     return GuardrailCheck(
         result=GuardrailResult.PASS,
-        reason="All guardrails passed",
+        reason="Deterministic gates passed — LLM harm check runs async",
         block_execution=False,
     )
+
