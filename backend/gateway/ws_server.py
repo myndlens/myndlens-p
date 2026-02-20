@@ -734,6 +734,32 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
         ))
         return
 
+    # ── Check if this is a clarification response ──
+    clarify = _clarification_state.get(session_id)
+    if clarify and clarify.get("pending"):
+        logger.info("[CLARIFICATION] session=%s response='%s' to question='%s'",
+                    session_id, text[:50], clarify["question_asked"][:50])
+
+        # Combine original transcript + clarification response
+        combined = (
+            f"{clarify['original_transcript']}. "
+            f"Clarification: {text}"
+        )
+        # Clear the pending state
+        _clarification_state.pop(session_id, None)
+
+        # Re-run the full pipeline with enriched context
+        logger.info("[CLARIFICATION] session=%s re-running pipeline with combined='%s'",
+                    session_id, combined[:80])
+
+        # Use the original context capsule
+        await _send_mock_tts_response(
+            ws, session_id, combined,
+            user_id=user_id,
+            context_capsule=clarify.get("context_capsule"),
+        )
+        return
+
     logger.info("Text input: session=%s text='%s' has_capsule=%s", session_id, text[:50], bool(context_capsule))
 
     # Create a synthetic transcript fragment
