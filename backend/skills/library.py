@@ -213,17 +213,35 @@ async def fetch_skill_spec(view_url: str) -> dict:
     except Exception as e:
         logger.debug("[SkillFetch] Failed to fetch %s: %s", view_url, str(e))
     return {}
+
+
+async def build_skill(
     matched_skills: List[Dict[str, Any]],
     intent: str,
     device_data: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Build a custom skill by combining hub skills with MyndLens capabilities.
+    """Build a skill contract — enriched with live ClawHub metadata.
 
-    Includes view_url references so the LLM can fetch source code from
-    ClawHub to understand how the base skill works before generating.
+    Fetches /api/v1/skills/{slug} from ClawHub to get current version,
+    summary and download stats. This is the machine-readable spec ClawHub
+    exposes; the full execution schema is not yet public and is referenced
+    via view_url for human inspection.
     """
     base = matched_skills[0] if matched_skills else {"name": "custom", "description": "Generated skill"}
     device_data = device_data or {}
+
+    # Fetch live metadata from ClawHub JSON API
+    clawhub_meta = await fetch_skill_spec(base.get("view_url", ""))
+    if clawhub_meta:
+        # Prefer ClawHub summary over local description when available
+        if clawhub_meta.get("clawhub_summary"):
+            base = {**base, "description": clawhub_meta["clawhub_summary"]}
+        logger.info(
+            "[SkillFetch] Enriched: slug=%s version=%s downloads=%d",
+            clawhub_meta.get("clawhub_slug"),
+            clawhub_meta.get("clawhub_version"),
+            clawhub_meta.get("clawhub_downloads", 0),
+        )
 
     # Generate enhanced description
     enhancements = list(device_data.keys()) if device_data else []
