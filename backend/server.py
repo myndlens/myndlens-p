@@ -1798,6 +1798,45 @@ async def api_test_micro_questions(req: MicroQuestionTestRequest):
     }
 
 
+class ClarificationLoopRequest(BaseModel):
+    transcript: str
+    clarification_response: str
+    user_id: str = "rl_test_user"
+
+@api_router.post("/intent/clarification-loop/test")
+async def api_test_clarification_loop(req: ClarificationLoopRequest):
+    """Test the full loop: original → micro-question → clarification → re-run."""
+    from l1.scout import run_l1_scout
+    from intent.micro_questions import generate_micro_questions
+    import uuid
+    session_id = f"cl_test_{uuid.uuid4().hex[:8]}"
+
+    # Pass 1: Original
+    draft1 = await run_l1_scout(session_id=f"{session_id}_p1", user_id=req.user_id, transcript=req.transcript)
+    top1 = draft1.hypotheses[0] if draft1.hypotheses else None
+    hyp1, conf1, dims1 = (top1.hypothesis, top1.confidence, top1.dimension_suggestions) if top1 else ("", 0, {})
+
+    mq = await generate_micro_questions(
+        session_id=session_id, user_id=req.user_id, transcript=req.transcript,
+        hypothesis=hyp1, confidence=conf1, dimensions=dims1,
+    )
+    question = mq.questions[0].question if mq.questions else "(no question)"
+
+    # Pass 2: Enriched with clarification
+    combined = f"{req.transcript}. Clarification: {req.clarification_response}"
+    draft2 = await run_l1_scout(session_id=f"{session_id}_p2", user_id=req.user_id, transcript=combined)
+    top2 = draft2.hypotheses[0] if draft2.hypotheses else None
+    hyp2, conf2, dims2 = (top2.hypothesis, top2.confidence, top2.dimension_suggestions) if top2 else ("", 0, {})
+
+    return {
+        "pass_1": {"hypothesis": hyp1, "action_class": top1.action_class if top1 else "NONE", "confidence": conf1, "dimensions": dims1},
+        "clarification": {"question": question, "response": req.clarification_response},
+        "pass_2": {"hypothesis": hyp2, "action_class": top2.action_class if top2 else "NONE", "confidence": conf2, "dimensions": dims2},
+        "improvement": {"confidence_delta": round(conf2 - conf1, 3)},
+    }
+
+
+
 # Include REST router
 app.include_router(api_router)
 
