@@ -201,10 +201,14 @@ async def compose_from_skills(
 
     db = get_db()
 
-    # Group skills by category (each group becomes one agent)
+    # Group skills by category — merge all skills of same category into ONE agent
+    # (prevents duplicates when multiple skills share a category like "general")
     groups: dict[str, list[dict]] = {}
     for skill in matched_skills:
         cat = skill.get("category", "general").lower()
+        # Consolidate noisy categories into their parent
+        if cat in ("general", "utility", "tools"):
+            cat = action_class.lower().replace("_", "-")
         groups.setdefault(cat, []).append(skill)
 
     composed: list[AssembledAgent] = []
