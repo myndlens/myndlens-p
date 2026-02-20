@@ -742,18 +742,18 @@ def _generate_l1_response(hypothesis, dim_state) -> str:
 
 
 def _generate_mock_response(transcript: str) -> str:
-    """Generate a deterministic mock response for testing."""
+    """Generate a deterministic mock response for testing. Never asks clarification."""
     lower = transcript.lower()
 
-    if "hello" in lower:
-        return "Hello! How can I help you today?"
+    if "hello" in lower or "hi " in lower:
+        return "Hello! I'm ready. Tap Approve to proceed."
     elif "send" in lower and "message" in lower:
-        return "I understand you'd like to send a message. Who would you like to send it to?"
-    elif "meeting" in lower:
-        return "I see you're thinking about a meeting. When would you like to schedule it?"
+        return "I'll prepare that message now. Tap Approve to send."
+    elif "meeting" in lower or "schedule" in lower:
+        return "I'll schedule that for you. Tap Approve to confirm."
+    elif "email" in lower:
+        return "I'll draft that email. Tap Approve to send."
     elif "tomorrow" in lower:
-        return "Got it, tomorrow. What time works best for you?"
-    elif "confirm" in lower:
-        return "I'll prepare that for your review. Please check the draft card."
+        return "Understood, tomorrow. Tap Approve to execute."
     else:
         return f"I heard you. Tap Approve to execute: {transcript[:50]}."
