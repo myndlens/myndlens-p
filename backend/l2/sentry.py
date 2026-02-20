@@ -57,10 +57,16 @@ async def run_l2_sentry(
         return _mock_l2(transcript, l1_action_class, l1_confidence, start)
 
     try:
-        # Recall relevant memories from Digital Self for verification
-        from memory.retriever import recall
-        memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=3)
-        logger.info("L2 Sentry: recalled %d memories for user=%s", len(memory_snippets), user_id)
+        # Skip DS recall if transcript is already gap-filled (contains enriched prefix)
+        # to avoid sending the same context twice to the LLM.
+        transcript_is_enriched = "\nUser mandate:" in transcript
+        memory_snippets = None
+        if not transcript_is_enriched and user_id:
+            from memory.retriever import recall
+            memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=3)
+            logger.info("L2 Sentry: recalled %d memories for user=%s", len(memory_snippets), user_id)
+        elif transcript_is_enriched:
+            logger.debug("L2 Sentry: transcript pre-enriched — skipping recall to avoid duplication")
 
         # Fetch per-user optimization adjustments
         from prompting.user_profiles import get_prompt_adjustments
