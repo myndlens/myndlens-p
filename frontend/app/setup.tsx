@@ -225,14 +225,26 @@ export default function SetupWizardScreen() {
     }
   }
 
+  function isValidPhone(value: string): boolean {
+    // E.164: starts with +, followed by 7–15 digits (total 8–16 chars)
+    return /^\+[1-9]\d{6,14}$/.test(value.replace(/\s/g, ''));
+  }
+
   async function handlePreferences() {
+    const trimmedPhone = phone.replace(/\s/g, '');
+    if (!isValidPhone(trimmedPhone)) {
+      Alert.alert('Phone required', 'Enter your mobile number in international format, e.g. +44 7911 123456. This is needed to send your pairing code by SMS.');
+      return;
+    }
     try {
       await obegee('/tenants/preferences', {
         method: 'PATCH',
-        body: JSON.stringify({ phone_number: phone, timezone: tz, notifications_enabled: notifs, delivery_channels: deliveryChannels, channel_details: channelDetails }),
+        body: JSON.stringify({ phone_number: trimmedPhone, timezone: tz, notifications_enabled: notifs, delivery_channels: deliveryChannels, channel_details: channelDetails }),
       }, authToken);
-    } catch { /* preferences optional */ }
-    setStep(8);
+    } catch { /* preferences save failure is non-fatal — phone is the critical part */ }
+    // Phone is now stored. Generate the pairing code (ObeGee can now SMS it).
+    setStep(7);
+    generateCode();
   }
 
   async function handleComplete() {
