@@ -571,7 +571,7 @@ class L2RunRequest(BaseModel):
     session_id: str = "diagnostic"
     user_id: str = "diagnostic"
     transcript: str
-    l1_action_class: str = ""
+    l1_intent: str = ""
     l1_confidence: float = 0.0
 
 
@@ -579,7 +579,7 @@ class QCRunRequest(BaseModel):
     session_id: str = "diagnostic"
     user_id: str = "diagnostic"
     transcript: str
-    action_class: str
+    intent: str
     intent_summary: str
 
 
@@ -590,12 +590,12 @@ async def api_run_l2(req: L2RunRequest):
         session_id=req.session_id,
         user_id=req.user_id,
         transcript=req.transcript,
-        l1_action_class=req.l1_action_class,
+        l1_intent=req.l1_intent,
         l1_confidence=req.l1_confidence,
     )
     return {
         "verdict_id": verdict.verdict_id,
-        "action_class": verdict.action_class,
+        "intent": verdict.intent,
         "confidence": verdict.confidence,
         "risk_tier": verdict.risk_tier,
         "chain_of_logic": verdict.chain_of_logic,
