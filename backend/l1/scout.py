@@ -65,7 +65,7 @@ async def run_l1_scout(
         # NOTE: if transcript is already gap-filled (enriched), skip memory_snippets
         #       to avoid sending the same Digital Self context twice to the LLM.
         memory_snippets = None
-        transcript_is_enriched = transcript.startswith("[") and "\nUser mandate:" in transcript
+        transcript_is_enriched = "\nUser mandate:" in transcript
 
         if not transcript_is_enriched:
             if context_capsule:
