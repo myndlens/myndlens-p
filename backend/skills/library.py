@@ -118,23 +118,10 @@ async def match_skills_to_intent(
     action_class filters by category before keyword search (higher precision).
     required_env pre-flight: skills needing unconfigured env vars are deprioritised.
     """
-    ACTION_CATEGORIES = {
-        "COMM_SEND":     ["communication", "email", "messaging", "social"],
-        "SCHED_MODIFY":  ["scheduling", "calendar", "productivity"],
-        "INFO_RETRIEVE": ["search", "data", "api", "utility", "monitoring"],
-        "DOC_EDIT":      ["writing", "documents", "productivity", "marketing"],
-        "CODE_GEN":      ["coding", "development", "tools", "utility"],
-        "FIN_TRANS":     ["finance", "payment", "commerce"],
-    }
-
-    # Env vars available in the runtime environment (pre-flight availability check).
-    # Use os.environ as the single source of truth — settings.__dict__ adds Python
-    # attribute names (MONGO_URL, JWT_SECRET) that are unrelated to skill credentials.
+    # Env vars from runtime environment (for pre-flight env check)
     configured_envs: set = {k.upper() for k, v in os.environ.items() if v}
 
-    # If the intent is a gap-filled enriched transcript, extract ONLY the mandate
-    # line for keyword extraction. The context prefix contains role labels like
-    # "(assistant)", "(manager)" which pollute skill matching.
+    # Extract the mandate line only (strip gap-filler context prefix)
     if "\nUser mandate:" in intent:
         mandate_line = intent.split("\nUser mandate:", 1)[1].strip()
     else:
@@ -153,9 +140,10 @@ async def match_skills_to_intent(
     if not query:
         return []
 
-    category_filter = ACTION_CATEGORIES.get(action_class.upper(), [])
-
-    results = await search_skills(query, limit=top_n * 3, category_filter=category_filter)
+    # No hardcoded ACTION_CATEGORIES map.
+    # Skills are found by relevance to the mandate text itself.
+    # Each skill's category, description, and skill_md content drive the match.
+    results = await search_skills(query, limit=top_n * 3, category_filter=[])
 
     for r in results:
         name_lower = r.get("name", "").lower()
