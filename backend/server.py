@@ -336,9 +336,11 @@ async def delivery_webhook(
             )
             if dispatch_record:
                 mandate = dispatch_record.get("mandate", {})
-                skill_names = mandate.get("generated_skills", [])
+                # C1 fix: new mandate format uses "skill_slugs", old uses "generated_skills"
+                skill_names = mandate.get("skill_slugs", mandate.get("generated_skills", []))
                 action_class = mandate.get("action_class", "")
-                intent = mandate.get("intent", "")
+                # C1 fix: new mandate format uses "task", old uses "intent"
+                intent = mandate.get("task", mandate.get("intent", ""))
                 if skill_names:
                     from skills.reinforcement import record_skill_outcome
                     await record_skill_outcome(
