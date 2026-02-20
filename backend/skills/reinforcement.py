@@ -55,6 +55,9 @@ async def record_skill_outcome(
         if not name:
             continue
 
+        # M1 fix: match by slug OR name — new skills have slug, old skills have name only
+        skill_filter = {"$or": [{"slug": name}, {"name": name}]}
+
         usage_entry: Dict[str, Any] = {
             "intent": intent[:60],
             "action_class": action_class,
