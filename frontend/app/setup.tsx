@@ -381,33 +381,46 @@ export default function SetupWizardScreen() {
           </View>
         )}
 
-        {/* Step 6: Pairing */}
+        {/* Step 6: Preferences (phone required before pairing code is generated) */}
         {step === 6 && (
-          <View style={[styles.stepBox, styles.centerBox]} data-testid="setup-pairing">
-            <Text style={styles.title}>Connecting MyndLens...</Text>
-            <View style={styles.codeBox}><Text style={styles.codeText}>{pairingCode}</Text></View>
-            <ActivityIndicator color="#6C63FF" style={{ marginTop: 16 }} />
-            <Text style={styles.desc}>Pairing automatically...</Text>
-          </View>
-        )}
-
-        {/* Step 7: Preferences */}
-        {step === 7 && (
           <View style={styles.stepBox} data-testid="setup-preferences">
             <Text style={styles.title}>Quick Setup</Text>
-            <Text style={styles.desc}>Help us personalize your experience</Text>
-            <TextInput style={styles.input} placeholder="Phone Number (optional)" placeholderTextColor="#555" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-            <TextInput style={styles.input} placeholder="Timezone" placeholderTextColor="#555" value={tz} onChangeText={setTz} />
+            <Text style={styles.desc}>We need your mobile number to send your pairing code by SMS.</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="+44 7911 123456"
+              placeholderTextColor="#555"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              textContentType="telephoneNumber"
+              autoComplete="tel"
+            />
+            <TextInput style={styles.input} placeholder="Timezone (e.g. Europe/London)" placeholderTextColor="#555" value={tz} onChangeText={setTz} />
             <View style={styles.switchRow}>
               <Text style={styles.switchLabel}>Enable Notifications</Text>
               <TouchableOpacity style={[styles.toggle, notifs && styles.toggleOn]} onPress={() => setNotifs(!notifs)}>
                 <Text style={styles.toggleText}>{notifs ? 'ON' : 'OFF'}</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.primaryBtn} onPress={handlePreferences} data-testid="setup-save-prefs">
-              <Text style={styles.primaryBtnText}>Complete Setup</Text>
+            <TouchableOpacity
+              style={[styles.primaryBtn, !phone.trim() && styles.primaryBtnDisabled]}
+              onPress={handlePreferences}
+              disabled={!phone.trim()}
+              data-testid="setup-save-prefs"
+            >
+              <Text style={styles.primaryBtnText}>Continue</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setStep(8)} style={styles.skipBtn}><Text style={styles.skipText}>Skip for now</Text></TouchableOpacity>
+          </View>
+        )}
+
+        {/* Step 7: Pairing (code generated after phone is stored) */}
+        {step === 7 && (
+          <View style={[styles.stepBox, styles.centerBox]} data-testid="setup-pairing">
+            <Text style={styles.title}>Connecting MyndLens...</Text>
+            <View style={styles.codeBox}><Text style={styles.codeText}>{pairingCode}</Text></View>
+            <ActivityIndicator color="#6C63FF" style={{ marginTop: 16 }} />
+            <Text style={styles.desc}>Pairing automatically...</Text>
           </View>
         )}
 
