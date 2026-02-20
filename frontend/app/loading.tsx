@@ -160,4 +160,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#8B8B9E',
   },
+  errorText: {
+    fontSize: 15,
+    color: '#8B8B9E',
+    textAlign: 'center',
+    paddingHorizontal: 32,
+    lineHeight: 22,
+  },
+  retryBtn: {
+    backgroundColor: '#6C5CE7',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    marginTop: 8,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
 });
