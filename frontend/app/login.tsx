@@ -121,6 +121,12 @@ export default function LoginScreen() {
             editable={!loading}
             returnKeyType="done"
             onSubmitEditing={handleConnect}
+            // ── OTP auto-fill ──────────────────────────────────────────────
+            // iOS: OS suggests code from incoming SMS — one tap to fill
+            textContentType="oneTimeCode"
+            // Android: Autofill framework surfaces OTP from SMS automatically
+            autoComplete="sms-otp"
+            importantForAutofill="yes"
           />
 
           {error && (
