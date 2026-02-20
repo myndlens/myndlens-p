@@ -31,8 +31,32 @@
           "calendarPermission": "MyndLens reads your calendar to learn your routines and working patterns for your Digital Self.",
           "remindersPermission": "MyndLens reads reminders to enrich your Digital Self."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#6C5CE7",
+          "sounds": [],
+          "iosDisplayInForeground": true
+        }
       ]
     ],
+    "android": {
+      "permissions": [
+        "READ_CALL_LOG",
+        "READ_SMS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "ios": {
+      "infoPlist": {
+        "NSContactsUsageDescription": "MyndLens uses your contacts to personalise your Digital Self and reduce how many questions it needs to ask you.",
+        "NSCalendarsUsageDescription": "MyndLens reads your calendar to learn your routines and working patterns for your Digital Self.",
+        "NSMicrophoneUsageDescription": "MyndLens needs the microphone to hear your voice mandates. Your audio is processed on-device and never stored."
+      }
+    },
     "extra": {
       "eas": {
         "projectId": "b2545ba8-f535-486b-8735-02dfac3aaad8"
