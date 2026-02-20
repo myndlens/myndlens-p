@@ -617,10 +617,10 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
 
 
 async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: str, user_id: str = "", context_capsule: str | None = None) -> None:
-    """Process transcript through L1 Scout → Dimensions → Guardrails → TTS.
+    """Process transcript through Gap Filler → L1 Scout → Dimensions → Guardrails → TTS.
 
-    Flow: transcript → L1 hypotheses → dimension update → guardrails → response → TTS
-    Emits pipeline_stage events to the client for real-time progress tracking.
+    Gap Filler enriches the raw transcript with Digital Self context BEFORE
+    L1 Scout sees it. The LLM receives a fully-contextualized mandate, not a fragment.
     """
     import base64
 
@@ -639,6 +639,20 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         session_id, transcript[:80], len(transcript),
     )
     await _emit_stage("capture", 0, "done")
+
+    # ── STEP 0.5: Gap filling — enrich fragment with Digital Self ───────────
+    session_ctx = _session_contexts.get(session_id)
+    if session_ctx:
+        enriched_transcript = await enrich_transcript(transcript, session_ctx)
+        if enriched_transcript != transcript:
+            logger.info("[MANDATE:0:GAPFILL] session=%s enriched (DS entities=%d)", session_id, len(session_ctx.entities))
+    else:
+        enriched_transcript = transcript
+
+    # Update context_capsule from session if not provided per-request
+    if not context_capsule and session_ctx and session_ctx.raw_summary:
+        import json as _json
+        context_capsule = _json.dumps({"summary": session_ctx.raw_summary})
 
     # ── STEP 1: L1 Scout — intent classification ────────────────────────────
     logger.info("[MANDATE:1:L1_SCOUT] session=%s starting intent hypothesis", session_id)
