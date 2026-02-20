@@ -226,8 +226,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
 
             elif msg_type == WSMessageType.CANCEL.value:
                 logger.info("Cancel received: session=%s", session_id)
-                # End any active STT stream
-                await _handle_stream_end(websocket, session_id)
+                await _handle_stream_end(websocket, session_id, user_id=user_id_resolved or "")
 
             elif msg_type == WSMessageType.TEXT_INPUT.value:
                 await _handle_text_input(websocket, session_id, payload, user_id=user_id_resolved or "")
