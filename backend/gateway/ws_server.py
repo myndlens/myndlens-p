@@ -518,23 +518,28 @@ async def _handle_execute_request(
             session_id, topology.complexity, len(topology.sub_agents), len(topology.approval_lines),
         )
 
-        # ── Stage 5: Agent selection — functionality-based (not by name/order) ──
-        from agents.selector import select_agent, derive_required_oc_tools
-        agent_spec = await select_agent(
-            tenant_id=tenant_id,
+        # ── Stage 5: Agent assembly — catalogue match OR skill composition ────────
+        from agents.composer import assemble_agent_collection
+        agent_collection = await assemble_agent_collection(
+            mandate_intent=draft.transcript,
             action_class=effective_action,
-            built_skills=built_skills,
+            matched_skills=matched_skills,
             skill_names=skill_names,
+            tenant_id=tenant_id,
+            topology_coordination=topology.coordination,
         )
-        assigned_agent_id = agent_spec.agent_id
+        assigned_agent_id = agent_collection.agents[0].agent_id if agent_collection.agents else "default"
         await broadcast_stage(
             session_id, 5, "done",
-            f"Agent: {agent_spec.name} ({agent_spec.profile}) [{agent_spec.source}]"
+            f"{len(agent_collection.agents)} agent(s) [{agent_collection.source}]",
         )
         logger.info(
-            "[AgentSelect] session=%s agent=%s profile=%s tools=%s source=%s score=%.2f",
-            session_id, assigned_agent_id, agent_spec.profile,
-            agent_spec.tools_allow, agent_spec.source, agent_spec.coverage_score,
+            "[AgentSelect] session=%s agents=%d source=%s coordination=%s approval=%s",
+            session_id,
+            len(agent_collection.agents),
+            agent_collection.source,
+            agent_collection.coordination,
+            agent_collection.approval_lines,
         )
 
         # ── Stage 7: Authorization granted ───────────────────────────────────────
