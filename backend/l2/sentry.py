@@ -88,12 +88,12 @@ async def run_l2_sentry(
         artifact, report = orchestrator.build(ctx)
         await save_prompt_snapshot(report)
 
-        # Call Gemini Pro via LLM Gateway
+        # Call Gemini (using Flash — Pro not confirmed available via emergent key)
         response = await call_llm(
             artifact=artifact,
             call_site_id="L2_SENTRY",
             model_provider="gemini",
-            model_name="gemini-2.5-pro",
+            model_name="gemini-2.0-flash",
             session_id=f"l2-{session_id}",
         )
 
