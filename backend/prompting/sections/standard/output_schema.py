@@ -1,7 +1,7 @@
 """OUTPUT_SCHEMA section — defines what the LLM should output.
 
 THOUGHT_TO_INTENT: The LLM extracts the ACTUAL INTENT as the user means it.
-NOT a forced bucket. NOT an action_class enum.
+NOT a forced bucket. NOT a forced enum category.
 
 The intent is what the user WANTS: "Travel Concierge", "Event Planning",
 "Project Kickoff". The skill/agent layer maps this to executable actions LATER.

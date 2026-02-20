@@ -7,7 +7,7 @@ Inspired by the ClawHub `self-improving-agent` skill:
   TOOLS.md    → promoted patterns after 3+ recurring failures
 
 When a mandate executes, outcomes feed back into skill relevance scores.
-COMPLETED -> skill gains relevance for this action_class pattern
+COMPLETED -> skill gains relevance for this intent pattern
 FAILED    -> skill loses relevance, error details logged for diagnosis
 PARTIAL   -> neutral, tracked for trend analysis
 
