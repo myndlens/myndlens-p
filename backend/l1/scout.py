@@ -183,24 +183,78 @@ def _parse_l1_response(response: str, transcript: str, latency_ms: float, prompt
 
 
 def _mock_l1(transcript: str, start_time: float) -> L1DraftObject:
-    """Mock L1 for testing without LLM."""
-    lower = transcript.lower()
+    """Mock L1 for testing without LLM.
+    
+    Improved keyword heuristics that match the USER MANDATE portion of enriched
+    transcripts (ignoring Digital Self context prefix).
+    """
+    # Extract just the user mandate portion if transcript is gap-filled
+    user_mandate = transcript
+    if "User mandate:" in transcript:
+        user_mandate = transcript.split("User mandate:")[-1].strip()
+    
+    lower = user_mandate.lower()
     hypotheses = []
 
-    if "send" in lower and "message" in lower:
+    # COMM_SEND: email, message, send, tell, notify, reply, forward, whatsapp, slack, text, ping
+    comm_signals = ["email", "message", "send", "tell", "notify", "reply", "forward", "whatsapp", "slack", "text ", "ping"]
+    # SCHED_MODIFY: schedule, meeting, book, calendar, reschedule, cancel, remind, block, appointment
+    sched_signals = ["schedule", "meeting", "book ", "calendar", "reschedule", "cancel", "remind", "block ", "appointment"]
+    # INFO_RETRIEVE: search, find, what, check, look, get, fetch, show, how, where, when, who
+    info_signals = ["search", "find", "what", "check", "look up", "get the", "fetch", "show me", "how did", "where", "when", "who", "latest"]
+    # DOC_EDIT: draft, write, update, edit, create, document, report, summary, proposal
+    doc_signals = ["draft", "write up", "update the", "edit the", "create a summary", "document", "report", "proposal", "linkedin post"]
+    # CODE_GEN: code, script, python, sql, regex, function, program, build, fix the
+    code_signals = ["code", "script", "python", "sql", "regex", "function", "program", "build a", "fix the", "dashboard"]
+    # FIN_TRANS: pay, invoice, refund, expense, purchase, transfer, quote
+    fin_signals = ["pay ", "invoice", "refund", "expense", "purchase", "transfer", "quote", "subscription"]
+
+    if any(sig in lower for sig in comm_signals):
         hypotheses.append(Hypothesis(
-            hypothesis="User wants to send a message",
+            hypothesis="User wants to send a communication",
             action_class="COMM_SEND",
             confidence=0.85,
-            evidence_spans=[{"text": "send a message", "start": 0, "end": len(transcript)}],
-            dimension_suggestions={"what": "send message", "who": _extract_name(transcript), "ambiguity": 0.1},
+            evidence_spans=[{"text": user_mandate[:50], "start": 0, "end": len(user_mandate)}],
+            dimension_suggestions={"what": "send communication", "who": _extract_name(user_mandate), "ambiguity": 0.1},
         ))
-    elif "schedule" in lower or "meeting" in lower:
+    elif any(sig in lower for sig in code_signals):
+        hypotheses.append(Hypothesis(
+            hypothesis="User wants to generate code",
+            action_class="CODE_GEN",
+            confidence=0.85,
+            evidence_spans=[{"text": user_mandate[:50], "start": 0, "end": len(user_mandate)}],
+            dimension_suggestions={"what": "code generation", "ambiguity": 0.1},
+        ))
+    elif any(sig in lower for sig in fin_signals):
+        hypotheses.append(Hypothesis(
+            hypothesis="User wants a financial transaction",
+            action_class="FIN_TRANS",
+            confidence=0.85,
+            evidence_spans=[{"text": user_mandate[:50], "start": 0, "end": len(user_mandate)}],
+            dimension_suggestions={"what": "financial transaction", "ambiguity": 0.1},
+        ))
+    elif any(sig in lower for sig in doc_signals):
+        hypotheses.append(Hypothesis(
+            hypothesis="User wants to create or edit a document",
+            action_class="DOC_EDIT",
+            confidence=0.85,
+            evidence_spans=[{"text": user_mandate[:50], "start": 0, "end": len(user_mandate)}],
+            dimension_suggestions={"what": "document editing", "ambiguity": 0.1},
+        ))
+    elif any(sig in lower for sig in info_signals):
+        hypotheses.append(Hypothesis(
+            hypothesis="User wants to retrieve information",
+            action_class="INFO_RETRIEVE",
+            confidence=0.80,
+            evidence_spans=[{"text": user_mandate[:50], "start": 0, "end": len(user_mandate)}],
+            dimension_suggestions={"what": "information retrieval", "ambiguity": 0.1},
+        ))
+    elif any(sig in lower for sig in sched_signals):
         hypotheses.append(Hypothesis(
             hypothesis="User wants to schedule something",
             action_class="SCHED_MODIFY",
             confidence=0.80,
-            evidence_spans=[{"text": transcript, "start": 0, "end": len(transcript)}],
+            evidence_spans=[{"text": user_mandate[:50], "start": 0, "end": len(user_mandate)}],
             dimension_suggestions={"what": "schedule meeting", "ambiguity": 0.1},
         ))
     else:
@@ -208,7 +262,7 @@ def _mock_l1(transcript: str, start_time: float) -> L1DraftObject:
             hypothesis="User is expressing a general request",
             action_class="DRAFT_ONLY",
             confidence=0.6,
-            dimension_suggestions={"what": transcript[:50], "ambiguity": 0.1},
+            dimension_suggestions={"what": user_mandate[:50], "ambiguity": 0.1},
         ))
 
     return L1DraftObject(
