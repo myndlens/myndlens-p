@@ -35,7 +35,7 @@ class FullPipelineResult:
     total_latency_ms: float = 0.0
     l1_l2_agreement: bool = False
     qc_passed: bool = False
-    final_action_class: str = ""
+    final_intent: str = ""
     final_confidence: float = 0.0
     dimensions_extracted: Dict[str, Any] = field(default_factory=dict)
 
@@ -102,7 +102,7 @@ async def _execute_pipeline(batch_size: int, delay: float) -> None:
             l1 = await run_l1_scout(session_id=session_id, user_id=RL_USER_ID, transcript=transcript)
             top = l1.hypotheses[0] if l1.hypotheses else None
             l1_hyp = top.hypothesis if top else ""
-            l1_class = top.action_class if top else "NONE"
+            l1_class = top.intent if top else "NONE"
             l1_conf = top.confidence if top else 0.0
             l1_dims = top.dimension_suggestions if top else {}
 
@@ -182,23 +182,23 @@ async def _execute_pipeline(batch_size: int, delay: float) -> None:
             pipe_result.l1_l2_agreement = agrees
             pipe_result.stages.append(PipelineStageResult(
                 stage="L2_SENTRY", latency_ms=l2.latency_ms, success=True,
-                data={"action_class": l2.action_class, "confidence": l2.confidence,
+                data={"action_class": l2.intent, "confidence": l2.confidence,
                       "agrees_with_l1": agrees, "risk_tier": l2.risk_tier,
                       "chain_of_logic": l2.chain_of_logic[:60]},
             ))
             # Use L2 as authoritative when it disagrees
             if not agrees:
-                pipe_result.final_action_class = l2.action_class
+                pipe_result.final_intent = l2.intent
                 pipe_result.final_confidence = l2.confidence
             else:
-                pipe_result.final_action_class = l1_class
+                pipe_result.final_intent = l1_class
                 pipe_result.final_confidence = max(l1_conf, l2.confidence)
         except Exception as e:
             pipe_result.stages.append(PipelineStageResult(
                 stage="L2_SENTRY", latency_ms=(time.monotonic() - s3_start) * 1000,
                 success=False, error=str(e),
             ))
-            pipe_result.final_action_class = l1_class
+            pipe_result.final_intent = l1_class
             pipe_result.final_confidence = l1_conf
 
         await asyncio.sleep(delay)
@@ -210,7 +210,7 @@ async def _execute_pipeline(batch_size: int, delay: float) -> None:
         try:
             qc = await run_qc_sentry(
                 session_id=session_id, user_id=RL_USER_ID, transcript=transcript,
-                action_class=pipe_result.final_action_class,
+                intent=pipe_result.final_intent,
                 intent_summary=l1_hyp[:80],
                 persona_summary="Concise, direct communicator. Product Manager at Acme Corp.",
                 skill_risk="low",
@@ -236,7 +236,7 @@ async def _execute_pipeline(batch_size: int, delay: float) -> None:
         result_dict = {
             "case_id": pipe_result.case_id,
             "main_intent": pipe_result.main_intent,
-            "final_class": pipe_result.final_action_class,
+            "final_class": pipe_result.final_intent,
             "final_confidence": pipe_result.final_confidence,
             "l1_l2_agree": pipe_result.l1_l2_agreement,
             "qc_passed": pipe_result.qc_passed,
@@ -254,7 +254,7 @@ async def _execute_pipeline(batch_size: int, delay: float) -> None:
         logger.info(
             "[PIPELINE %d/%d] %s | L1=%s L2_agree=%s QC=%s dims=%d%% | %.0fms%s",
             i + 1, len(dataset), case["main_intent"],
-            pipe_result.final_action_class, pipe_result.l1_l2_agreement,
+            pipe_result.final_intent, pipe_result.l1_l2_agreement,
             pipe_result.qc_passed,
             sum(1 for f in ["who", "what", "when", "where"] if dims.get(f)) * 25,
             pipe_result.total_latency_ms,

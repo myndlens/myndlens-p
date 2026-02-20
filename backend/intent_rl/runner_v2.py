@@ -27,7 +27,7 @@ class V2CaseResult:
     ground_truth_intent: str
     ground_truth_sub_intents: List[str]
     extracted_hypothesis: str
-    extracted_action_class: str
+    extracted_intent: str
     confidence: float
     # Scoring
     intent_match: bool            # Did it get the main intent right?
@@ -135,14 +135,14 @@ async def _execute_v2_batch(dataset: list, delay: float) -> None:
             for h in draft.hypotheses:
                 all_hyps.append({
                     "hypothesis": h.hypothesis,
-                    "action_class": h.action_class,
+                    "action_class": h.intent,
                     "confidence": h.confidence,
                     "dimensions": h.dimension_suggestions,
                 })
 
             top = draft.hypotheses[0] if draft.hypotheses else None
             extracted_hyp = top.hypothesis if top else ""
-            extracted_class = top.action_class if top else "NONE"
+            extracted_class = top.intent if top else "NONE"
             confidence = top.confidence if top else 0.0
 
             # ── Score main intent ──
@@ -160,7 +160,7 @@ async def _execute_v2_batch(dataset: list, delay: float) -> None:
                 ground_truth_intent=main_intent,
                 ground_truth_sub_intents=expected_subs,
                 extracted_hypothesis=extracted_hyp,
-                extracted_action_class=extracted_class,
+                extracted_intent=extracted_class,
                 confidence=confidence,
                 intent_match=intent_match,
                 sub_intents_found=sub_found,
@@ -177,7 +177,7 @@ async def _execute_v2_batch(dataset: list, delay: float) -> None:
             result = V2CaseResult(
                 case_id=case_id, broken_thoughts=broken_thoughts,
                 ground_truth_intent=main_intent, ground_truth_sub_intents=expected_subs,
-                extracted_hypothesis="", extracted_action_class="ERROR",
+                extracted_hypothesis="", extracted_intent="ERROR",
                 confidence=0.0, intent_match=False, sub_intents_found=[],
                 sub_intent_coverage=0.0, entities_resolved=[], entity_coverage=0.0,
                 latency_ms=0.0, prompt_id="", is_mock=False, error=str(e),
@@ -211,7 +211,7 @@ async def _execute_v2_batch(dataset: list, delay: float) -> None:
             "broken_thoughts": result.broken_thoughts[:80],
             "main_intent": result.ground_truth_intent,
             "extracted_hypothesis": result.extracted_hypothesis[:100],
-            "extracted_class": result.extracted_action_class,
+            "extracted_class": result.extracted_intent,
             "intent_match": result.intent_match,
             "sub_coverage": round(result.sub_intent_coverage * 100, 1),
             "entity_coverage": round(result.entity_coverage * 100, 1),

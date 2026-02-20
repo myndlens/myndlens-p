@@ -84,7 +84,7 @@ async def _execute_rl_loop(n_iterations: int, delay: float) -> None:
                     user_id=RL_USER_ID,
                     transcript=case["broken_thoughts"],
                 )
-                all_hyps = [{"hypothesis": h.hypothesis, "action_class": h.action_class,
+                all_hyps = [{"hypothesis": h.hypothesis, "action_class": h.intent,
                              "confidence": h.confidence, "dimensions": h.dimension_suggestions}
                             for h in draft.hypotheses]
 
