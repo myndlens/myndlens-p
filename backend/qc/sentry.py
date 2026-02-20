@@ -55,6 +55,7 @@ async def run_qc_sentry(
     transcript: str,
     action_class: str,
     intent_summary: str,
+    persona_summary: str = "",  # Digital Self summary for persona_drift baseline
 ) -> QCVerdict:
     """Run all 3 QC adversarial passes."""
     settings = get_settings()
