@@ -140,7 +140,7 @@ async def run_l1_scout(
 
 
 def _parse_l1_response(response: str, transcript: str, latency_ms: float, prompt_id: str) -> L1DraftObject:
-    """Parse LLM response into L1DraftObject — extracts REAL intent, not action_class."""
+    """Parse LLM response into L1DraftObject — extracts REAL intent."""
     hypotheses = []
 
     try:
@@ -175,7 +175,6 @@ def _parse_l1_response(response: str, transcript: str, latency_ms: float, prompt
                 sub_intents=sub_intents,
                 evidence_spans=h.get("evidence_spans", []),
                 dimension_suggestions=dims,
-                action_class=intent,  # Legacy compat: action_class = intent name
             ))
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         logger.warning("L1 parse failed (%s) for transcript='%s...' response='%s...'",
@@ -184,7 +183,6 @@ def _parse_l1_response(response: str, transcript: str, latency_ms: float, prompt
             hypothesis=f"User wants to: {transcript[:60]}",
             intent="Unknown",
             confidence=0.3,
-            action_class="Unknown",
         ))
 
     return L1DraftObject(
@@ -196,15 +194,12 @@ def _parse_l1_response(response: str, transcript: str, latency_ms: float, prompt
 
 
 def _mock_l1(transcript: str, start_time: float) -> L1DraftObject:
-    """Mock L1 — returns a generic hypothesis when no LLM is available.
-    No hardcoded keyword matching. No action_class buckets.
-    """
+    """Mock L1 — kept for test compatibility only. Not used in production pipeline."""
     return L1DraftObject(
         hypotheses=[Hypothesis(
             hypothesis=transcript[:80],
             intent="Unknown",
             confidence=0.3,
-            action_class="Unknown",
         )],
         transcript=transcript,
         latency_ms=(time.monotonic() - start_time) * 1000,
