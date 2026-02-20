@@ -1559,6 +1559,65 @@ async def api_list_archives():
     return list_archived_workspaces()
 
 
+# =====================================================
+#  Intent RL Test Framework
+# =====================================================
+
+@api_router.post("/intent-rl/run")
+async def api_start_intent_rl(batch_size: int = 100):
+    """Start the intent RL test batch. Runs in background."""
+    from intent_rl.runner import run_intent_rl_batch, get_current_run
+    current = get_current_run()
+    if current and current.in_progress:
+        return {"status": "already_running", "run_id": current.run_id, "progress": f"{current.completed}/{current.total}"}
+    run_id = await run_intent_rl_batch(batch_size=min(batch_size, 100))
+    return {"status": "started", "run_id": run_id, "total_cases": min(batch_size, 100)}
+
+
+@api_router.get("/intent-rl/status")
+async def api_intent_rl_status():
+    """Get current RL batch status and live accuracy."""
+    from intent_rl.runner import get_current_run
+    run = get_current_run()
+    if not run:
+        return {"status": "no_run", "message": "No RL run active. POST /api/intent-rl/run to start."}
+    return {
+        "run_id": run.run_id, "in_progress": run.in_progress,
+        "progress": f"{run.completed}/{run.total}",
+        "class_accuracy": round(run.class_accuracy * 100, 1),
+        "class_correct": run.class_correct,
+        "avg_latency_ms": round(run.avg_latency_ms, 1),
+        "per_class": run.per_class,
+        "failure_count": len(run.failures),
+        "corrections_submitted": run.corrections_submitted,
+        "started_at": run.started_at, "completed_at": run.completed_at,
+    }
+
+
+@api_router.get("/intent-rl/results")
+async def api_intent_rl_results():
+    """Get full results including all cases and failures."""
+    from intent_rl.runner import get_current_run
+    run = get_current_run()
+    if not run:
+        return {"status": "no_run"}
+    return {
+        "run_id": run.run_id, "in_progress": run.in_progress,
+        "total": run.total, "completed": run.completed,
+        "class_accuracy": round(run.class_accuracy * 100, 1),
+        "class_correct": run.class_correct, "avg_latency_ms": round(run.avg_latency_ms, 1),
+        "per_class": run.per_class, "failures": run.failures, "cases": run.cases,
+        "corrections_submitted": run.corrections_submitted,
+    }
+
+
+@api_router.get("/intent-rl/history")
+async def api_intent_rl_history(limit: int = 10):
+    """Get historical RL run results."""
+    from intent_rl.runner import get_historical_runs
+    return {"runs": await get_historical_runs(limit)}
+
+
 # Include REST router
 app.include_router(api_router)
 
