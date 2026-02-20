@@ -105,11 +105,11 @@ async def run_l2_sentry(
         )
 
         latency_ms = (time.monotonic() - start) * 1000
-        verdict = _parse_l2_response(response, l1_action_class, l1_confidence, latency_ms, artifact.prompt_id)
+        verdict = _parse_l2_response(response, l1_intent, l1_confidence, latency_ms, artifact.prompt_id)
 
         logger.info(
-            "L2 Sentry: session=%s action=%s conf=%.2f agrees=%s latency=%.0fms",
-            session_id, verdict.action_class, verdict.confidence,
+            "L2 Sentry: session=%s intent=%s conf=%.2f agrees=%s latency=%.0fms",
+            session_id, verdict.intent, verdict.confidence,
             verdict.shadow_agrees_with_l1, latency_ms,
         )
         return verdict
@@ -117,7 +117,7 @@ async def run_l2_sentry(
     except Exception as e:
         latency_ms = (time.monotonic() - start) * 1000
         logger.error("L2 Sentry failed: session=%s error=%s", session_id, str(e))
-        return _mock_l2(transcript, l1_action_class, l1_confidence, start)
+        return _mock_l2(transcript, l1_intent, l1_confidence, start)
 
 
 def check_l1_l2_agreement(l1_action: str, l1_conf: float, l2: L2Verdict) -> tuple[bool, str]:
