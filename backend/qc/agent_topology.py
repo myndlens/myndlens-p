@@ -61,7 +61,6 @@ def _tools_from_skill(skill: Dict[str, Any]) -> List[str]:
     raw = skill.get("required_tools", "")
     if not raw:
         return []
-    import re
     return [t.strip() for t in re.split(r"[,\s]+", raw) if t.strip()]
 
 
