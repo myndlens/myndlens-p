@@ -300,7 +300,7 @@ def _extract_name(text: str) -> str:
 
 
 async def store_draft(draft: L1DraftObject) -> None:
-    """Persist L1 draft to MongoDB so execute_request can retrieve it."""
+    """Persist L1 draft to MongoDB."""
     from core.database import get_db
     db = get_db()
     doc = {
@@ -309,6 +309,8 @@ async def store_draft(draft: L1DraftObject) -> None:
         "hypotheses": [
             {
                 "hypothesis": h.hypothesis,
+                "intent": h.intent,
+                "sub_intents": h.sub_intents,
                 "action_class": h.action_class,
                 "confidence": h.confidence,
                 "dimension_suggestions": h.dimension_suggestions,
@@ -320,7 +322,6 @@ async def store_draft(draft: L1DraftObject) -> None:
         "created_at": datetime.now(timezone.utc),
     }
     await db.l1_drafts.replace_one({"draft_id": draft.draft_id}, doc, upsert=True)
-    logger.debug("L1 draft stored: draft_id=%s", draft.draft_id)
 
 
 async def get_draft(draft_id: str) -> Optional[L1DraftObject]:
