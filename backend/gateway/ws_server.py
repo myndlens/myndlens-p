@@ -534,7 +534,11 @@ async def _handle_execute_request(
         }
         result = await dispatch_mandate(session_id, mandate, api_token=auth_token)
 
-        # Send execute_ok
+        # Record skill usage for reinforcement learning — updated on webhook callback
+        # (actual outcome recorded in delivery webhook when ObeGee confirms result)
+        logger.info("[SkillRL] Skills dispatched: session=%s skills=%s", session_id, skill_names)
+
+        # Send execute_ok with topology summary
         await _send(ws, WSMessageType.EXECUTE_OK, ExecuteOkPayload(
             draft_id=req.draft_id,
             dispatch_status=result.get("status", "QUEUED"),
