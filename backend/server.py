@@ -1828,9 +1828,9 @@ async def api_test_clarification_loop(req: ClarificationLoopRequest):
     hyp2, conf2, dims2 = (top2.hypothesis, top2.confidence, top2.dimension_suggestions) if top2 else ("", 0, {})
 
     return {
-        "pass_1": {"hypothesis": hyp1, "action_class": top1.action_class if top1 else "NONE", "confidence": conf1, "dimensions": dims1},
+        "pass_1": {"hypothesis": hyp1, "intent": top1.intent if top1 else "", "confidence": conf1, "dimensions": dims1},
         "clarification": {"question": question, "response": req.clarification_response},
-        "pass_2": {"hypothesis": hyp2, "action_class": top2.action_class if top2 else "NONE", "confidence": conf2, "dimensions": dims2},
+        "pass_2": {"hypothesis": hyp2, "intent": top2.intent if top2 else "", "confidence": conf2, "dimensions": dims2},
         "improvement": {"confidence_delta": round(conf2 - conf1, 3)},
     }
 
