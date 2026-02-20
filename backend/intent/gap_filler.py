@@ -266,12 +266,4 @@ def check_extraction_coherence(transcript: str, action_class: str, confidence: f
 
     return True, confidence
 
-    if final != transcript:
-        logger.info(
-            "[GapFiller] session_user=%s | '%s' → '%s'",
-            session_ctx.user_name or session_ctx.user_id,
-            transcript[:50],
-            enriched[:50],
-        )
 
-    return final
