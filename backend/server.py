@@ -354,6 +354,24 @@ async def delivery_webhook(
         "Delivery webhook: exec=%s status=%s channels=%s",
         payload.execution_id, payload.status, payload.delivered_to,
     )
+
+    # Log security report if ObeGee includes agentguard data
+    agentguard_data = getattr(payload, "agentguard", None)
+    if agentguard_data:
+        await db.agentguard_reports.insert_one({
+            "execution_id": payload.execution_id,
+            "reported_at": datetime.now(timezone.utc),
+            "report": agentguard_data,
+        })
+        # Check for HIGH/CRITICAL alerts
+        alerts = (agentguard_data or {}).get("alerts", [])
+        high_alerts = [a for a in alerts if a.get("severity") in ("HIGH", "CRITICAL")]
+        if high_alerts:
+            logger.warning(
+                "[AgentGuard] HIGH/CRITICAL alerts for exec=%s: %s",
+                payload.execution_id, high_alerts,
+            )
+
     return {"received": True, "execution_id": payload.execution_id}
 
 
