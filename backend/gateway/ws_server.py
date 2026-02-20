@@ -1048,9 +1048,4 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         session_id, l1_draft.is_mock,
         len(l1_draft.hypotheses), response_text[:60],
     )
-    elif "email" in lower:
-        return "I'll draft that email. Tap Approve to send."
-    elif "tomorrow" in lower:
-        return "Understood, tomorrow. Tap Approve to execute."
-    else:
-        return f"I heard you. Tap Approve to execute: {transcript[:50]}."
+
