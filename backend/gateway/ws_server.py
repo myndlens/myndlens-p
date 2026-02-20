@@ -226,6 +226,9 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             heartbeat_interval_ms=get_heartbeat_interval_ms(),
         ))
 
+        # Pre-load Digital Self into session memory — zero-latency for first mandate
+        await _preload_session_context(session_id, user_id_resolved or "")
+
         await log_audit_event(
             AuditEventType.AUTH_SUCCESS,
             session_id=session_id,
