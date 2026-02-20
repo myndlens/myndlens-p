@@ -22,6 +22,7 @@ class PromptPurpose(str, Enum):
     SAFETY_GATE = "SAFETY_GATE"
     SUMMARIZE = "SUMMARIZE"
     SUBAGENT_TASK = "SUBAGENT_TASK"
+    MICRO_QUESTION = "MICRO_QUESTION"
 
 
 class PromptMode(str, Enum):
