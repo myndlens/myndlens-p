@@ -507,7 +507,7 @@ class CreateCommitRequest(BaseModel):
     session_id: str
     draft_id: str
     intent_summary: str
-    action_class: str
+    intent: str
     dimensions: Optional[dict] = None
 
 
@@ -524,7 +524,7 @@ async def api_create_commit(req: CreateCommitRequest):
         session_id=req.session_id,
         draft_id=req.draft_id,
         intent_summary=req.intent_summary,
-        action_class=req.action_class,
+        intent=req.intent,
         dimensions=req.dimensions,
     )
 
