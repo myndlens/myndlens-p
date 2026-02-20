@@ -159,11 +159,19 @@ async def match_skills_to_intent(
 
 
 def classify_risk(description: str, required_tools: str = "") -> str:
-    """Classify skill risk level for ObeGee governance."""
+    """Classify skill risk level for ObeGee governance.
+
+    HIGH:   Irreversible or system-level actions (delete, deploy, execute code, payment)
+    MEDIUM: Communication actions and API calls (email, message, file read)
+    LOW:    Read-only or purely informational
+
+    Note: 'send' is deliberately MEDIUM (not HIGH) -- COMM_SEND is the most
+    common action class and email/messaging is routine, not high-risk.
+    """
     text = f"{description} {required_tools}".lower()
-    if re.search(r'write|send|execute|delete|deploy|push|publish|payment|purchase', text):
+    if re.search(r'execute|delete|deploy|push|publish|payment|purchase|drop|reset|wipe|admin', text):
         return "high"
-    if re.search(r'api|file|network|http|database|cloud|external', text):
+    if re.search(r'send|write|api|file|network|http|database|cloud|external|message|email', text):
         return "medium"
     return "low"
 
