@@ -484,7 +484,7 @@ async def _handle_execute_request(
             details={
                 "draft_id": req.draft_id,
                 "execution_id": result.get("execution_id"),
-                "action_class": l2.action_class,
+                "intent": top.intent,
                 "skills": skill_names,
             },
         )
