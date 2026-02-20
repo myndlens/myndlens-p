@@ -176,16 +176,9 @@ def _parse_questions(response: str) -> List[MicroQuestion]:
 
 
 def _mock_questions(transcript: str, trigger: str, start: float) -> MicroQuestionResult:
-    """Mock micro-questions for testing without LLM."""
+    """Mock micro-questions — returns empty (no generic questions ever)."""
     return MicroQuestionResult(
-        questions=[
-            MicroQuestion(
-                question="Could you tell me more about what you need?",
-                why="Low confidence in intent extraction",
-                options=[],
-                dimension_filled="what",
-            )
-        ],
+        questions=[],
         latency_ms=(time.monotonic() - start) * 1000,
         prompt_id="mock",
         trigger_reason=trigger,
