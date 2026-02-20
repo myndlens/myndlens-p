@@ -572,25 +572,30 @@ async def _handle_execute_request(
                 f"https://clawhub.ai/skills/{s.get('name')}"
                 for s in matched_skills if s.get("name")
             ],
-            # OpenClaw tool policy (actual OpenClaw tool names, not custom strings)
-            "tools": oc_tools,
-            # Agent configuration: full spec sent to ObeGee for provisioning
+            # OpenClaw tool policy — derived from agent collection's tools
+            "tools": agent_collection.agents[0].tools if agent_collection.agents else oc_tools,
+            # Agent collection: one or more agents assembled for this mandate
             "agent_config": {
-                "id": agent_spec.agent_id,
-                "profile": agent_spec.profile,
-                "tools": {"allow": agent_spec.tools_allow, "deny": agent_spec.tools_deny},
-                "model": agent_spec.model,
-                "workspace": agent_spec.workspace,
-                "source": agent_spec.source,   # "existing" → reuse; "dynamic" → provision
-                "coordination": topology.coordination,
-                "sub_agent_roles": [
-                    {"role": a.role, "skills": a.skills}
-                    for a in topology.sub_agents
+                "agents": [
+                    {
+                        "agent_id": a.agent_id,
+                        "name": a.name,
+                        "purpose": a.purpose,
+                        "skills": a.skills,
+                        "tools": a.tools,
+                        "skill_md": a.skill_md,
+                        "source": a.source,
+                        "is_new": a.is_new,
+                    }
+                    for a in agent_collection.agents
                 ],
+                "coordination": agent_collection.coordination,
+                "source": agent_collection.source,
+                "approval_lines": agent_collection.approval_lines,
             },
             # Metadata for audit/RL
             "skill_risk": skill_risk,
-            "assigned_agent_id": agent_spec.agent_id,
+            "assigned_agent_id": assigned_agent_id,
             "approved_at": datetime.now(timezone.utc).isoformat(),
             "approved_by": user_id,
         }
