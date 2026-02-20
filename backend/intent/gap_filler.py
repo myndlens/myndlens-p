@@ -219,6 +219,43 @@ async def enrich_transcript(
     else:
         final = enriched
 
+
+
+# Lightweight extraction-time coherence check (no LLM call)
+_ACTION_SIGNAL_MAP: dict = {
+    "COMM_SEND": {"send", "email", "message", "tell", "notify", "text", "whatsapp", "slack", "reply", "forward"},
+    "SCHED_MODIFY": {"schedule", "meeting", "book", "appointment", "calendar", "reschedule", "cancel", "remind", "block"},
+    "INFO_RETRIEVE": {"find", "search", "look", "check", "what", "who", "when", "where", "show", "get", "fetch"},
+    "DOC_EDIT": {"write", "draft", "create", "edit", "update", "change", "document", "report", "proposal"},
+    "CODE_GEN": {"code", "script", "program", "function", "python", "javascript", "sql", "implement", "hello world"},
+    "FIN_TRANS": {"pay", "transfer", "invoice", "expense", "purchase", "buy", "payment", "refund"},
+}
+
+
+def check_extraction_coherence(transcript: str, action_class: str, confidence: float) -> tuple[bool, float]:
+    """Lightweight rule-based coherence check: does the action_class match transcript signals?
+
+    No LLM call. Runs at extraction time before TTS response is generated.
+    If incoherent, confidence is downgraded to flag for L1 review.
+    Returns (is_coherent: bool, adjusted_confidence: float).
+    """
+    if action_class in ("DRAFT_ONLY", "SYS_CONFIG"):
+        return True, confidence  # Too generic to check with signals
+
+    lower = transcript.lower()
+    signals = _ACTION_SIGNAL_MAP.get(action_class, set())
+    if not signals:
+        return True, confidence  # Unknown action class -- no check
+
+    if not any(signal in lower for signal in signals) and confidence > 0.5:
+        logger.info(
+            "[ExtractionCoherence] No signal words for action=%s in '%s' -- downgrading %.2f->0.45",
+            action_class, transcript[:50], confidence,
+        )
+        return False, 0.45
+
+    return True, confidence
+
     if final != transcript:
         logger.info(
             "[GapFiller] session_user=%s | '%s' → '%s'",
