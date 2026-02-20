@@ -251,9 +251,11 @@ async def get_draft(draft_id: str) -> Optional[L1DraftObject]:
     hypotheses = [
         Hypothesis(
             hypothesis=h["hypothesis"],
-            action_class=h["action_class"],
+            intent=h.get("intent", ""),
+            sub_intents=h.get("sub_intents", []),
             confidence=h["confidence"],
             dimension_suggestions=h.get("dimension_suggestions", {}),
+            action_class=h.get("intent", h.get("action_class", "")),
         )
         for h in doc.get("hypotheses", [])
     ]
