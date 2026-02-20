@@ -666,8 +666,9 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     l1_draft = await run_l1_scout(
         session_id=session_id,
         user_id=user_id,
-        transcript=enriched_transcript,  # gap-filled — not the raw fragment
+        transcript=enriched_transcript,  # enriched for LLM understanding
         context_capsule=context_capsule,
+        original_transcript=transcript,   # stored in draft for user-facing display
     )
 
     # Update session's recent transcript history for next mandate's gap-filling
