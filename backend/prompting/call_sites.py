@@ -87,6 +87,13 @@ CALL_SITES: Dict[str, CallSite] = {
         description="Minimal mode narrow sub-tasks.",
         status="reserved",
     ),
+    "MICRO_QUESTION_GEN": CallSite(
+        call_site_id="MICRO_QUESTION_GEN",
+        allowed_purposes=frozenset({PromptPurpose.MICRO_QUESTION}),
+        owner_module="intent.micro_questions",
+        description="Generates personalized clarifying questions using Digital Self context.",
+        status="active",
+    ),
 }
 
 
