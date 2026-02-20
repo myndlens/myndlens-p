@@ -208,15 +208,11 @@ async def fetch_skill_spec(view_url: str) -> dict:
 
     view_url format: https://clawhub.ai/skills/{slug}
     API endpoint:    https://clawhub.ai/api/v1/skills/{slug}
-
-    Returns enriched skill metadata from ClawHub.
-    Falls back to empty dict on any failure — never blocks execution.
     """
     if not view_url or "clawhub.ai" not in view_url:
         return {}
     try:
-        import re as _re
-        slug_match = _re.search(r"/skills/([^/?#]+)", view_url)
+        slug_match = re.search(r"/skills/([^/?#]+)", view_url)
         if not slug_match:
             return {}
         slug = slug_match.group(1)
