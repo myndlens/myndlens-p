@@ -232,7 +232,7 @@ _ACTION_SIGNAL_MAP: dict = {
     "SCHED_MODIFY": {"schedule", "meeting", "book", "appointment", "calendar", "reschedule", "cancel", "remind", "block"},
     "INFO_RETRIEVE": {"find", "search", "look", "check", "what", "who", "when", "where", "show", "get", "fetch"},
     "DOC_EDIT": {"write", "draft", "create", "edit", "update", "change", "document", "report", "proposal"},
-    "CODE_GEN": {"code", "script", "program", "function", "python", "javascript", "sql", "implement", "hello world"},
+    "CODE_GEN": {"code", "script", "program", "function", "python", "javascript", "sql", "implement", "algorithm", "class", "module"},
     "FIN_TRANS": {"pay", "transfer", "invoice", "expense", "purchase", "buy", "payment", "refund"},
 }
 
