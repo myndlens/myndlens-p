@@ -653,6 +653,91 @@ export default function SettingsScreen() {
           </View>
         </Section>
 
+        {/* ─── VOICE & CALLING ────────────────────────────────────────────── */}
+        <Section title="📞  Voice & Calling">
+
+          {/* Free tier usage */}
+          {voiceLoading ? (
+            <ActivityIndicator color="#6C5CE7" style={{ marginVertical: 8 }} />
+          ) : voiceStatus ? (
+            <View style={s.voiceUsageRow}>
+              <View style={s.voiceUsageBar}>
+                <View style={[s.voiceUsageFill, { width: `${Math.min((voiceStatus.calls_used / voiceStatus.calls_limit) * 100, 100)}%` as any }]} />
+              </View>
+              <Text style={s.voiceUsageText}>
+                {voiceStatus.byovk_active
+                  ? 'Using your Vonage account — unlimited calls'
+                  : `${voiceStatus.calls_used} / ${voiceStatus.calls_limit} free calls used this month`}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* BYOVK active — show remove option */}
+          {voiceStatus?.byovk_active ? (
+            <>
+              <View style={s.byovkActiveRow}>
+                <Text style={s.byovkActiveText}>Your Vonage credentials are active</Text>
+              </View>
+              <ActionBtn label="Remove Vonage credentials" onPress={handleRemoveVoiceConfig} destructive />
+            </>
+          ) : (
+            <>
+              <Text style={s.subHeading}>Bring Your Own Vonage Key (BYOVK)</Text>
+              <Text style={s.rowSub} numberOfLines={2}>
+                Create a Vonage Application with Voice capability and paste your credentials below to unlock unlimited calls.
+              </Text>
+
+              <TextInput
+                style={s.credInput}
+                placeholder="Application ID (UUID)"
+                placeholderTextColor="#555"
+                value={byovkAppId}
+                onChangeText={setByovkAppId}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TextInput
+                style={[s.credInput, { height: 80, textAlignVertical: 'top' }]}
+                placeholder="Private key (paste full -----BEGIN PRIVATE KEY----- content)"
+                placeholderTextColor="#555"
+                value={byovkKey}
+                onChangeText={setByovkKey}
+                multiline
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+              />
+              <TextInput
+                style={s.credInput}
+                placeholder="From number (E.164, e.g. +14155550100)"
+                placeholderTextColor="#555"
+                value={byovkFrom}
+                onChangeText={setByovkFrom}
+                keyboardType="phone-pad"
+              />
+
+              <ActionBtn
+                label={
+                  voiceSaveStatus === 'saving' ? 'Saving…' :
+                  voiceSaveStatus === 'saved' ? '✓ Saved' :
+                  voiceSaveStatus === 'error' ? '✗ Failed — try again' :
+                  'Save Vonage credentials'
+                }
+                onPress={handleSaveVoiceConfig}
+              />
+
+              <TouchableOpacity
+                style={{ marginTop: 8, alignItems: 'center' }}
+                onPress={() => Linking.openURL('https://dashboard.nexmo.com/applications/new')}
+              >
+                <Text style={{ color: '#6C5CE7', fontSize: 13 }}>
+                  Create a Vonage Application →
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </Section>
+
         {/* ─── ACCOUNT ────────────────────────────────────────────────────── */}
         <Section title="👤  Account">
           <ActionBtn label="Sign Out" onPress={handleSignOut} destructive />
