@@ -1044,57 +1044,10 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         logger.info("[MANDATE:5:TTS] session=%s DONE mock_text", session_id)
 
     logger.info(
-        "[MANDATE:COMPLETE] session=%s guardrail=%s l1_mock=%s hypotheses=%d response='%s'",
-        session_id, guardrail.result.value, l1_draft.is_mock,
+        "[MANDATE:COMPLETE] session=%s l1_mock=%s hypotheses=%d response='%s'",
+        session_id, l1_draft.is_mock,
         len(l1_draft.hypotheses), response_text[:60],
     )
-
-
-def _generate_l1_response(hypothesis, dim_state) -> str:
-    """Generate TTS confirmation based on L1 hypothesis.
-
-    Follows the ClawHub `assistant` skill behavioural rules:
-    - Be concise — get to the point fast
-    - Confirm understanding by restating — "So you need X, correct?"
-    - Anticipate follow-up — include key detail (who/when)
-    - Always end with a clear action prompt (Tap Approve)
-    - Flag ambiguity when present rather than guessing
-    """
-    action = hypothesis.action_class
-    dims = dim_state.a_set
-    who = dims.who or ""
-    when = dims.when or ""
-    what = dims.what or hypothesis.hypothesis[:50]
-
-    # Build a concise confirmation with the most relevant dimension
-    if action == "COMM_SEND":
-        to = f" to {who}" if who else ""
-        return f"Got it — sending{to}. Tap Approve."
-    elif action == "SCHED_MODIFY":
-        time_hint = f" for {when}" if when else ""
-        return f"I'll update your calendar{time_hint}. Tap Approve."
-    elif action == "INFO_RETRIEVE":
-        return "I'll research that and report back. Tap Approve."
-    elif action == "DOC_EDIT":
-        return "I'll draft that document. Tap Approve."
-    elif action == "CODE_GEN":
-        return "I'll write the code. Tap Approve."
-    elif action == "FIN_TRANS":
-        return "Financial action ready. Tap Approve to authorise."
-    else:
-        return f"Understood: {what}. Tap Approve to execute."
-
-
-def _generate_mock_response(transcript: str) -> str:
-    """Generate a deterministic mock response for testing. Never asks clarification."""
-    lower = transcript.lower()
-
-    if "hello" in lower or "hi " in lower:
-        return "Hello! I'm ready. Tap Approve to proceed."
-    elif "send" in lower and "message" in lower:
-        return "I'll prepare that message now. Tap Approve to send."
-    elif "meeting" in lower or "schedule" in lower:
-        return "I'll schedule that for you. Tap Approve to confirm."
     elif "email" in lower:
         return "I'll draft that email. Tap Approve to send."
     elif "tomorrow" in lower:
