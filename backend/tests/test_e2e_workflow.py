@@ -578,7 +578,7 @@ class TestMandatePipelineViaAPI:
                 "session_id": "e2e-test",
                 "user_id": "e2e-test-user",
                 "transcript": "Create Hello World code in Python",
-                "l1_action_class": "DOC_EDIT",
+                "l1_intent": "DOC_EDIT",
                 "l1_confidence": 0.85
             },
             timeout=60
@@ -593,7 +593,7 @@ class TestMandatePipelineViaAPI:
             print(f"  - risk_tier: {data.get('risk_tier')}")
             print(f"  - is_mock: {data.get('is_mock')}")
             print(f"  - latency_ms: {data.get('latency_ms')}")
-            assert "action_class" in data
+            assert "intent" in data
         else:
             print(f"L2 Sentry failed: {response.text}")
 
@@ -604,7 +604,7 @@ class TestMandatePipelineViaAPI:
                 "session_id": "e2e-test",
                 "user_id": "e2e-test-user",
                 "transcript": "Create Hello World code in Python",
-                "action_class": "DOC_EDIT",
+                "intent": "DOC_EDIT",
                 "intent_summary": "Create a Hello World Python script"
             },
             timeout=60

@@ -545,7 +545,7 @@ class TestExecutePipelineIntegration:
                 l1_confidence=top.confidence,
                 dimensions=dim_state.to_dict(),
             )
-            assert l2.intent, "L2 should return action_class"
+            assert l2.intent, "L2 should return intent"
             print(f"[P01] L2: action={l2.intent} conf={l2.confidence:.2f} agrees={l2.shadow_agrees_with_l1}")
             
             # Step 4: QC Sentry

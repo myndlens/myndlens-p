@@ -146,7 +146,7 @@ async def run_one(test_id: str, fragment: str) -> TestResult:
     # Step 2: L1 Scout (mock — fast, deterministic)
     draft = _mock_l1(enriched, start)
     top = draft.hypotheses[0] if draft.hypotheses else None
-    action_class = top.action_class if top else "DRAFT_ONLY"
+    action_class = top.intent if top else ""
     confidence = top.confidence if top else 0.3
 
     # Step 3: Dimensions + Guardrails
@@ -159,7 +159,7 @@ async def run_one(test_id: str, fragment: str) -> TestResult:
     coherent, adj_conf = check_extraction_coherence(fragment, action_class, confidence)
 
     # Step 5: Skills matching (real MongoDB query)
-    matched = await match_skills_to_intent(enriched, top_n=3, action_class=action_class)
+    matched = await match_skills_to_intent(enriched, top_n=3)
     skill_names = [s.get("name", s.get("slug", "?"))[:30] for s in matched[:3]]
     skill_risk = max(
         (classify_risk(s.get("description", ""), s.get("required_tools", ""))
@@ -173,7 +173,7 @@ async def run_one(test_id: str, fragment: str) -> TestResult:
                      "required_tools": s.get("required_tools", "")} for s in matched]
     topology = await assess_agent_topology(
         intent=top.hypothesis[:60] if top else fragment[:60],
-        action_class=action_class,
+        intent=action_class,
         skill_names=skill_names,
         built_skills=built_skills,
     )
@@ -198,7 +198,7 @@ async def run_one(test_id: str, fragment: str) -> TestResult:
         test_id=test_id,
         fragment=fragment,
         enriched=enriched[:80] if enriched != fragment else "(unchanged)",
-        action_class=action_class,
+        intent=action_class,
         confidence=round(adj_conf, 2),
         guardrail=guardrail.result.value,
         blocked=guardrail.block_execution,

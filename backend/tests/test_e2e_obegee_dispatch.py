@@ -281,7 +281,7 @@ class TestMyndLensObeGeeDispatch:
 
         if draft_updates:
             draft = draft_updates[0].get("payload", {})
-            action_class = draft.get("action_class", "")
+            action_class = draft.get("intent", "")
             draft_id = draft.get("draft_id", "")
             print(f"  draft_update: action_class={action_class}, draft_id={draft_id}")
             TestMyndLensObeGeeDispatch._draft_id = draft_id
