@@ -426,8 +426,7 @@ async def _handle_execute_request(
         matched_skills = await match_skills_to_intent(
             enriched_for_verify, top_n=3, action_class=effective_action,
         )
-        skill_names = [s.get("name", "") for s in matched_skills if s.get("name")]
-        # Aggregate risk across all matched skills (take highest)
+        skill_names = [s.get("name") for s in matched_skills if s.get("name")]
         risk_rank = {"low": 0, "medium": 1, "high": 2}
         skill_risk = max(
             (classify_risk(s.get("description", ""), s.get("required_tools", ""))
@@ -435,11 +434,27 @@ async def _handle_execute_request(
             key=lambda r: risk_rank.get(r, 0),
             default="low",
         ) if matched_skills else "low"
-        # Build full skill contracts — ObeGee needs SKILL.md + tools + source refs
+
+        # Build full skill contracts including live SKILL.md from MongoDB
         built_skills = []
         for skill in matched_skills:
-            built = await build_skill([skill], draft.transcript)
-            built_skills.append(built)
+            # Prefer skill_md stored in MongoDB (full ClawHub SKILL.md)
+            # Fall back to build_skill() which fetches from ClawHub API
+            if skill.get("skill_md"):
+                built_skills.append({
+                    "name": skill.get("slug") or skill.get("name"),
+                    "skill_md": skill["skill_md"],
+                    "required_tools": skill.get("required_tools", ""),
+                    "required_env": skill.get("required_env", []),
+                    "risk": skill.get("risk", skill_risk),
+                    "install_command": skill.get("install_command", f"clawdhub install {skill.get('slug', skill.get('name'))}"),
+                    "oc_tools": skill.get("oc_tools", {}),
+                    "clawhub_api_url": skill.get("clawhub_api_url", ""),
+                })
+            else:
+                built = await build_skill([skill], draft.transcript)
+                built_skills.append(built)
+
         await broadcast_stage(session_id, 6, "done", f"{len(skill_names)} skills ({skill_risk} risk)")
         logger.info("Skills matched: session=%s count=%d risk=%s skills=%s",
                     session_id, len(skill_names), skill_risk, skill_names)
