@@ -124,13 +124,8 @@ _TEMPORAL_PATTERNS = [
     (re.compile(r'\bthis morning\b', re.I), '_THIS_MORNING_'),
 ]
 
-# Vague reference patterns that benefit from context injection
-_VAGUE_REFS = re.compile(
-    r'\b(the thing|that thing|it|the issue|the matter|the project|'
-    r'the report|the proposal|the document|that meeting|that call|'
-    r'the discussion|the conversation)\b',
-    re.I,
-)
+# Vague reference patterns (compiled for future reference resolution feature)
+# _VAGUE_REFS removed — unused in current version
 
 
 def _resolve_entities(transcript: str, entities: List[ParsedEntity]) -> str:
