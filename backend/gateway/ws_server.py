@@ -53,7 +53,7 @@ from guardrails.engine import check_guardrails
 from transcript.assembler import transcript_assembler
 from transcript.storage import save_transcript
 
-from intent.gap_filler import SessionContext, parse_capsule_summary, enrich_transcript, check_extraction_coherence
+from intent.gap_filler import SessionContext, parse_capsule_summary, enrich_transcript
 
 logger = logging.getLogger(__name__)
 
