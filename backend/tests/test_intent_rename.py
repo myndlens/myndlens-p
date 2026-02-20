@@ -429,36 +429,64 @@ class TestL1ScoutNoFallback:
     """Verify L1 Scout raises instead of calling _mock_l1 in production path"""
 
     def test_l1_scout_py_has_raise_not_mock_call(self):
-        """l1/scout.py error handler uses 'raise' not '_mock_l1' in except block"""
+        """l1/scout.py error handler uses 'raise' not '_mock_l1' in except block.
+
+        Parses run_l1_scout's except block using indentation:
+        - Finds the except block inside run_l1_scout
+        - Only checks lines indented at except+4 spaces
+        - Stops when indentation drops back
+        """
         backend_dir = Path(__file__).parent.parent
         scout_path = backend_dir / "l1/scout.py"
         content = scout_path.read_text()
-
-        # The production error handler in run_l1_scout should have 'raise' not '_mock_l1()'
-        # Check the except block in run_l1_scout function
-        # Find the relevant except block
         lines = content.split("\n")
+
         in_run_l1_scout = False
         in_except_block = False
+        except_indent = None
         raises_in_except = False
         calls_mock_in_except = False
 
         for line in lines:
+            stripped = line.strip()
+            # Enter run_l1_scout function
             if "async def run_l1_scout" in line:
                 in_run_l1_scout = True
-            elif in_run_l1_scout and line.strip().startswith("except Exception"):
-                in_except_block = True
-            elif in_except_block and line.strip() == "raise":
-                raises_in_except = True
-            elif in_except_block and "_mock_l1(" in line:
-                calls_mock_in_except = True
-            elif in_run_l1_scout and line.strip().startswith("async def "):
-                # Entered next function
+                continue
+            # Exit run_l1_scout on any new top-level def/class
+            if in_run_l1_scout and (stripped.startswith("def ") or stripped.startswith("async def ") or stripped.startswith("class ")):
                 in_run_l1_scout = False
                 in_except_block = False
+                except_indent = None
+                continue
 
-        assert raises_in_except, "L1 Scout except block should contain 'raise' (no-fallback policy)"
-        assert not calls_mock_in_except, "L1 Scout except block should NOT call _mock_l1() in production path"
+            if in_run_l1_scout and stripped.startswith("except Exception"):
+                # Capture the indentation level of the except line
+                except_indent = len(line) - len(line.lstrip())
+                in_except_block = True
+                continue
+
+            if in_except_block and except_indent is not None:
+                # An except block body line must be more indented than the except line
+                if stripped == "":
+                    continue  # blank lines
+                current_indent = len(line) - len(line.lstrip())
+                if current_indent <= except_indent:
+                    # We've exited the except block
+                    in_except_block = False
+                    except_indent = None
+                    continue
+                # Inside except block — check for raise or _mock_l1 call
+                if stripped == "raise":
+                    raises_in_except = True
+                    in_except_block = False  # raise exits the except — stop tracking
+                if "_mock_l1(" in stripped:
+                    calls_mock_in_except = True
+
+        assert raises_in_except, \
+            "L1 Scout's run_l1_scout except block should contain bare 'raise' (no-fallback policy)"
+        assert not calls_mock_in_except, \
+            "L1 Scout's run_l1_scout except block should NOT call _mock_l1() in production path"
 
     def test_l1_no_mock_in_is_mock_llm_check(self):
         """l1/scout.py: when is_mock_llm is True, raises RuntimeError (not mock_l1 fallback)"""
