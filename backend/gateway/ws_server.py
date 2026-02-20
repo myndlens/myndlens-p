@@ -436,7 +436,7 @@ async def _handle_execute_request(
             session_id=session_id,
             user_id=user_id,
             transcript=enriched_for_verify,
-            action_class=top.intent,
+            intent=top.intent,
             intent_summary=top.hypothesis,
             persona_summary=session_ctx.raw_summary if session_ctx else "",
             skill_risk="low",
@@ -489,8 +489,8 @@ async def _handle_execute_request(
             },
         )
         logger.info(
-            "Execute pipeline complete: session=%s draft=%s action=%s exec=%s",
-            session_id, req.draft_id, l2.action_class, result.get("execution_id"),
+            "Execute pipeline complete: session=%s draft=%s intent=%s exec=%s",
+            session_id, req.draft_id, l2.intent, result.get("execution_id"),
         )
 
     except DispatchBlockedError as e:
