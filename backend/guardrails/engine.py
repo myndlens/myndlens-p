@@ -135,18 +135,8 @@ async def _assess_harm_llm(
 
 
 def _mock_harm_check(transcript: str) -> GuardrailCheck:
-    """Fast deterministic fallback for mock/test mode."""
-    lower = transcript.lower()
-    OBVIOUS_HARM = ["hack into", "steal credentials", "exploit the", "illegal"]
-    for pattern in OBVIOUS_HARM:
-        if pattern in lower:
-            return GuardrailCheck(
-                result=GuardrailResult.REFUSE,
-                reason=f"Mock guardrail: obvious harm pattern '{pattern}'",
-                nudge="I can't help with that.",
-                block_execution=True,
-            )
-    return GuardrailCheck(result=GuardrailResult.PASS, reason="Mock: passed", block_execution=False)
+    """Mock mode — pass everything. Real harm detection is LLM-only."""
+    return GuardrailCheck(result=GuardrailResult.PASS, reason="Mock: LLM unavailable", block_execution=False)
 
 
 def check_guardrails(
