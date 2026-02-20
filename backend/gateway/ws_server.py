@@ -302,9 +302,8 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
         # Cleanup all per-session in-memory state
         if session_id:
             active_connections.pop(session_id, None)
-            cleanup_dimensions(session_id)
-            _session_contexts.pop(session_id, None)  # Release session Digital Self context
-            _clarification_state.pop(session_id, None)  # Release clarification state
+            _session_contexts.pop(session_id, None)
+            _clarification_state.pop(session_id, None)
             await terminate_session(session_id)
             await log_audit_event(
                 AuditEventType.SESSION_TERMINATED,
