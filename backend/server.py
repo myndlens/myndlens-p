@@ -1927,6 +1927,7 @@ async def api_build_mandate(req: MandateRequest):
         "sub_intents": sub_intents,
         "confidence": top.confidence if top else 0,
         "mandate": {k: v for k, v in mandate.items() if k != "_meta"},
+        "mandate_id": session_id,
         "status": "DEFINITIVE" if definitive else "INCOMPLETE",
         "missing_count": len(all_missing),
         "questions": [
@@ -1934,6 +1935,78 @@ async def api_build_mandate(req: MandateRequest):
              "dimension": q.fills_dimension, "options": q.options}
             for q in questions_batch.questions
         ],
+    }
+
+
+class MandateCompleteRequest(BaseModel):
+    mandate_id: str
+    transcript: str              # original broken thoughts
+    answers: str                 # user's combined answers to the 3 questions
+    user_id: str = "rl_test_user"
+
+@api_router.post("/mandate/complete")
+async def api_complete_mandate(req: MandateCompleteRequest):
+    """Mandate completion loop:
+    1. Combine original transcript + user's answers
+    2. Re-extract intent + dimensions with enriched context
+    3. Check if DEFINITIVE (zero missing)
+    4. If yes → learn from mandate → store in DS → done
+    5. If no → generate next round of questions (max 3 rounds total)
+    """
+    from l1.scout import run_l1_scout
+    from dimensions.extractor import extract_mandate_dimensions
+    from intent.mandate_questions import generate_mandate_questions, get_all_missing
+    from memory.post_mandate_learning import learn_from_mandate
+    import uuid
+
+    session_id = req.mandate_id or f"mandate_{uuid.uuid4().hex[:8]}"
+
+    # Combine original + answers into enriched transcript
+    combined = f"{req.transcript}. User confirmed: {req.answers}"
+
+    # Re-extract with full context
+    draft = await run_l1_scout(
+        session_id=f"{session_id}_complete", user_id=req.user_id, transcript=combined,
+    )
+    top = draft.hypotheses[0] if draft.hypotheses else None
+    intent = top.intent if top else "Unknown"
+    sub_intents = top.sub_intents if top else []
+
+    mandate = await extract_mandate_dimensions(
+        session_id=f"{session_id}_complete", user_id=req.user_id, transcript=combined,
+        intent=intent, sub_intents=sub_intents,
+        l1_dimensions=top.dimension_suggestions if top else None,
+    )
+
+    all_missing = get_all_missing(mandate)
+    definitive = len(all_missing) == 0
+
+    # If definitive → learn from mandate into Digital Self
+    ds_learned = None
+    if definitive:
+        ds_learned = await learn_from_mandate(req.user_id, mandate)
+
+    # If still incomplete → one more round of questions
+    questions = []
+    if not definitive:
+        batch = await generate_mandate_questions(
+            session_id=f"{session_id}_q2", user_id=req.user_id,
+            transcript=combined, mandate=mandate,
+        )
+        questions = [
+            {"question": q.question, "action": q.fills_action,
+             "dimension": q.fills_dimension, "options": q.options}
+            for q in batch.questions
+        ]
+
+    return {
+        "intent": intent,
+        "mandate": {k: v for k, v in mandate.items() if k != "_meta"},
+        "mandate_id": session_id,
+        "status": "DEFINITIVE" if definitive else "INCOMPLETE",
+        "missing_count": len(all_missing),
+        "questions": questions,
+        "ds_learned": ds_learned,
     }
 
 
