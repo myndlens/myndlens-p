@@ -43,6 +43,8 @@
       ]
     ],
     "android": {
+      "package": "com.myndlens.app",
+      "versionCode": 1,
       "permissions": [
         "READ_CALL_LOG",
         "READ_SMS",
