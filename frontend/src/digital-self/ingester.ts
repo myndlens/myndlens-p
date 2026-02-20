@@ -1,14 +1,14 @@
 /**
  * Device Signal Ingester — Tier 1 passive learning.
  *
- * Reads contacts + calendar from the device and populates the local PKG.
+ * Reads contacts + calendar + call logs from the device and populates the local PKG.
  * Uses existing JS heuristics from smart-processing.ts.
- * Requires expo-contacts + expo-calendar (added in next APK build).
- *
- * Current: works when permissions are granted and libraries are available.
- * Falls back gracefully if permissions denied or libraries not installed.
+ * Requires expo-contacts, expo-calendar (installed).
+ * Call log / SMS reading: READ_CALL_LOG + READ_SMS declared in manifest (Android only).
+ * Falls back gracefully if permissions denied.
  */
 
+import { Platform } from 'react-native';
 import { registerPerson, storeFact } from './pkg';
 import { scoreAndFilterContacts, extractCalendarPatterns } from '../onboarding/smart-processing';
 
