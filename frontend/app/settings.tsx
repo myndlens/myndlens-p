@@ -182,8 +182,11 @@ export default function SettingsScreen() {
     setSaving(true);
     try {
       const uid = await getStoredUserId() ?? 'local';
+      // Also request call log permission on Android before ingesting
+      await requestCallLogPermission();
       const result = await runTier1Ingestion(uid);
-      Alert.alert('Imported', `${result.contacts} contacts · ${result.calendar} calendar items`);
+      const callLogMsg = result.callLogs > 0 ? ` · ${result.callLogs} call log signals` : '';
+      Alert.alert('Imported', `${result.contacts} contacts · ${result.calendar} calendar items${callLogMsg}`);
     } catch (e: any) {
       Alert.alert('Import Error', e.message);
     }
