@@ -87,6 +87,13 @@ CALL_SITES: Dict[str, CallSite] = {
         description="Minimal mode narrow sub-tasks.",
         status="reserved",
     ),
+    "SKILL_DETERMINER": CallSite(
+        call_site_id="SKILL_DETERMINER",
+        allowed_purposes=frozenset({PromptPurpose.PLAN}),
+        owner_module="skills.determine",
+        description="LLM determines which skills from library are needed for a mandate.",
+        status="active",
+    ),
     "MICRO_QUESTION_GEN": CallSite(
         call_site_id="MICRO_QUESTION_GEN",
         allowed_purposes=frozenset({PromptPurpose.MICRO_QUESTION}),
