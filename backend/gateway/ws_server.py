@@ -465,7 +465,20 @@ async def _handle_execute_request(
             logger.warning("EXECUTE_BLOCKED: QC failed: session=%s reason=%s", session_id, qc.block_reason)
             return
 
-        # ── Stage 5: Agent assignment — with tool compatibility check ─────────────
+        # ── After QC passes: assess agent topology (no LLM, deterministic) ─────
+        from qc.agent_topology import assess_agent_topology, AgentTopology
+        topology: AgentTopology = await assess_agent_topology(
+            intent=top.hypothesis,
+            action_class=effective_action,
+            skill_names=skill_names,
+            built_skills=built_skills,
+        )
+        logger.info(
+            "[AgentTopology] session=%s complexity=%s agents=%d lines=%d",
+            session_id, topology.complexity, len(topology.sub_agents), len(topology.approval_lines),
+        )
+
+        # ── Stage 5: Agent assignment (tool-compatible) ───────────────────────
         assigned_agent_id = None
         assigned_agent_name = "default"
         if tenant_id:
