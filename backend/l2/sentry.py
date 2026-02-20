@@ -191,12 +191,12 @@ def _parse_l2_response(
 def _mock_l2(
     transcript: str, l1_action: str, l1_conf: float, start_time: float
 ) -> L2Verdict:
-    """Mock L2 for testing."""
+    """Mock L2 — returns Unknown when no LLM available."""
     return L2Verdict(
-        action_class=l1_action or "DRAFT_ONLY",
-        confidence=l1_conf * 0.95 if l1_conf else 0.5,
-        chain_of_logic="Mock L2: echoed L1 action with slight confidence reduction",
-        shadow_agrees_with_l1=True,
+        action_class="Unknown",
+        confidence=0.3,
+        chain_of_logic="Mock: LLM unavailable",
+        shadow_agrees_with_l1=False,
         latency_ms=(time.monotonic() - start_time) * 1000,
         is_mock=True,
     )
