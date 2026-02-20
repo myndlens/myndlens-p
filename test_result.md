@@ -809,7 +809,77 @@ test_plan:
 agent_communication:
     - agent: "main"
       message: |
-        FULL E2E TESTING REQUIRED — Monitor all log files. Stick to truth. No drift.
+        FULL E2E TESTING REQUIRED — skills library phase, stage-wise mandate execution, monitor ALL log markers.
+
+        CONTEXT:
+        - 138 skills in MongoDB (73 original + 65 ClawHub ingested with full SKILL.md)
+        - Complete mandate pipeline: VAD → Gap Filler → L1 → L2 → QC (with skills) → Agent Topology → Pre-flight → Dispatch
+        - New pre-flight check: if required_env missing → EXECUTE_BLOCKED with code SKILL_ENV_MISSING
+        - New mandate format: skill_slugs + skill_contracts (full SKILL.md) sent to ObeGee
+
+        TEST SEQUENCE:
+
+        STEP 1: Health + Library check
+          GET /api/health → verify status:healthy
+          MongoDB check: db.skills_library.count_documents({}) → expect 138
+          MongoDB check: db.skills_library.count_documents({source:"clawhub_zip"}) → expect 65
+
+        STEP 2: Pair + WS auth
+          POST /api/sso/myndlens/pair code=123456 → access_token, tenant_id=dev_myndlens_test
+          WS auth → auth_ok → context_sync sent with empty PKG capsule
+
+        STEP 3: Text mandate — COMM_SEND (tests skills matching)
+          text_input: "Send an email to Bob about the project update"
+          Monitor ALL log lines containing:
+            [MANDATE:0:CAPTURE] → transcript captured
+            [MANDATE:1:L1_SCOUT] → action_class=COMM_SEND, confidence
+            [MANDATE:2:DIMENSIONS] → ambiguity
+            [MANDATE:3:GUARDRAILS] → result=PASS
+            [MANDATE:1.5:COHERENCE] → coherence check
+            [MANDATE:4:RESPONSE] → confirmation text
+            [MANDATE:5:TTS] → TTS bytes
+            [MANDATE:COMPLETE]
+          Collect: draft_update payload — check approval_preview is set
+          Check: tts_audio text says "Got it — sending" (new assistant rules)
+
+        STEP 4: Execute (Approve) — CRITICAL STEP
+          Send execute_request with draft_id from step 3
+          Monitor log sequence:
+            [MANDATE:*] stage broadcasts
+            L2 Sentry: session=... action=... agrees=...
+            [ExtractionCoherence] or [GapFiller] if triggered
+            Skills matched: session=... count=... risk=... skills=[...]
+            Pre-flight check: any SKILL_ENV_MISSING?
+            AgentTopology: complexity=... agents=... coordination=...
+          Collect: execute_ok OR execute_blocked with exact code and reason
+          If execute_ok: report execution_id and dispatch_status
+          If execute_blocked DISPATCH_BLOCKED: confirm ObeGee 401 expected (known issue)
+
+        STEP 5: CODE_GEN mandate (tests different skill matching)
+          text_input: "Create a Python script to sort a list"
+          Verify action_class=CODE_GEN
+          Verify [MANDATE:1.5:COHERENCE] — "code","script","python" all present → coherent
+          Verify skill matching uses CODE_GEN category filter
+
+        STEP 6: INFO_RETRIEVE mandate (tests pre-flight)
+          text_input: "Search for the latest AI news"
+          Verify skills matched include tavily-search or brave-search or news-aggregator
+          Check if MATON_API_KEY or TAVILY_API_KEY in env → if not, expect _missing_env flag
+
+        STEP 7: Disconnect + cleanup
+          Close WS → verify session_terminated + cleanup_dimensions in logs
+          Verify _session_contexts cleaned up
+
+        LOG FILES TO MONITOR (tail -100 after each step):
+          /var/log/supervisor/backend.out.log — all [MANDATE:*] markers
+          /var/log/supervisor/backend.err.log — any errors
+
+        HONESTY REQUIRED:
+          - Report EXACT log lines, not paraphrased
+          - Report missing log lines as missing
+          - Report DISPATCH_BLOCKED(OBEGEE_API_TOKEN) as expected — not a bug
+
+        Test file: /app/backend/tests/test_e2e_skills_pipeline.py
 
         Test the complete workflow:
 
