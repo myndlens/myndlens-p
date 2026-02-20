@@ -47,7 +47,6 @@ from schemas.ws_messages import (
 from stt.orchestrator import get_stt_provider, decode_audio_payload
 from tts.orchestrator import get_tts_provider
 from l1.scout import run_l1_scout
-from guardrails.engine import GuardrailResult
 from transcript.assembler import transcript_assembler
 from transcript.storage import save_transcript
 
@@ -304,6 +303,10 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             active_connections.pop(session_id, None)
             _session_contexts.pop(session_id, None)
             _clarification_state.pop(session_id, None)
+            # Clean up execution_sessions entries for this session (prevents memory leak)
+            stale_keys = [k for k, v in execution_sessions.items() if v == session_id]
+            for k in stale_keys:
+                execution_sessions.pop(k, None)
             await terminate_session(session_id)
             await log_audit_event(
                 AuditEventType.SESSION_TERMINATED,
