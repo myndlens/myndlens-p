@@ -1741,6 +1741,63 @@ async def api_rl_loop_details():
     return get_rl_loop_state()
 
 
+# ── Micro-Questions: Test endpoint ──
+
+class MicroQuestionTestRequest(BaseModel):
+    transcript: str
+    user_id: str = "rl_test_user"
+
+@api_router.post("/intent/micro-questions/test")
+async def api_test_micro_questions(req: MicroQuestionTestRequest):
+    """Test the full pipeline: L1 Scout → Micro-Question generation.
+    
+    Runs intent extraction, then generates personalized micro-questions
+    using the Digital Self if confidence is low or dimensions are missing.
+    """
+    from l1.scout import run_l1_scout
+    from intent.micro_questions import generate_micro_questions, should_ask_micro_questions
+    import uuid
+
+    session_id = f"mq_test_{uuid.uuid4().hex[:8]}"
+
+    # Step 1: Run L1 Scout
+    draft = await run_l1_scout(session_id=session_id, user_id=req.user_id, transcript=req.transcript)
+    top = draft.hypotheses[0] if draft.hypotheses else None
+
+    hypothesis = top.hypothesis if top else ""
+    confidence = top.confidence if top else 0.0
+    action_class = top.action_class if top else "NONE"
+    dimensions = top.dimension_suggestions if top else {}
+
+    # Step 2: Check if micro-questions needed
+    needs_questions = should_ask_micro_questions(confidence, dimensions)
+
+    # Step 3: Generate micro-questions (always for test endpoint)
+    mq_result = await generate_micro_questions(
+        session_id=session_id, user_id=req.user_id, transcript=req.transcript,
+        hypothesis=hypothesis, confidence=confidence, dimensions=dimensions,
+    )
+
+    return {
+        "intent_extraction": {
+            "hypothesis": hypothesis,
+            "action_class": action_class,
+            "confidence": confidence,
+            "dimensions": dimensions,
+            "latency_ms": round(draft.latency_ms, 1),
+        },
+        "needs_clarification": needs_questions,
+        "micro_questions": {
+            "trigger": mq_result.trigger_reason,
+            "questions": [
+                {"question": q.question, "why": q.why, "options": q.options, "fills": q.dimension_filled}
+                for q in mq_result.questions
+            ],
+            "latency_ms": round(mq_result.latency_ms, 1),
+        },
+    }
+
+
 # Include REST router
 app.include_router(api_router)
 
