@@ -112,6 +112,9 @@ async def _handle_context_sync(session_id: str, user_id: str, payload: dict) -> 
         "[SessionCtx] Updated from device PKG: session=%s entities=%d user=%s",
         session_id[:12], len(ctx.entities), ctx.user_name,
     )
+
+
+async def broadcast_to_session(
     execution_id: str, message_type: str, payload: dict
 ) -> bool:
     """Broadcast a message to the WS client associated with an execution.
