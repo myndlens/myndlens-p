@@ -31,7 +31,22 @@ User speaks → STT (Deepgram)
 
 ## COMPLETED WORK (Feb 20, 2026)
 
-### ✅ P0: Codebase-wide rename `action_class` → `intent`
+### ✅ P0-P1: Code Review Fixes (Feb 20, 2026)
+Comprehensive code review identified and fixed 8 issues:
+
+**P0 Critical (Breaking Bugs Fixed):**
+- `dimensions/extractor.py`: Added missing `extract_dimensions_via_llm()` wrapper — `/api/dimensions/extract` was throwing `ImportError` on every call
+- `l2/sentry.py`: Removed silent fallback to `_mock_l2()` in except block — replaced with `raise` per no-fallback policy
+
+**P1 High (Logic/Memory Bugs Fixed):**
+- `ws_server.py`: Fixed `execution_sessions` dict memory leak — entries now cleaned up on WS disconnect
+- `ws_server.py`: Removed unused `GuardrailResult` import
+- `ws_server.py:697-701`: Simplified redundant if/elif to single-line `context_capsule_summary = session_ctx.raw_summary if session_ctx else ""`
+- `dispatcher/mandate_dispatch.py`: Fixed `stage_id` type bug — was returning `int` (e.g., `5`) instead of string stage name (e.g., `"Agents assigned"`)
+- `server.py` delivery webhook: Wired `learn_from_mandate()` into production path — DS learning now fires automatically on mandate `COMPLETED`
+
+**P2 (Orphaned Code Documented):**
+- `guardrails/engine.py:check_guardrails()`: Added docstring clarifying this is test-only utility (not called in live pipeline)
 Completed across ALL live pipeline files (25 files total):
 - `l1/scout.py` — Hypothesis dataclass (action_class field removed), store_draft, get_draft
 - `l2/sentry.py` — L2Verdict.intent, run_l2_sentry(l1_intent=), _parse_l2_response reads data.get('intent')
