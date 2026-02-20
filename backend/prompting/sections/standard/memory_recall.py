@@ -11,6 +11,7 @@ _PROV_ABBREV = {
     "EXPLICIT": "USER",
     "OBSERVED": "OBS",
     "INFERRED": "INF",
+    "DEVICE_PKG": "DS",        # Digital Self on-device PKG
     "UNKNOWN": "UNK",
 }
 
