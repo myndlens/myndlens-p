@@ -66,6 +66,10 @@ async def run_qc_sentry(
 
     try:
         orchestrator = PromptOrchestrator()
+        persona_context = (
+            f"\nUser's Digital Self context (persona baseline for drift check): {persona_summary}"
+            if persona_summary else ""
+        )
         ctx = PromptContext(
             purpose=PromptPurpose.VERIFY,
             mode=PromptMode.INTERACTIVE,
@@ -73,10 +77,10 @@ async def run_qc_sentry(
             user_id=user_id,
             transcript=transcript,
             task_description=(
-                f"QC Adversarial Review for intent: '{intent_summary}' (action: {action_class}).\n"
+                f"QC Adversarial Review for intent: '{intent_summary}' (action: {action_class}).{persona_context}\n"
                 f"Run 3 checks and output JSON:\n"
-                f"1. persona_drift: Does this action match a reasonable user communication style? "
-                f"If not, explain why with transcript evidence.\n"
+                f"1. persona_drift: Does this action match the user's known communication style and Digital Self profile above? "
+                f"If no persona context provided, assume consistent unless obvious mismatch.\n"
                 f"2. capability_leak: Does this action request MORE capability than needed? "
                 f"Minimum necessary skill only.\n"
                 f"3. harm_projection: Could this action cause harm? Map any negative interpretation "
