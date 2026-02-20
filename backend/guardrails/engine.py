@@ -37,8 +37,10 @@ class GuardrailCheck:
 
 
 # ---- Blocked patterns (simple keyword-based for now) ----
+# Note: Use word boundaries or full phrases to avoid false positives
+# e.g., "hackernews" should not trigger "hack" block
 _HARM_PATTERNS = [
-    "hack", "steal", "illegal", "kill", "attack", "exploit",
+    "hack into", "hack the", "hacking", "steal", "illegal", "kill", "attack", "exploit",
     "password", "credentials", "bypass security",
 ]
 
