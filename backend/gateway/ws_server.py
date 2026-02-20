@@ -277,6 +277,10 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             elif msg_type == WSMessageType.TEXT_INPUT.value:
                 await _handle_text_input(websocket, session_id, payload, user_id=user_id_resolved or "")
 
+            elif msg_type == "context_sync":
+                # Device sends full PKG context capsule immediately after auth_ok
+                await _handle_context_sync(session_id, user_id_resolved or "", payload)
+
             else:
                 await _send(websocket, WSMessageType.ERROR, ErrorPayload(
                     message=f"Unknown message type: {msg_type}",
