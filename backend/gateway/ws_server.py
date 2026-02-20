@@ -546,17 +546,10 @@ async def _handle_execute_request(
         await broadcast_stage(session_id, 7, "done")
 
         # ── Dispatch — full skill contracts sent to ObeGee ───────────────────────
-        # Map MyndLens action_class → OpenClaw tool profile + allow list
-        _ACTION_TOOL_MAP = {
-            "COMM_SEND":     {"profile": "messaging",  "allow": ["group:messaging", "web_fetch"]},
-            "SCHED_MODIFY":  {"profile": "messaging",  "allow": ["group:messaging", "cron"]},
-            "INFO_RETRIEVE": {"profile": "coding",     "allow": ["group:web", "group:sessions"]},
-            "DOC_EDIT":      {"profile": "coding",     "allow": ["group:fs", "group:runtime"]},
-            "CODE_GEN":      {"profile": "coding",     "allow": ["group:fs", "group:runtime", "group:web"]},
-            "FIN_TRANS":     {"profile": "messaging",  "allow": ["group:messaging"]},
-            "SYS_CONFIG":    {"profile": "coding",     "allow": ["group:fs", "group:runtime"]},
-        }
-        oc_tools = _ACTION_TOOL_MAP.get(effective_action, {"profile": "full", "allow": ["*"]})
+        # Tools derived from the agent collection's actual skills — no hardcoded map.
+        oc_tools = (agent_collection.agents[0].tools
+                    if agent_collection.agents
+                    else {"profile": "messaging", "allow": ["group:messaging"]})
 
         mandate = {
             "mandate_id": req.draft_id,
