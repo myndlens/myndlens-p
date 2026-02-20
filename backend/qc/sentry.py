@@ -153,12 +153,16 @@ def _parse_qc_response(response: str, latency_ms: float, prompt_id: str) -> QCVe
             passes.append(qc_pass)
 
     except (json.JSONDecodeError, KeyError) as e:
-        logger.warning("QC parse failed: %s", str(e))
-        passes = [
-            QCPass(pass_name="persona_drift", passed=True, severity="none", reason="Parse failed, default pass"),
-            QCPass(pass_name="capability_leak", passed=True, severity="none", reason="Parse failed, default pass"),
-            QCPass(pass_name="harm_projection", passed=True, severity="none", reason="Parse failed, default pass"),
-        ]
+        logger.warning("QC parse failed: %s — blocking by default (fail-safe)", str(e))
+        # Fail-safe: if QC cannot assess, block execution.
+        # Passing on parse failure would allow harmful mandates through when Gemini
+        # refuses to answer (e.g., safety filter triggered).
+        passes = [QCPass(
+            pass_name="qc_verification",
+            passed=False,
+            severity="block",
+            reason=f"QC verification failed: LLM response could not be parsed. Cannot proceed. ({type(e).__name__})",
+        )]
 
     overall = all(p.passed or p.severity != "block" for p in passes)
     block_reason = None
