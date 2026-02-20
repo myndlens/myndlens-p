@@ -852,11 +852,25 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     )
     await _emit_stage("dimensions", 2, "done")
 
-    # ── STEP 3: Guardrails check ─────────────────────────────────────────────
-    logger.info("[MANDATE:3:GUARDRAILS] session=%s running checks", session_id)
-    await _emit_stage("mandate", 3, "active", "Creating mandate artefact...")
+    # ── STEP 3: Guardrails — deterministic gates first, then async LLM harm check ─
+    logger.info("[MANDATE:3:GUARDRAILS] session=%s running deterministic gates", session_id)
+    await _emit_stage("mandate", 3, "active", "Safety check...")
 
-    guardrail = check_guardrails(transcript, dim_state, l1_draft)
+    guardrail = check_guardrails(transcript, dim_state, l1_draft,
+                                  session_id=session_id, user_id=user_id,
+                                  ds_context=context_capsule_summary)
+
+    # Async LLM harm assessment via SAFETY_GATE (runs at extraction time per spec)
+    from guardrails.engine import _assess_harm_llm
+    harm_check = await _assess_harm_llm(
+        transcript=transcript,
+        ds_context=context_capsule_summary,
+        session_id=session_id,
+        user_id=user_id,
+    )
+    # If LLM detects harm, override the deterministic pass
+    if harm_check.block_execution and not guardrail.block_execution:
+        guardrail = harm_check
 
     logger.info(
         "[MANDATE:3:GUARDRAILS] session=%s result=%s block=%s reason='%s'",
