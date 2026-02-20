@@ -174,14 +174,11 @@ async def match_skills_to_intent(
 
 
 def classify_risk(description: str, required_tools: str = "") -> str:
-    """Classify skill risk level for ObeGee governance.
+    """Synchronous risk classification — fast rule-based fallback.
 
-    HIGH:   Irreversible or system-level actions (delete, deploy, execute code, payment)
-    MEDIUM: Communication actions and API calls (email, message, file read)
-    LOW:    Read-only or purely informational
-
-    Note: 'send' is deliberately MEDIUM (not HIGH) -- COMM_SEND is the most
-    common action class and email/messaging is routine, not high-risk.
+    Used when: no SKILL.md available, or LLM result not yet cached.
+    The async LLM classifier (classify_risk_llm) runs at skill ingest time
+    and updates the 'risk' field in MongoDB for future calls.
     """
     text = f"{description} {required_tools}".lower()
     if re.search(r'execute|delete|deploy|push|publish|payment|purchase|drop|reset|wipe|admin', text):
@@ -189,6 +186,85 @@ def classify_risk(description: str, required_tools: str = "") -> str:
     if re.search(r'send|write|api|file|network|http|database|cloud|external|message|email', text):
         return "medium"
     return "low"
+
+
+async def classify_risk_llm(
+    skill_name: str,
+    skill_md: str,
+    required_tools: str,
+    required_env: list,
+) -> str:
+    """Async LLM risk classification via SAFETY_GATE — reads the full SKILL.md.
+
+    Runs at skill ingest/match time, cached in MongoDB 'risk' field.
+    Uses PromptPurpose.SAFETY_GATE with SKILL_RISK_CLASSIFIER call site.
+    """
+    from config.settings import get_settings
+    from config.feature_flags import is_mock_llm
+
+    settings = get_settings()
+    if is_mock_llm() or not settings.EMERGENT_LLM_KEY or not skill_md:
+        return classify_risk(skill_md[:200], required_tools)
+
+    try:
+        from prompting.orchestrator import PromptOrchestrator
+        from prompting.llm_gateway import call_llm
+        from prompting.types import PromptContext, PromptPurpose, PromptMode
+        import json as _json
+
+        ctx = PromptContext(
+            purpose=PromptPurpose.SAFETY_GATE,
+            mode=PromptMode.SILENT,
+            session_id=f"skill-{skill_name}",
+            user_id="system",
+            transcript=f"Skill: {skill_name}",
+            task_description=(
+                f"Classify the execution risk of this skill from its full definition.\n\n"
+                f"SKILL.md:\n{skill_md[:3000]}\n\n"
+                f"Required env vars: {', '.join(required_env) or 'none'}\n"
+                f"Required tools: {required_tools or 'none'}\n\n"
+                f"Risk criteria:\n"
+                f"- risk_tier 3 (high): Irreversible actions, financial transactions, "
+                f"mass communication, system admin, data deletion, deployment\n"
+                f"- risk_tier 2 (medium): Single email/message, file writes, "
+                f"API calls to external services, calendar changes\n"
+                f"- risk_tier 0-1 (low): Read-only operations, search, fetch, "
+                f"summarise, calculate, analyse"
+            ),
+        )
+        orchestrator = PromptOrchestrator()
+        artifact, _ = orchestrator.build(ctx)
+
+        response = await call_llm(
+            artifact=artifact,
+            call_site_id="SKILL_RISK_CLASSIFIER",
+            model_provider="gemini",
+            model_name="gemini-2.0-flash",
+            session_id=f"skill-risk-{skill_name}",
+        )
+
+        raw = response.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        data = _json.loads(raw)
+        tier = int(data.get("risk_tier", 1))
+
+        risk = "high" if tier >= 3 else ("medium" if tier >= 2 else "low")
+
+        # Cache result in MongoDB
+        db = get_db()
+        await db.skills_library.update_one(
+            {"$or": [{"slug": skill_name}, {"name": skill_name}]},
+            {"$set": {"risk": risk, "risk_llm_assessed": True}},
+        )
+        logger.info("[SKILL_RISK] %s → %s (tier=%d, cached)", skill_name, risk, tier)
+        return risk
+
+    except Exception as e:
+        logger.warning("[SKILL_RISK] LLM failed for %s: %s — using rule-based fallback", skill_name, str(e))
+        return classify_risk(skill_md[:200], required_tools)
 
 
 async def fetch_skill_spec(view_url: str) -> dict:
