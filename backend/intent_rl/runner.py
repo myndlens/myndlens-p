@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from intent_rl import INTENT_DATASET, ACTION_CLASSES
+from intent_rl import INTENT_DATASET, INTENT_CATEGORIES as ACTION_CLASSES
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ async def run_intent_rl_batch(
 
     # Count ground truth per class
     for case in dataset:
-        cls = case["ground_truth"]["action_class"]
+        cls = case["ground_truth"]["intent_category"]
         if cls in _current_run.per_class:
             _current_run.per_class[cls]["total"] += 1
 
@@ -139,7 +139,7 @@ async def _execute_batch(
             # Extract top hypothesis
             if draft.hypotheses:
                 top = draft.hypotheses[0]
-                extracted_class = top.action_class
+                extracted_class = top.intent
                 extracted_hypothesis = top.hypothesis
                 confidence = top.confidence
             else:
@@ -147,12 +147,12 @@ async def _execute_batch(
                 extracted_hypothesis = ""
                 confidence = 0.0
 
-            class_match = _normalize_class(extracted_class) == _normalize_class(gt["action_class"])
+            class_match = _normalize_class(extracted_class) == _normalize_class(gt["intent_category"])
 
             result = CaseResult(
                 case_id=case_id,
                 fragment=fragment,
-                ground_truth_class=gt["action_class"],
+                ground_truth_class=gt["intent_category"],
                 ground_truth_intent=gt["intent"],
                 extracted_class=extracted_class,
                 extracted_hypothesis=extracted_hypothesis,
@@ -168,7 +168,7 @@ async def _execute_batch(
             result = CaseResult(
                 case_id=case_id,
                 fragment=fragment,
-                ground_truth_class=gt["action_class"],
+                ground_truth_class=gt["intent_category"],
                 ground_truth_intent=gt["intent"],
                 extracted_class="ERROR",
                 extracted_hypothesis="",
@@ -189,7 +189,7 @@ async def _execute_batch(
         _current_run.class_accuracy = _current_run.class_correct / _current_run.completed
 
         # Update per-class
-        gt_cls = gt["action_class"]
+        gt_cls = gt["intent_category"]
         if gt_cls in _current_run.per_class:
             if result.class_match:
                 _current_run.per_class[gt_cls]["correct"] += 1
@@ -219,7 +219,7 @@ async def _execute_batch(
             "[RL %d/%d] %s | GT=%s | Got=%s | Match=%s | Conf=%.2f | %.0fms",
             i + 1, len(dataset),
             fragment[:40],
-            gt["action_class"],
+            gt["intent_category"],
             extracted_class,
             result.class_match,
             confidence,
