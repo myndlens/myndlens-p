@@ -75,6 +75,9 @@ function getPipelineState(
   return 'pending';
 }
 
+// Waveform bar height profile — centre bar tallest (module constant, not recreated per render)
+const WAVE_PROFILE = [0.55, 0.85, 1.0, 0.85, 0.55];
+
 export default function TalkScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
