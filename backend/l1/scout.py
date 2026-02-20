@@ -144,12 +144,10 @@ async def run_l1_scout(
 
 
 def _parse_l1_response(response: str, transcript: str, latency_ms: float, prompt_id: str) -> L1DraftObject:
-    """Parse LLM response into L1DraftObject."""
+    """Parse LLM response into L1DraftObject — extracts REAL intent, not action_class."""
     hypotheses = []
 
-    # Try to parse JSON from response
     try:
-        # Extract JSON block if wrapped in markdown
         text = response.strip()
         if "```json" in text:
             text = text.split("```json")[1].split("```")[0].strip()
@@ -159,27 +157,43 @@ def _parse_l1_response(response: str, transcript: str, latency_ms: float, prompt
         data = json.loads(text)
         raw_hypotheses = data.get("hypotheses", [])
 
-        for h in raw_hypotheses[:3]:  # Max 3
+        for h in raw_hypotheses[:3]:
+            # New schema: intent + sub_intents
+            intent = h.get("intent", "")
+            summary = h.get("summary", h.get("hypothesis", ""))
+            sub_intents = h.get("sub_intents", [])
+
+            # Build dimensions from flat fields
+            dims = {}
+            for dim_key in ("who", "what", "when", "where", "ambiguity"):
+                if h.get(dim_key):
+                    dims[dim_key] = h[dim_key]
+            # Also check nested dimension_suggestions for backwards compat
+            if h.get("dimension_suggestions"):
+                dims.update(h["dimension_suggestions"])
+
             hypotheses.append(Hypothesis(
-                hypothesis=h.get("hypothesis", ""),
-                action_class=h.get("action_class", "DRAFT_ONLY"),
+                hypothesis=summary,
+                intent=intent,
                 confidence=float(h.get("confidence", 0.5)),
+                sub_intents=sub_intents,
                 evidence_spans=h.get("evidence_spans", []),
-                dimension_suggestions=h.get("dimension_suggestions", {}),
+                dimension_suggestions=dims,
+                action_class=intent,  # Legacy compat: action_class = intent name
             ))
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         logger.warning("L1 parse failed (%s) for transcript='%s...' response='%s...'",
                        type(e).__name__, transcript[:40], response[:80] if response else "")
-        # Fallback: return mock-style hypothesis — never expose raw LLM text to user
         hypotheses.append(Hypothesis(
             hypothesis=f"User wants to: {transcript[:60]}",
-            action_class="DRAFT_ONLY",
+            intent="Unknown",
             confidence=0.3,
+            action_class="Unknown",
         ))
 
     return L1DraftObject(
         hypotheses=hypotheses,
-        transcript=transcript,  # stored as-is (enriched for LLM, but user-facing display uses this)
+        transcript=transcript,
         latency_ms=latency_ms,
         prompt_id=prompt_id,
     )
