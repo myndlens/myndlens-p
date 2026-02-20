@@ -8,9 +8,12 @@ from prompting.types import (
 
 _SCHEMAS = {
     PromptPurpose.THOUGHT_TO_INTENT: (
-        "{hypotheses: [{hypothesis: str, action_class: str, confidence: 0-1, "
-        "evidence_spans: [{text, start, end}], dimensions: {}}]}\n"
-        "Max 3 hypotheses."
+        "{hypotheses: [{hypothesis: str, "
+        "action_class: one of [COMM_SEND|SCHED_MODIFY|INFO_RETRIEVE|DOC_EDIT|FIN_TRANS|SYS_CONFIG|CODE_GEN|DRAFT_ONLY], "
+        "confidence: 0-1, "
+        "evidence_spans: [{text, start, end}], "
+        "dimension_suggestions: {what, who, when, where, ambiguity: 0-1}}]}\n"
+        "Max 3 hypotheses. Return JSON only."
     ),
     PromptPurpose.DIMENSIONS_EXTRACT: (
         "{a_set: {what, who, when, where, how, constraints}, "
