@@ -56,7 +56,7 @@ async def record_skill_outcome(
             continue
 
         # M1 fix: match by slug OR name — new skills have slug, old skills have name only
-        skill_filter = {"$or": [{"slug": name}, {"name": name}]}
+        skill_filter = {"$or": [{"slug": name}, skill_filter]}
 
         usage_entry: Dict[str, Any] = {
             "intent": intent[:60],
@@ -86,7 +86,7 @@ async def record_skill_outcome(
 
         # Atomic relevance_modifier update + usage log
         await db.skills_library.update_one(
-            {"name": name},
+            skill_filter,
             [
                 {
                     "$set": {
@@ -103,7 +103,7 @@ async def record_skill_outcome(
             ],
         )
         await db.skills_library.update_one(
-            {"name": name},
+            skill_filter,
             {
                 "$inc": {f"outcomes.{outcome.lower()}": 1},
                 "$push": {
