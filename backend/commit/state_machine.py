@@ -50,7 +50,7 @@ async def create_commit(
     session_id: str,
     draft_id: str,
     intent_summary: str,
-    action_class: str,
+    intent: str,
     dimensions: Optional[Dict[str, Any]] = None,
     idempotency_key: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -75,7 +75,7 @@ async def create_commit(
         "idempotency_key": idem_key,
         "state": CommitState.DRAFT.value,
         "intent_summary": intent_summary,
-        "action_class": action_class,
+        "intent": intent,
         "dimensions": dimensions or {},
         "created_at": now,
         "updated_at": now,

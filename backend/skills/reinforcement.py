@@ -34,7 +34,6 @@ _MAX_MODIFIER = 2.5
 async def record_skill_outcome(
     skill_names: List[str],
     intent: str,
-    action_class: str,
     outcome: str,
     error_details: Optional[Dict[str, Any]] = None,
     learnings: Optional[Dict[str, Any]] = None,
