@@ -12,6 +12,21 @@
     "experiments": {
       "typedRoutes": true
     },
+    "plugins": [
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "MyndLens uses your contacts to personalise your Digital Self and reduce how many questions it needs to ask you."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "MyndLens reads your calendar to learn your routines and working patterns for your Digital Self.",
+          "remindersPermission": "MyndLens reads reminders to enrich your Digital Self."
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "b2545ba8-f535-486b-8735-02dfac3aaad8"
