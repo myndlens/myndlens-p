@@ -118,7 +118,12 @@ async def run_l1_scout(
         latency_ms = (time.monotonic() - start) * 1000
 
         # Parse response
-        draft = _parse_l1_response(response, transcript, latency_ms, artifact.prompt_id)
+        draft = _parse_l1_response(
+            response,
+            original_transcript or transcript,  # store original for user-facing display
+            latency_ms,
+            artifact.prompt_id,
+        )
 
         logger.info(
             "L1 Scout: session=%s hypotheses=%d latency=%.0fms",
