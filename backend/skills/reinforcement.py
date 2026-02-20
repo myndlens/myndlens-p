@@ -40,31 +40,42 @@ async def record_skill_outcome(
     for name in skill_names:
         if not name:
             continue
-        # Fetch current modifier
-        doc = await db.skills_library.find_one({"name": name}, {"_id": 0, "relevance_modifier": 1})
-        current = doc.get("relevance_modifier", 1.0) if doc else 1.0
-        new_modifier = max(_MIN_MODIFIER, min(_MAX_MODIFIER, current + delta))
-
+        # Atomic read-modify-write using MongoDB aggregation pipeline update.
+        # Avoids race condition when two webhooks arrive simultaneously for the same skill.
+        await db.skills_library.update_one(
+            {"name": name},
+            [
+                {
+                    "$set": {
+                        "relevance_modifier": {
+                            "$max": [
+                                _MIN_MODIFIER,
+                                {
+                                    "$min": [
+                                        _MAX_MODIFIER,
+                                        {"$add": [{"$ifNull": ["$relevance_modifier", 1.0]}, delta]},
+                                    ]
+                                },
+                            ]
+                        },
+                        "last_used": now,
+                    }
+                },
+            ],
+        )
         await db.skills_library.update_one(
             {"name": name},
             {
-                "$set": {
-                    "relevance_modifier": new_modifier,
-                    "last_used": now,
-                },
                 "$inc": {f"outcomes.{outcome.lower()}": 1},
                 "$push": {
                     "usage_log": {
                         "$each": [{"intent": intent[:60], "action_class": action_class, "outcome": outcome, "ts": now}],
-                        "$slice": -50,   # keep last 50 usage entries only
+                        "$slice": -50,
                     }
                 },
             },
         )
-        logger.info(
-            "[SkillRL] skill=%s outcome=%s delta=%.2f modifier %.2f->%.2f",
-            name, outcome, delta, current, new_modifier,
-        )
+        logger.info("[SkillRL] skill=%s outcome=%s delta=%.2f", name, outcome, delta)
 
 
 async def get_skill_stats(skill_name: str) -> dict:
