@@ -978,13 +978,13 @@ def _generate_l1_response(hypothesis, dim_state) -> str:
         time_hint = f" for {when}" if when else ""
         return f"I'll update your calendar{time_hint}. Tap Approve."
     elif action == "INFO_RETRIEVE":
-        return f"I'll research that and report back. Tap Approve."
+        return "I'll research that and report back. Tap Approve."
     elif action == "DOC_EDIT":
-        return f"I'll draft that document. Tap Approve."
+        return "I'll draft that document. Tap Approve."
     elif action == "CODE_GEN":
-        return f"I'll write the code. Tap Approve."
+        return "I'll write the code. Tap Approve."
     elif action == "FIN_TRANS":
-        return f"Financial action ready. Tap Approve to authorise."
+        return "Financial action ready. Tap Approve to authorise."
     else:
         return f"Understood: {what}. Tap Approve to execute."
 
