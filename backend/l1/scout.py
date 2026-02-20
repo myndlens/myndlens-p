@@ -219,7 +219,6 @@ async def store_draft(draft: L1DraftObject) -> None:
                 "hypothesis": h.hypothesis,
                 "intent": h.intent,
                 "sub_intents": h.sub_intents,
-                "action_class": h.action_class,
                 "confidence": h.confidence,
                 "dimension_suggestions": h.dimension_suggestions,
             }

@@ -108,14 +108,12 @@ async def search_skills(
 async def match_skills_to_intent(
     intent: str,
     top_n: int = 5,
-    action_class: str = "",
 ) -> List[Dict[str, Any]]:
     """Match skills to intent using full-text search across name, description AND skill_md body.
 
     ClawHub-ingested skills now include full SKILL.md content, enabling semantic
     matching against the complete instruction text — not just the description line.
 
-    action_class filters by category before keyword search (higher precision).
     required_env pre-flight: skills needing unconfigured env vars are deprioritised.
     """
     # Env vars from runtime environment (for pre-flight env check)
