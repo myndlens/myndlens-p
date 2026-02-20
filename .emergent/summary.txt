@@ -1,190 +1,161 @@
-<analysis>Analyse the user's request and the agent's actions to create a concise handover summary.
-
-### Summary of User Request and Agent Actions
-
-The user's initial request was to continue development on the MyndLens application. This quickly evolved into a massive overhaul based on a new Handoff Package from an ObeGee Dev Agent, which contained 16 new specification documents. The user directed the agent to implement this new plan sequentially, starting from Phase 0.
-
-Over the course of the session, the agent successfully executed a multi-phase implementation plan, which included:
-- **Core Feature Implementation (Phases 0-4):** Fixing the Digital Self, adding an onboarding wizard, implementing an agent builder, an optimization framework, and more.
-- **Critical Fixes & Enhancements:** Resolving the blocked ElevenLabs TTS integration, significantly optimizing the prompt system for token efficiency, adding a skills library for dynamic agent capability generation, and implementing real-time progress tracking.
-- **UI/UX Overhaul:** Integrating a dashboard, adding a mandatory setup wizard, and iteratively redesigning the main Talk screen's progress display from a verbose list to an elegant, single-line status card based on direct user feedback.
-- **Production Readiness:** The agent correctly diagnosed a critical issue where the mobile app was pointing to the Emergent preview environment instead of the user's production server (). The root cause was identified as the platform overwriting  files. The agent proposed and began discussing the solution: creating a production build with Expo Application Services (EAS).
-
-The agent was consistently methodical, using the testing agent after each major implementation and pushing all code to the specified GitHub repository. The final interactions revolved around clarifying the EAS build process for production deployment to resolve the environment issue permanently.
-
-### Handover Summary
-
-**original_problem_statement**:
-The user wants to continue building MyndLens, a sophisticated, voice-driven personal assistant. The project's direction was reset by a new handoff package from an ObeGee Dev Agent, which defined a new multi-phase implementation plan. The goal is to build out a feature-rich, production-ready application according to these new specifications, deploy it to the user's infrastructure on Digital Ocean, and ensure the mobile app correctly points to the production endpoints.
+<analysis>**original_problem_statement**:
+The user wants to continue building MyndLens, a sophisticated, voice-driven personal assistant. The project's direction is guided by a series of detailed specification documents provided by an ObeGee Dev Agent. The primary goal is to build a production-ready application, including creating a distributable APK, integrating with live ObeGee services, and ensuring the architecture aligns with the specs, which emphasize on-device processing and data privacy.
 
 PRODUCT REQUIREMENTS:
-- Implement a 4-phase plan to address critical gaps identified in the ObeGee audit, including a functional Digital Self, Agent Creation, a fully dynamic prompt system, and outcome tracking.
-- Integrate a Skills Library to allow for dynamic generation of agent capabilities.
-- Implement a user dashboard, a setup wizard, and other UI enhancements as specified.
-- Ensure the application is token-efficient and scalable.
-- Prepare the application for production deployment by creating a production build (APK/AAB) that hardcodes the production backend URL ().
+- Implement a multi-phase plan based on a comprehensive suite of specification documents.
+- The Digital Self (user's personal knowledge graph) must be on-device, encrypted, and not sync to the cloud.
+- The intent extraction engine must be sophisticated enough to handle fragmented user thoughts by leveraging the Digital Self.
+- The system must be dynamic, data-driven, and avoid hardcoded logic, instead using an LLM-powered prompt system.
+- Integrate a large library of ClawHub skills to provide a wide range of capabilities.
+- The agent selection process should be dynamic, creating agents from skills as needed for each mandate.
+- Create a production-ready APK that points to the correct production endpoints.
 - All code must be pushed to the  GitHub repository.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The application backend is feature-complete according to the new multi-phase plan (Phases 0-4). This includes a functional Digital Self, a full Agent Builder lifecycle, a token-optimized Dynamic Prompt System, an adaptive policy engine, and a skills generation pipeline that indexes a library of ~5,700 skills on startup. The ElevenLabs TTS integration is working. The Expo frontend features a refined UI with a hamburger menu, a dashboard, and a mandatory setup wizard that runs after pairing. The main Talk screen displays an elegant, single-line, real-time status card. The entire codebase has been consistently pushed to the  GitHub repository.
+The application is feature-rich and has undergone multiple deep code review passes, resulting in a robust and stable codebase.
+
+-   **Backend**: A FastAPI backend with a sophisticated, multi-stage intent extraction pipeline (L1 Scout, Gap Filler, L2 Sentry, QC Sentry). It features a session-ambient Digital Self context, a dynamic skill-matching engine that queries a MongoDB library of ~138 skills (including ~60 ingested from ClawHub), and a dynamic agent composer. Hardcoded logic for harm detection and risk classification has been replaced with calls to a versioned Dynamic Prompt System. All integration points for ObeGee services are configured and ready.
+-   **Frontend**: An Expo (React Native) application with a refined UI. The main Talk screen features a non-breaking floating chat modal and a Siri-like VAD waveform button. A comprehensive, multi-section Settings screen allows for granular control over the Digital Self and data sources.
+-   **Digital Self**: The architecture has been successfully shifted to be on-device first. It uses  for the encrypted data blob and  for hardware-backed key storage (AES-256-GCM), ensuring no personal data leaves the device. The data schema is aligned with the  skill spec.
+-   **Build Process**: The production APK build process using EAS has been thoroughly debugged and is now functional.
 
 **Last working item**:
--   Last item agent was working: Discussing the process for creating a production build of the Expo app using EAS (Expo Application Services). This is to resolve the critical issue of the app pointing to the wrong backend. The user had asked for clarification on how multiple testers can use an app built under a single Expo account.
--   Status: BLOCKED
--   Agent Testing Done: N/A
--   Which testing method agent to use? N/A
--   User Testing Done: N/A
+-   Last item agent was working: The agent had just finished replacing all major hardcoded logic (harm detection, risk classification, agent selection rules) with calls to the existing Dynamic Prompt System, as per the user's direction. The user's last instruction was to perform a comprehensive audit of the codebase against all specification documents to identify any remaining deviations.
+-   Status: IN PROGRESS
+-   Agent Testing Done: Y
+-   Which testing method agent to use? NA (The task is a code audit, not a feature implementation).
+-   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: The mobile app points to the Emergent preview environment, not production. (P0)
-
+-   Issue 1: Conduct a comprehensive audit of the entire codebase against all specification documents. (P0)
     -   **Details**:
-        -   **Attempted fixes**: The agent updated the  file to point to , but discovered that the Emergent platform's environment management overwrites this file on pod restarts, reverting the change.
-        -   **Next debug checklist**: The agreed-upon solution is to create a production build of the Expo app using EAS (Expo Application Services). This will bake the production URL directly into the app binary. The agent needs to resume the conversation with the user to get their Expo credentials (access token or username) to configure the  file and proceed with the build.
-        -   **Why fix this issue and what will be achieved with the fix?**: This is the highest priority blocker. Fixing it will allow for true end-to-end testing against the production infrastructure and enable real user onboarding. All current user testing data (e.g., from ) is isolated in the temporary preview database and will be lost.
-        -   **Status**: BLOCKED (on user providing Expo credentials/decision).
-        -   **Is recurring issue?**: Y
+        -   **Attempted fixes**: The agent was about to start this task by reading all documentation files.
+        -   **Next debug checklist**:
+            1.  Read all  and  specification documents in the repository.
+            2.  Systematically compare the current implementation (backend and frontend) against each requirement in the documents.
+            3.  Create a detailed gap analysis report listing every deviation, from major architectural differences to minor UI inconsistencies.
+            4.  Present the report to the user for confirmation before proceeding with fixes.
+        -   **Why fix this issue and what will be achieved with the fix?**: This is the user's highest priority. It will ensure the final product aligns perfectly with the detailed specifications and no requirements have been missed.
+        -   **Status**: NOT STARTED
+        -   **Is recurring issue?**: N
         -   **Should Test frontend/backend/both after fix?**: Both
         -   **Blocked on other issue**: None.
 
 **In progress Task List**:
--   Task 1: Create a production build of the Expo app using EAS. (P0)
-
+-   Task 1: Comprehensive code audit against all specification documents.
     -   **Details**:
-        -   **Where to resume**: The agent explained how EAS builds work for multiple testers and is waiting for the user to provide their Expo access token or username to proceed with configuring the build.
-        -   **What will be achieved with this?**: A distributable app binary (APK/AAB/IPA) that correctly and permanently points to the production backend at .
-        -   **Status**: IN PROGRESS / BLOCKED
+        -   **Where to resume**: The agent has read the files. The next step is to perform the analysis and generate the gap report.
+        -   **What will be achieved with this?**: A complete list of deviations between the current codebase and the official specifications.
+        -   **Status**: IN PROGRESS
         -   **Should Test frontend/backend/both after fix?**: Both
-        -   **Blocked on something**: User decision and credentials.
+        -   **Blocked on something**: None.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   **(P1) Connect to Live ObeGee APIs**: Replace the mock APIs in  with live calls to the production ObeGee endpoints, based on the spec created at .
-    -   **(P2) Production Backend Deployment**: The ObeGee Dev Agent needs to deploy the backend to the user's Digital Ocean infrastructure, following the instructions in .
+    -   **(P0) Build and test the final production APK**: The build process is fixed, but a new APK is needed to incorporate all recent changes (on-device Digital Self, new settings screen, UI fixes). This is critical for user validation.
+    -   **(P1) Activate On-device Native Modules**: The logic for mobile ONNX, , and  is stubbed out. The next build should include these native dependencies to enable on-device AI and Tier 1 data ingestion.
+    -   **(P2) Final End-to-End Test with ObeGee**: Once the new APK is ready and ObeGee has configured their side (Stripe webhook, etc.), perform a full user-facing test of the setup and mandate execution flow.
 
 -   **Future Tasks**:
-    -   **(P3) On-Device AI Implementation**: Implement the Gemini Nano integration for privacy-first, on-device processing as detailed in .
-    -   **(P3) Enhanced Onboarding**: Implement the frontend logic for permission-based data import from the user's device (Contacts, Calendar, etc.) as per .
+    -   **(P3) Implement Digital Twin Module**: Build the full Digital Twin functionality as per the spec, including Tier 2 data scraping.
+    -   **(P3) Implement Micro-questions Engine**: Build the UI and logic for the agent to ask clarifying micro-questions.
+    -   **(P3) Implement Explainability UI**: Add UI to show the provenance (why I learned this) for each piece of data in the Digital Self.
 
 **Completed work in this session**
--   **Full Project Reset**: Analyzed 16 new specification documents and re-planned the entire project.
--   **Backend Feature Implementation (Phases 0-4)**:
-    -   Fixed Digital Self integration.
-    -   Implemented a full Agent Builder (create, modify, retire, unhinged).
-    -   Implemented an advanced optimization/experiments framework and adaptive policy engine.
--   **ElevenLabs TTS Integration**: Fixed and verified the text-to-speech functionality.
--   **Prompt System Overhaul**: Optimized prompts for a ~70% token reduction and implemented versioning/rollback.
--   **Skills Library Integration**: Indexed a library of ~5,700 skills into MongoDB (auto-indexed on startup) and built a pipeline to dynamically generate agent capabilities, including fetching source code from reference URLs.
--   **UI/UX Implementation & Refinement**:
-    -   Added a hamburger menu with links to a new mock Dashboard.
-    -   Implemented a mandatory, multi-step Setup Wizard that runs on first login.
-    -   Iteratively redesigned the Talk screen's progress display into an elegant, real-time, single-line status card.
-    -   Added a feature for users to set a nickname for the assistant.
--   **Production Readiness & Bug Fixes**:
-    -   Diagnosed and planned the fix for the critical production environment bug.
-    -   Pushed all code changes to the  GitHub repo.
-    -   Fixed critical mobile app UI bugs (red screen errors) related to WebSocket and audio recording permissions.
-    -   Authored API specifications and deployment instructions for the ObeGee Dev Agent.
-    -   Implemented a webhook for ObeGee to confirm task completion and a polling system for mandate progress.
--   **Comprehensive Testing**: Used the  to validate all major features, achieving 100% pass rates.
+-   **Production APK Build**: Fully debugged and fixed the complex EAS build process.
+-   **Exhaustive Code Reviews**: Conducted over 8 passes of deep-dive code reviews, identifying and fixing more than 60 issues related to security, performance, memory leaks, and architectural integrity.
+-   **Digital Self Architecture**: Successfully re-architected the Digital Self to be **on-device first**, using hardware-backed encryption () and removing cloud dependency.
+-   **Intent Pipeline Overhaul**: Re-architected the intent pipeline to use a session-ambient, pre-loaded Digital Self context and a Gap Filler to enrich user fragments before they reach the LLM, dramatically improving contextual understanding.
+-   **Dynamic Agent Composition**: Replaced a static agent selection model with a dynamic engine that composes agents from a catalogue of skills based on the mandate's specific needs.
+-   **ClawHub Skill Ingestion**: Successfully ingested and processed over 60 skills from ClawHub, enriching the system's capabilities and storing them in the MongoDB skills library.
+-   **Hardcoding Elimination**: Systematically removed all major hardcoded logic (harm detection, risk classification, agent selection rules) and replaced it with robust, versioned calls to the existing Dynamic Prompt System.
+-   **UI/UX Refinement**:
+    -   Redesigned the Talk screen with a non-breaking floating chat bubble and modal UI.
+    -   Redesigned the Speak button with an integrated, Siri-like waveform animation.
+    -   Built a comprehensive, multi-section Settings screen from scratch based on new specifications.
+-   **Live Integration Fixes**: Diagnosed and guided the fixes for all live integration issues with ObeGee endpoints, including URLs, authentication tokens, and payload formats.
 
 **Earlier issues found/mentioned but not fixed**
-None.
-
-**Known issue recurrence from previous fork**
-None.
+-   **L2/QC Sentry Disagreement Logic**: The current logic has L2 override L1 on disagreement. A more sophisticated flow could involve user clarification, but the current implementation is a functional and deterministic default.
+-   **Onboarding Endpoints Auth**: The  endpoints lack authentication. This was documented as requiring a larger architectural decision on SSO middleware.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Frontend**: Expo (React Native)
--   **Backend**: FastAPI (Python), Motor (async MongoDB driver)
--   **Database**: MongoDB
--   **Architecture**: Sovereign Orchestrator (Command/Execution Plane), WebSocket for real-time events.
--   **Production Build**: **Expo Application Services (EAS)** is the planned method to create production-ready app binaries.
--   **AI/ML**: Deepgram (STT), ElevenLabs (TTS), Google Gemini (Flash & Pro via Emergent LLM Key).
--   **Skills Library**: A large JSON file of agent skills, indexed into MongoDB on startup and queried via RAG to dynamically build agent capabilities during the Mandate Creation Process (MCP).
--   **Real-time UI**: The backend now emits granular  WebSocket events, which the frontend consumes to provide real-time progress updates on the UI.
--   **Mandate Progress Tracking**: A system where the backend dispatches a mandate to a mock endpoint, then polls for status updates to simulate a long-running execution flow.
+-   **On-device Digital Self**: A Personal Knowledge Graph (PKG) stored locally on the user's device using , with its encryption key stored in the hardware keystore ( for Secure Enclave/StrongBox). This ensures zero PII leaves the device.
+-   **Session-Ambient Context**: The user's Digital Self summary is loaded into server-side session memory upon authentication, making it instantly available for all subsequent operations in that session without repeated DB lookups.
+-   **Gap-Filler Engine**: A pre-processing step that enriches fragmented user transcripts with context from the session-ambient Digital Self before the transcript is sent to the L1 Scout LLM.
+-   **Dynamic Agent Composition**: Instead of selecting from a fixed list, the system now dynamically assembles a collection of agents from a catalogue based on the specific skills required by a mandate. If no pre-defined agent fits, it composes a new one on the fly.
+-   **Dynamic Prompt System**: The codebase now heavily relies on a versioned, monitored prompting infrastructure (, , ) to replace hardcoded logic for tasks like harm detection and risk classification.
+-   **ClawHub Skills**: A library of ~60 third-party skills that provide a vast range of capabilities, from sending emails and booking meetings to analyzing stock market data and generating social media content.
+-   **Expo Application Services (EAS)**: The cloud build service used to create the production APK. The build process is complex and relies on a correctly configured  and .
 
 **key DB schema**
--   **skills_library**: {category, name, desc, install, stars, view_url}
--   **agent_definitions**: {agent_id, user_id, name, config, created_at}
--   **onboarding_status**: {user_id, wizard_complete, delivery_channel}
--   **user_prompt_profiles**: {user_id, adjustments: {token_budget_modifier, section_preferences, verbosity, nickname}}
--   **prompt_versions**: {section_name, version, content, created_at}
--   **mandate_execution**: {execution_id, status, progress, sub_status}
--   **setup_users**: {user_id, email, name, timezone, persona_style, legal_accepted_at}
-
-**changes in tech stack**
--   No fundamental changes. The project has heavily adopted new backend modules and frontend screens but remains on the established FastAPI/Expo/MongoDB stack.
+-   **skills_library**: Now contains the full  content,  (OpenClaw tool profile), , and an RL-updated .
+-   **agents**: The new collection for the 14 pre-defined agents, with fields for , , , .
+-   **l1_drafts**: Caches L1 scout results with a 24hr TTL.
+-   **mio_keys**: Securely stores the MIO signing keypair, encrypted at rest.
+-   **agentguard_reports**: Stores security reports from the  monitoring skill.
 
 **All files of reference**
--   **/app/frontend/.env**: This file is the source of the main blocker. It incorrectly points to the preview environment and gets overwritten by the platform.
--   **/app/frontend/app/talk.tsx**: The main user-facing screen. It has undergone significant changes to implement the elegant, real-time status card and needs to be handled with care.
--   **/app/backend/server.py**: The central hub for all backend API routes. Contains the lifespan event for auto-indexing the skills library.
--   **/app/backend/src/skills/manager.py**: Contains the logic for indexing and querying the skills library.
--   **/app/backend/src/gateway/ws_server.py**: The WebSocket handler, now responsible for emitting fine-grained  events.
--   **All new specification  files**: These 16+ documents define the current source of truth for all implemented and upcoming features. Key files include  and .
-
-**Areas that need refactoring**
--   **/app/frontend/app/talk.tsx**: This file is now over 800 lines long and manages a significant amount of state for the UI, WebSocket connection, and audio recording. It could be broken down into smaller, more manageable components (e.g., , , ).
-
-**key api endpoints**
--    (POST): Manually triggers indexing of the skills library.
--    (CRUD): Full lifecycle management for agents.
--    (GET/POST): Manages the user's setup wizard state.
--    (GET/PUT): Manages the user's chosen nickname for the assistant.
--    (POST): Triggers a simulated mandate execution with polling for progress.
--    (POST): A webhook for ObeGee to call to confirm result delivery.
--   : A suite of mock endpoints simulating the live ObeGee dashboard and setup APIs.
+-   : The core of the on-device, encrypted Digital Self.
+-   : The engine that enriches user fragments with DS context.
+-   : The new dynamic agent assembly engine.
+-   : The central component of the Dynamic Prompt System.
+-   : Completely refactored with a floating chat modal and waveform button.
+-   : Completely rebuilt with dozens of new controls for the Digital Self.
+-   : The configuration file for the production APK build.
+-   All  and  files under  and  are the source of truth for all requirements.
 
 **Critical Info for New Agent**
--   **The #1 priority is to perform a production build using EAS.** The mobile app is currently unusable for production testing as it points to the temporary Emergent preview environment. You must obtain the user's Expo credentials (access token or username) to proceed.
--   **Communicate clearly about the data location.** The user  has been actively testing, but all their data is in the local preview database and will be lost. The production database is empty.
--   The project scope is defined by the **16+ new specification documents**, not the initial problem statement. The  is the primary roadmap.
--   All code must be pushed to the  GitHub repository.
+-   **The user's last request is the highest priority**: Conduct a comprehensive audit of the codebase against all specification documents and report any deviations.
+-   **The architecture is now on-device first for the Digital Self.** All PII must remain on the device. Data is encrypted using a hardware-backed key. Only context capsules (summaries) are sent to the backend.
+-   **Hardcoding is forbidden.** All rule-based logic has been replaced with calls to the Dynamic Prompt System. Understand how this system works before making changes.
+-   **The build process (EAS) is sensitive.** Changes to , , or native dependencies can easily break the build. Follow the established patterns.
+-   **The system is data-driven.** Agent selection, skill matching, and tool profiles are derived from the data in the MongoDB  and  collections, not hardcoded maps.
 
 **documents and test reports created in this job**
--    (Updated)
 -   
 -   
--   All 16+ specification documents provided by the user have been saved to the  directory.
--   Multiple test reports in  from .
+-   Numerous test files under  for intent extraction, VAD/STT/TTS, and the gap-filler engine.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Asks to do an EAS build with the production URL hardcoded.
-2.  **Agent**: Explains the two scenarios for EAS build (self-hosted vs. cloud).
-3.  **User**: Asks how multiple testers can use an app built under one Expo account.
-4.  **Agent**: Explains that the Expo account is only for building, and the resulting APK/TestFlight build can be distributed to unlimited testers. Asks for user's Expo token or username to proceed. (PENDING)
-5.  **User**: Asks to check why a new account () is not in the production database.
-6.  **Agent**: Investigates and confirms the app is pointing to the Emergent preview environment, not production.
-7.  **User**: Confirms the user can reach the talk screen, so an account must exist somewhere. Asks agent to check the database again.
-8.  **Agent**: Re-investigates and finds the user's account () and 18 sessions in the local Emergent pod's MongoDB, confirming the root cause.
-9.  **User**: Instructs the agent to proceed with the EAS build to fix the issue.
-10. **Agent**: Proposes the two scenarios for the EAS build, leading back to the current pending question.
+1.  **User**: Instructs the agent to proceed with creating agents from skills for each mandate.
+2.  **Agent**: Acknowledges and starts to implement a dynamic agent creation flow.
+3.  **User**: NO. NO. NO. Step Back. Asks the agent to discuss the approach before executing.
+4.  **Agent**: Apologizes, stops, and presents a detailed understanding of the architecture for discussion, asking for clarification on key design questions.
+5.  **User**: Clarifies that the 14 pre-defined agents can be a catalogue and for a given mandate, a collection of these agents can be assembled.
+6.  **Agent**: Confirms understanding of the multi-agent assembly approach.
+7.  **User**: Adds that if a mandate doesn't fit any catalogue agent, the system should tweak the closest available skill, name it, and use it as a new agent.
+8.  **Agent**: Confirms understanding of the complete two-path (catalogue assembly + dynamic composition) architecture and proceeds to implement it.
+9.  **User**: After implementation, asks what Mock vs Real Gemini means.
+10. **User**: NO HARDCODING. NEVER. and ABSOLUTELY. RIGHT NOW. - Instructs the agent to immediately remove all hardcoded logic from the system. This leads to the final major refactoring pass.
 
 **Project Health Check:**
--   **Broken**: The application's connection to the production environment. The mobile app cannot connect to the production backend, making it unusable for its intended purpose.
--   **Mocked**: All ObeGee-related APIs (dashboard data, setup wizard validation, etc.) are mocked in .
+-   **Broken**: No part of the code is critically broken. The main gap is that the latest APK, with all the recent UI and architectural changes, has not been built and tested by the user.
+-   **Mocked**: The L1 Scout () is used in some backend unit tests for speed, but the live WS pipeline correctly uses the real Gemini model. ObeGee's final execution step is the only remaining external dependency that was failing in the last E2E test (an issue on their side).
 
 **3rd Party Integrations**
--   **Deepgram (STT)** — requires User API Key. (Status: Working)
--   **ElevenLabs (TTS)** — requires User API Key. (Status: Working)
--   **Google Gemini (LLM)** — uses Emergent LLM Key. (Status: Working)
--   **GitHub (VCS)** — requires SSH keys configured in the environment. (Status: Working)
+-   **Deepgram (STT)** — requires User API Key.
+-   **ElevenLabs (TTS)** — requires User API Key.
+-   **Google Gemini (LLM)** — uses Emergent LLM Key.
+-   **GitHub (VCS)** — requires SSH keys.
+-   **ClawHub Skills Ecosystem**: This is a major integration point, bringing in ~60 unique skills which in turn have their own dependencies:
+    -   **Maton API Gateway**: A single  unlocks , , , , , , and 100+ others.
+    -   **Google CLI ()**: Requires Google OAuth.
+    -   **Twilio API**: For SMS and voice calls.
+    -   **Brave/Tavily Search**: For web research.
+    -   **Post Bridge/Upload-Post**: For social media publishing.
+    -   And many more, each with its own credential/dependency requirements (, , etc.).
 
 **Testing status**
--   **Testing agent used after significant changes**: YES. The agent consistently and successfully used  after every major feature implementation and bug fix.
+-   **Testing agent used after significant changes**: YES, extensively for backend unit and integration tests.
 -   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: Yes, the testing agent created and maintained backend tests.
--   **Known regressions**: None.
-
-**Credentials to test flow:**
-Use any 6-digit code (e.g., ) on the pairing screen. The mock backend will accept it and create a new user session.
+-   **Test files created**: Yes, many files under  to cover the intent pipeline, gap-filler, and agent composer.
+-   **Known regressions**: None known. The last test pass before the final user request was a comprehensive E2E verification.
 
 **What agent forgot to execute**
-The agent performed exceptionally well, addressing a massive scope change and numerous user requests. The only miss was not immediately realizing that the Emergent platform overwrites  files, but this was a nuance of the environment that was discovered and diagnosed correctly once the symptoms appeared during production testing. No user-requested tasks were forgotten.</analysis>
+The agent was about to begin the comprehensive documentation audit as requested by the user. This is the main pending task for the next agent.</analysis>

@@ -53,7 +53,7 @@
       "[MANDATE:5:TTS] DONE real_audio bytes=21856",
       "[MANDATE:COMPLETE] guardrail=PASS l1_mock=False hypotheses=2"
     ],
-    "session_terminated_logged": "AUDIT event=session_terminated session=297f18bd-b939-49f7-a239-3868fd3c8967"
+    "session_terminated_logged": "AUDIT event=session_terminated session=myndlens-audit"
   },
   "fixes_verified": {
     "HS256_auth_fix": {

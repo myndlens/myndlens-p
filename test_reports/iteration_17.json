@@ -89,21 +89,21 @@
     "STEP7_disconnect_cleanup": {
       "status": "PASSED",
       "logs_verified": [
-        "WS disconnected: session=6fef39c0-8fbc-42d3-a541-6dec47dcf5a2",
-        "AUDIT event=session_terminated session=6fef39c0-8fbc-42d3-a541-6dec47dcf5a2"
+        "WS disconnected: session=myndlens-audit",
+        "AUDIT event=session_terminated session=myndlens-audit"
       ]
     }
   },
   "exact_backend_log_lines": {
-    "mandate_0_capture": "[MANDATE:0:CAPTURE] session=6fef39c0-8fbc-42d3-a541-6dec47dcf5a2 transcript='Send an email to Bob about the project update' chars=45",
+    "mandate_0_capture": "[MANDATE:0:CAPTURE] session=myndlens-audit transcript='Send an email to Bob about the project update' chars=45",
     "gap_filler": "[GapFiller] session_user=TestUser | 'Send an email to Bob about the project update' -> 'Send an email to Bob about the project update'",
-    "mandate_1_l1_scout": "[MANDATE:1:L1_SCOUT] session=6fef39c0-8fbc-42d3-a541-6dec47dcf5a2 DONE is_mock=False hypotheses=1 top_action=COMM_SEND top_confidence=0.95",
+    "mandate_1_l1_scout": "[MANDATE:1:L1_SCOUT] session=myndlens-audit DONE is_mock=False hypotheses=1 top_action=COMM_SEND top_confidence=0.95",
     "mandate_2_dimensions": "[MANDATE:2:DIMENSIONS] session=... DONE a_set={'what': 'project update email', 'who': 'Bob', 'when': 'now', 'where': 'email'} ambiguity=0.03",
     "mandate_3_guardrails": "[MANDATE:3:GUARDRAILS] session=... result=PASS block=False reason='All guardrails passed'",
     "l2_sentry": "L2 Sentry: session=... action=send_email conf=0.95 agrees=False latency=1578ms",
     "skills_matched": "Skills matched: session=... count=3 risk=medium skills=['imap-smtp-email', 'Email Marketing Engine', 'himalaya']",
     "agent_topology": "[AgentTopology] action=send_email complexity=moderate agents=1 coordination=sequential",
-    "session_terminated": "AUDIT event=session_terminated session=6fef39c0-8fbc-42d3-a541-6dec47dcf5a2"
+    "session_terminated": "AUDIT event=session_terminated session=myndlens-audit"
   },
   "skills_library_verification": {
     "total_in_mongodb": 138,

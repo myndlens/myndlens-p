@@ -12,7 +12,7 @@ import pytest
 import requests
 import uuid
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://mandate-executor.preview.emergentagent.com')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://myndlens-audit.preview.emergentagent.com')
 
 
 class TestPhase0Health:

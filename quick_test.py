@@ -9,7 +9,7 @@ import time
 import jwt
 from datetime import datetime, timezone, timedelta
 
-BACKEND_URL = "https://mandate-executor.preview.emergentagent.com"
+BACKEND_URL = "https://myndlens-audit.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 def test_health():

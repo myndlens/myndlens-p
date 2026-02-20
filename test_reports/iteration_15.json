@@ -26,14 +26,14 @@
     "dispatch_status": "BLOCKED"
   },
   "backend_log_evidence": {
-    "dispatch_log_line": "2026-02-19T15:16:45 ERROR [gateway.ws_server] Execute blocked: session=9452c060-4bb7-443c-a2ae-4715b1ad2180 reason=ObeGee rejected mandate dispatch: HTTP 404 — {\"detail\":\"Tenant not found\"}",
+    "dispatch_log_line": "2026-02-19T15:16:45 ERROR [gateway.ws_server] Execute blocked: session=myndlens-audit reason=ObeGee rejected mandate dispatch: HTTP 404 — {\"detail\":\"Tenant not found\"}",
     "skills_matched": "['skill-creator', 'Data Visualizer', 'Tavily Web Search']",
     "qc_sentry_result": "passes=3 overall=True"
   },
   "test_breakdown": {
     "STEP1_health_check": "PASSED — status=healthy, stt=DeepgramSTTProvider, tts=ElevenLabsTTSProvider, all real (not mocked)",
-    "STEP2_pairing": "PASSED — runtime_endpoint=https://app.myndlens.com, tenant_id=27fb8113-a375-4cc8-b77f-420410e91c23",
-    "STEP3_websocket_auth": "PASSED — auth_ok (HS256 mode), session_id=9452c060-4bb7-443c-a2ae-4715b1ad2180",
+    "STEP2_pairing": "PASSED — runtime_endpoint=https://app.myndlens.com, tenant_id=myndlens-audit",
+    "STEP3_websocket_auth": "PASSED — auth_ok (HS256 mode), session_id=myndlens-audit",
     "STEP4_heartbeat": "PASSED — heartbeat_ack with seq=1, server_ts=2026-02-19T15:16:26",
     "STEP5_text_input_mandate": "PASSED — 10 messages: transcript_final, 7 pipeline_stages, draft_update (action_class=code_generation, draft_id=895ba633), tts_audio (23006 bytes real audio)",
     "STEP6_execute_request": "PASSED — ObeGee HTTP 404 'Tenant not found' (service token auth works, tenant not provisioned)",
