@@ -1,6 +1,10 @@
-"""OUTPUT_SCHEMA section — compact, token-optimized.
+"""OUTPUT_SCHEMA section — defines what the LLM should output.
 
-Defines the expected output structure using minimal notation.
+THOUGHT_TO_INTENT: The LLM extracts the ACTUAL INTENT as the user means it.
+NOT a forced bucket. NOT an action_class enum.
+
+The intent is what the user WANTS: "Travel Concierge", "Event Planning",
+"Project Kickoff". The skill/agent layer maps this to executable actions LATER.
 """
 from prompting.types import (
     PromptContext, PromptPurpose, SectionOutput, SectionID, CacheClass,
@@ -8,32 +12,29 @@ from prompting.types import (
 
 _SCHEMAS = {
     PromptPurpose.THOUGHT_TO_INTENT: (
-        "{hypotheses: [{hypothesis: str, "
-        "action_class: one of ["
-        "COMM_SEND (send email/message/notification) | "
-        "SCHED_MODIFY (schedule/reschedule/cancel/book meetings) | "
-        "INFO_RETRIEVE (search/lookup/check/find information) | "
-        "DOC_EDIT (write/draft/edit/create documents or content) | "
-        "FIN_TRANS (pay/invoice/refund/expense/transfer money) | "
-        "CODE_GEN (write code/scripts/fix bugs/build software) | "
-        "TASK_CREATE (add to-do/track items/create action items/notes) | "
-        "REMINDER_SET (set reminders/alarms/alerts/notifications for future) | "
-        "DATA_ANALYZE (analyze/chart/compare/forecast/calculate metrics) | "
-        "AUTOMATION (set up recurring/triggered/conditional workflows) | "
-        "DRAFT_ONLY (unclear intent, needs clarification)"
-        "], "
+        "{hypotheses: [{"
+        "intent: str (the ACTUAL intent in plain language — e.g. 'Travel Concierge', "
+        "'Event Planning', 'Project Kickoff', 'Hiring Pipeline', 'Financial Operations', "
+        "'Content Creation', 'Customer Outreach', 'Personal Wellness', 'Data Analysis', "
+        "'Incident Response', 'Weekly Planning', 'Marketing Campaign', etc. — "
+        "use the REAL intent, not a code), "
+        "summary: str (one sentence: what the user wants done), "
+        "sub_intents: [str] (specific things needed: 'book flight', 'reserve hotel', 'schedule meeting'), "
         "confidence: 0-1, "
-        "evidence_spans: [{text, start, end}], "
-        "dimension_suggestions: {what, who, when, where, ambiguity: 0-1}}]}\n"
+        "who: str (people involved, resolved from Digital Self), "
+        "what: str (core action or deliverable), "
+        "when: str (timing/deadline), "
+        "where: str (location if relevant), "
+        "ambiguity: 0-1"
+        "}]}\n"
         "Max 3 hypotheses. Return JSON only."
     ),
     PromptPurpose.DIMENSIONS_EXTRACT: (
-        "{a_set: {what, who, when, where, how, constraints}, "
-        "b_set: {urgency: 0-1, emotional_load: 0-1, ambiguity: 0-1, "
-        "reversibility: 0-1, user_confidence: 0-1}}"
+        "{who: str, what: str, when: str, where: str, how: str, "
+        "confidence: 0-1, resolved_entities: [{ref: str, canonical: str}]}"
     ),
     PromptPurpose.VERIFY: (
-        "{action_class: str, canonical_target: str, primary_outcome: str, "
+        "{intent: str, canonical_target: str, primary_outcome: str, "
         "risk_tier: 0-3, confidence: 0-1, chain_of_logic: str}"
     ),
     PromptPurpose.SAFETY_GATE: (
@@ -41,13 +42,9 @@ _SCHEMAS = {
         "escalation_needed: bool, reason: str}"
     ),
     PromptPurpose.MICRO_QUESTION: (
-        "{questions: [{question: str (short, conversational, TTS-friendly), "
-        "why: str (what gap this fills), "
-        "options: [str] (if applicable, suggested answers), "
-        "dimension_filled: str (which dimension: who/what/when/where/how)}], "
-        "max_questions: 3}\n"
-        "Generate 1-3 personalized micro-questions. Use Digital Self context. "
-        "Questions must be natural spoken language (will be read via TTS). Keep under 15 words each."
+        "{questions: [{question: str (max 6 words, TTS-friendly), "
+        "why: str, options: [str], dimension_filled: str}], max_questions: 3}\n"
+        "Only personalized questions from Digital Self. Zero generic questions."
     ),
 }
 
