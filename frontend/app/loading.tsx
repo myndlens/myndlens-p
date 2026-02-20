@@ -50,7 +50,7 @@ export default function LoadingScreen() {
           const { buildContextCapsule } = require('../src/digital-self');
           const capsule = await buildContextCapsule(userId, '');
           if (capsule.summary) {
-            wsClient.send('context_sync', { summary: capsule.summary });
+            wsClient.send('context_sync' as any, { summary: capsule.summary });
           }
         }
       } catch { /* context sync is best-effort — never blocks auth */ }
