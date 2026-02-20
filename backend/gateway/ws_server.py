@@ -51,12 +51,16 @@ from guardrails.engine import check_guardrails
 from transcript.assembler import transcript_assembler
 from transcript.storage import save_transcript
 
+from intent.gap_filler import SessionContext, parse_capsule_summary, enrich_transcript
+
 logger = logging.getLogger(__name__)
 
 # Active connections: session_id -> WebSocket
 active_connections: Dict[str, WebSocket] = {}
 # Execution ID -> session_id mapping (for webhook→WS broadcast)
 execution_sessions: Dict[str, str] = {}
+# Per-session Digital Self context (pre-loaded at auth, lives for session duration)
+_session_contexts: Dict[str, SessionContext] = {}
 
 
 def _make_envelope(msg_type: WSMessageType, payload: dict) -> str:
