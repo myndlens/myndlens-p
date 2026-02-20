@@ -95,18 +95,46 @@ async def search_skills(query: str, limit: int = 10) -> List[Dict[str, Any]]:
     return await cursor.to_list(limit)
 
 
-async def match_skills_to_intent(intent: str, top_n: int = 5) -> List[Dict[str, Any]]:
-    """Match skills to a user intent using keyword extraction + library search."""
-    stop_words = {"i", "want", "to", "the", "a", "an", "my", "me", "is", "do", "can", "you", "please", "for", "with", "on", "in", "of", "and", "or"}
+async def match_skills_to_intent(
+    intent: str,
+    top_n: int = 5,
+    action_class: str = "",
+) -> List[Dict[str, Any]]:
+    """Match skills to a user intent. Filters by action_class category first,
+    then keyword + semantic scoring.
+
+    action_class filters to relevant categories before keyword search, improving
+    precision (COMM_SEND -> email/messaging, SCHED_MODIFY -> calendar, etc).
+    """
+    # Action class → relevant skill categories
+    ACTION_CATEGORIES = {
+        "COMM_SEND": ["communication", "email", "messaging", "notification"],
+        "SCHED_MODIFY": ["scheduling", "calendar", "productivity"],
+        "INFO_RETRIEVE": ["search", "data", "api", "utility"],
+        "DOC_EDIT": ["writing", "documents", "productivity"],
+        "CODE_GEN": ["coding", "development", "tools", "utility"],
+        "FIN_TRANS": ["finance", "payment", "commerce"],
+    }
+
+    stop_words = {
+        "i", "want", "to", "the", "a", "an", "my", "me", "is", "do",
+        "can", "you", "please", "for", "with", "on", "in", "of", "and", "or",
+        # Strip gap-filler annotations from keyword extraction
+        "user", "context", "contacts", "locations", "traits", "manager",
+        "colleague", "mandate",
+    }
     keywords = [w for w in re.findall(r'\w+', intent.lower()) if w not in stop_words and len(w) > 2]
     query = " ".join(keywords[:6])
 
     if not query:
         return []
 
-    results = await search_skills(query, limit=top_n)
+    # Build category filter if action_class maps to categories
+    category_filter = ACTION_CATEGORIES.get(action_class.upper(), [])
 
-    # Score by relevance
+    results = await search_skills(query, limit=top_n * 2, category_filter=category_filter)
+
+    # Score by keyword relevance + popularity
     for r in results:
         name_lower = r.get("name", "").lower()
         desc_lower = r.get("description", "").lower()
