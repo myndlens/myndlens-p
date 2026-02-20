@@ -512,32 +512,46 @@ async def _handle_execute_request(
         await broadcast_stage(session_id, 7, "done")
 
         # ── Dispatch — full skill contracts sent to ObeGee ───────────────────────
+        # Map MyndLens action_class → OpenClaw tool profile + allow list
+        _ACTION_TOOL_MAP = {
+            "COMM_SEND":     {"profile": "messaging",  "allow": ["group:messaging", "web_fetch"]},
+            "SCHED_MODIFY":  {"profile": "messaging",  "allow": ["group:messaging", "cron"]},
+            "INFO_RETRIEVE": {"profile": "coding",     "allow": ["group:web", "group:sessions"]},
+            "DOC_EDIT":      {"profile": "coding",     "allow": ["group:fs", "group:runtime"]},
+            "CODE_GEN":      {"profile": "coding",     "allow": ["group:fs", "group:runtime", "group:web"]},
+            "FIN_TRANS":     {"profile": "messaging",  "allow": ["group:messaging"]},
+            "SYS_CONFIG":    {"profile": "coding",     "allow": ["group:fs", "group:runtime"]},
+        }
+        oc_tools = _ACTION_TOOL_MAP.get(effective_action, {"profile": "full", "allow": ["*"]})
+
         mandate = {
             "mandate_id": req.draft_id,
             "tenant_id": tenant_id,
-            "intent": top.hypothesis,
+            # Primary task string OpenClaw/ObeGee routes to the agent
+            "task": top.hypothesis,
+            "intent_raw": draft.transcript,           # original user words (for display)
             "action_class": effective_action,
             "dimensions": dim_state.to_dict(),
-            "generated_skills": skill_names,
-            "skill_contracts": [
-                {
-                    "name": b["name"],
-                    "skill_md": b["skill_md"],
-                    "required_tools": b["required_tools"],
-                    "risk": b["risk"],
-                    "install_command": b["install_command"],
-                    "source_references": b.get("source_references", []),
-                }
-                for b in built_skills
+            # Skill slugs for ObeGee to install via: clawhub install <slug>
+            "skill_slugs": [s.get("name") for s in matched_skills if s.get("name")],
+            "skill_clawhub_urls": [
+                f"https://clawhub.ai/skills/{s.get('name')}"
+                for s in matched_skills if s.get("name")
             ],
-            "agent_topology": {
-                "sub_agents": [
-                    {"role": a.role, "skills": a.skills, "tools": a.tools}
+            # OpenClaw tool policy (actual OpenClaw tool names, not custom strings)
+            "tools": oc_tools,
+            # Agent configuration in OpenClaw format
+            "agent_config": {
+                "id": assigned_agent_id or "default",
+                "profile": oc_tools["profile"],
+                "coordination": topology.coordination,    # sequential | parallel | hybrid
+                "sub_agent_roles": [
+                    {"role": a.role, "skills": a.skills}
                     for a in topology.sub_agents
                 ],
-                "coordination": topology.coordination,
-                "complexity": topology.complexity,
             },
+            # Metadata for audit/RL
+            "skill_risk": skill_risk,
             "assigned_agent_id": assigned_agent_id or "default",
             "approved_at": datetime.now(timezone.utc).isoformat(),
             "approved_by": user_id,
