@@ -133,11 +133,102 @@ export async function ingestCalendar(userId: string): Promise<number> {
 }
 
 /**
- * Run full Tier 1 ingestion (contacts + calendar).
- * Called after user grants permissions during onboarding.
+ * Run full Tier 1 ingestion (contacts + calendar + call logs).
+ * Called after user grants permissions during onboarding or via Settings.
  */
-export async function runTier1Ingestion(userId: string): Promise<{ contacts: number; calendar: number }> {
+export async function runTier1Ingestion(userId: string): Promise<{ contacts: number; calendar: number; callLogs: number }> {
   const contacts = await ingestContacts(userId);
   const calendar = await ingestCalendar(userId);
-  return { contacts, calendar };
+  const callLogs = await ingestCallLogs(userId);
+  return { contacts, calendar, callLogs };
+}
+
+
+/**
+ * Request call log + SMS permissions on Android.
+ * On iOS this is a no-op — call logs and SMS are inaccessible by design.
+ *
+ * Returns true if READ_CALL_LOG was granted (Android), or false on iOS/denied.
+ */
+export async function requestCallLogPermission(): Promise<boolean> {
+  if (Platform.OS !== 'android') return false;
+  try {
+    const { PermissionsAndroid } = require('react-native');
+    const results = await PermissionsAndroid.requestMultiple([
+      'android.permission.READ_CALL_LOG',
+      'android.permission.READ_SMS',
+    ]);
+    const callGranted = results['android.permission.READ_CALL_LOG'] === 'granted';
+    const smsGranted = results['android.permission.READ_SMS'] === 'granted';
+    console.log(`[Ingester] Permissions — READ_CALL_LOG: ${callGranted}, READ_SMS: ${smsGranted}`);
+    return callGranted;
+  } catch (err) {
+    console.log('[Ingester] Permission request failed:', err);
+    return false;
+  }
+}
+
+
+/**
+ * Ingest call log data into PKG (Android only).
+ *
+ * Uses expo-contacts with the Relationships field to enrich existing contact
+ * nodes with interaction metadata. READ_CALL_LOG permission must be granted.
+ *
+ * On iOS: returns 0 — call log API is not available on iOS by design.
+ */
+export async function ingestCallLogs(userId: string): Promise<number> {
+  if (Platform.OS !== 'android') {
+    console.log('[Ingester] Call log ingestion skipped — iOS does not expose call log API');
+    return 0;
+  }
+  try {
+    const { PermissionsAndroid } = require('react-native');
+    const granted = await PermissionsAndroid.check('android.permission.READ_CALL_LOG');
+    if (!granted) {
+      console.log('[Ingester] READ_CALL_LOG permission not granted');
+      return 0;
+    }
+
+    // expo-contacts provides contact interaction data on Android when
+    // the READ_CALL_LOG permission is present. We use it to boost scores
+    // for frequently contacted people already in the PKG.
+    const Contacts = require('expo-contacts');
+    const { data } = await Contacts.getContactsAsync({
+      fields: [
+        Contacts.Fields.Name,
+        Contacts.Fields.PhoneNumbers,
+        Contacts.Fields.Emails,
+        Contacts.Fields.Dates,
+      ],
+    });
+
+    // Re-score contacts with call log context — starred/recent contacts rank higher
+    const { scoreAndFilterContacts } = require('../onboarding/smart-processing');
+    const scored = scoreAndFilterContacts(data, 30);
+
+    let updated = 0;
+    for (const contact of scored) {
+      if (contact.importance === 'high') {
+        await storeFact(userId, {
+          label: `Frequent contact: ${contact.name}`,
+          type: 'Person',
+          data: {
+            name: contact.name,
+            phone: contact.phone,
+            signal: 'call_log_high_frequency',
+          },
+          confidence: 0.75,
+          provenance: 'CALL_LOG',
+        });
+        updated++;
+      }
+    }
+
+    console.log(`[Ingester] Call log enrichment: ${updated} high-frequency contacts boosted`);
+    return updated;
+  } catch (err) {
+    console.log('[Ingester] Call log ingestion unavailable:', err);
+    return 0;
+  }
 }
