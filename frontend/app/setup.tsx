@@ -58,6 +58,10 @@ export default function SetupWizardScreen() {
   // Plan
   const [plans, setPlans] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState('');
+  // Coupon
+  const [couponCode, setCouponCode] = useState('');
+  const [couponStatus, setCouponStatus] = useState<null | 'valid' | 'invalid'>(null);
+  const [couponBenefit, setCouponBenefit] = useState('');
   // Activation
   const [activationStatus, setActivationStatus] = useState('');
   const [progress, setProgress] = useState(0);
@@ -135,6 +139,7 @@ export default function SetupWizardScreen() {
           plan_id: selectedPlan,
           origin_url: 'https://app.myndlens.com',
           tenant_id: tenantId,
+          coupon_code: couponStatus === 'valid' ? couponCode.trim().toUpperCase() : undefined,
         }),
       }, authToken);
       if (res.url) {
@@ -148,6 +153,21 @@ export default function SetupWizardScreen() {
       Alert.alert('Error', err.message || 'Payment failed');
     }
     setLoading(false);
+  }
+
+  async function validateCoupon() {
+    if (!couponCode.trim()) return;
+    try {
+      const res = await obegee('/billing/validate-coupon', {
+        method: 'POST',
+        body: JSON.stringify({ code: couponCode.trim().toUpperCase() }),
+      });
+      setCouponStatus('valid');
+      setCouponBenefit(res.benefit || '7 days free trial');
+    } catch (err: any) {
+      setCouponStatus('invalid');
+      setCouponBenefit(err.message || 'Invalid coupon');
+    }
   }
 
   async function pollPaymentThenActivate(sessionId: string) {
@@ -313,9 +333,27 @@ export default function SetupWizardScreen() {
           <View style={styles.stepBox} data-testid="setup-payment">
             <Text style={styles.title}>Payment</Text>
             <Text style={styles.desc}>Plan: {plans.find(p => p.plan_id === selectedPlan)?.name || selectedPlan}</Text>
-            <View style={styles.card}><Text style={styles.cardText}>In production, Stripe checkout opens here.</Text><Text style={styles.cardText}>For development, payment is simulated.</Text></View>
+            <View style={styles.couponBox}>
+              <Text style={styles.couponLabel}>Have a coupon code?</Text>
+              <View style={styles.couponRow}>
+                <TextInput
+                  style={[styles.couponInput, couponStatus === 'valid' && styles.couponInputValid, couponStatus === 'invalid' && styles.couponInputInvalid]}
+                  value={couponCode}
+                  onChangeText={v => { setCouponCode(v.toUpperCase()); setCouponStatus(null); setCouponBenefit(''); }}
+                  placeholder="OBG-XXXX"
+                  placeholderTextColor="#555"
+                  autoCapitalize="characters"
+                  maxLength={8}
+                />
+                <TouchableOpacity style={styles.couponBtn} onPress={validateCoupon} disabled={!couponCode.trim()}>
+                  <Text style={styles.couponBtnText}>Apply</Text>
+                </TouchableOpacity>
+              </View>
+              {couponStatus === 'valid' && <Text style={styles.couponValid}>✓ {couponBenefit}</Text>}
+              {couponStatus === 'invalid' && <Text style={styles.couponInvalid}>✗ {couponBenefit}</Text>}
+            </View>
             <TouchableOpacity style={styles.primaryBtn} onPress={handlePayment} data-testid="setup-pay-btn">
-              <Text style={styles.primaryBtnText}>Complete Payment</Text>
+              <Text style={styles.primaryBtnText}>{couponStatus === 'valid' ? 'Start Free Trial' : 'Complete Payment'}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -504,4 +542,14 @@ const styles = StyleSheet.create({
   summaryValue: { color: '#F0F0F5', fontSize: 16, fontWeight: '600' },
   nextTitle: { color: '#AAAAB8', fontSize: 16, fontWeight: '600', marginTop: 16, marginBottom: 8 },
   nextItem: { color: '#999', fontSize: 14, marginBottom: 4 },
+  couponBox: { marginBottom: 16, backgroundColor: '#1a1a2e', borderRadius: 12, padding: 14 },
+  couponLabel: { color: '#888', fontSize: 13, marginBottom: 8 },
+  couponRow: { flexDirection: 'row', gap: 8 },
+  couponInput: { flex: 1, backgroundColor: '#12121e', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: '#fff', fontSize: 15, borderWidth: 1, borderColor: '#333', letterSpacing: 2 },
+  couponInputValid: { borderColor: '#00c896' },
+  couponInputInvalid: { borderColor: '#e74c3c' },
+  couponBtn: { backgroundColor: '#4a4a6a', borderRadius: 8, paddingHorizontal: 14, justifyContent: 'center' },
+  couponBtnText: { color: '#fff', fontSize: 14 },
+  couponValid: { color: '#00c896', fontSize: 13, marginTop: 6 },
+  couponInvalid: { color: '#e74c3c', fontSize: 13, marginTop: 6 },
 });
