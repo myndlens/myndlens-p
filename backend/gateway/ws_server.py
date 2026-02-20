@@ -518,8 +518,8 @@ async def _handle_execute_request(
             "intent": top.hypothesis,
             "action_class": effective_action,
             "dimensions": dim_state.to_dict(),
-            "generated_skills": skill_names,           # names for routing
-            "skill_contracts": [                        # full SKILL.md + tools for execution
+            "generated_skills": skill_names,
+            "skill_contracts": [
                 {
                     "name": b["name"],
                     "skill_md": b["skill_md"],
@@ -530,7 +530,17 @@ async def _handle_execute_request(
                 }
                 for b in built_skills
             ],
+            "agent_topology": {
+                "sub_agents": [
+                    {"role": a.role, "skills": a.skills, "tools": a.tools}
+                    for a in topology.sub_agents
+                ],
+                "coordination": topology.coordination,
+                "complexity": topology.complexity,
+            },
             "assigned_agent_id": assigned_agent_id or "default",
+            "approved_at": datetime.now(timezone.utc).isoformat(),
+            "approved_by": user_id,
         }
         result = await dispatch_mandate(session_id, mandate, api_token=auth_token)
 
