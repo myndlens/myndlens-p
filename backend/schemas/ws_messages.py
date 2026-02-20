@@ -35,6 +35,7 @@ class WSMessageType(str, Enum):
     EXECUTE_BLOCKED = "execute_blocked"
     EXECUTE_OK = "execute_ok"
     PIPELINE_STAGE = "pipeline_stage"
+    CLARIFICATION_QUESTION = "clarification_question"
     ERROR = "error"
     SESSION_TERMINATED = "session_terminated"
 
