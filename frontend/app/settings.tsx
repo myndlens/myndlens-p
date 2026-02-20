@@ -21,6 +21,13 @@ import {
   setupNotificationHandler,
   setupAndroidChannels,
 } from '../src/notifications/manager';
+
+const OBEGEE_BASE = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+const obegee = (path: string, opts?: RequestInit, token?: string) =>
+  fetch(`${OBEGEE_BASE}/api${path}`, {
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    ...opts,
+  }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.detail || d.error || `HTTP ${r.status}`); return d; });
 import {
   saveIMAPCredentials, loadIMAPCredentials, deleteIMAPCredentials,
   saveGmailToken, loadGmailToken,
