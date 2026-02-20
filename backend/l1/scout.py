@@ -136,9 +136,7 @@ async def run_l1_scout(
     except Exception as e:
         latency_ms = (time.monotonic() - start) * 1000
         logger.error("L1 Scout failed: session=%s error=%s latency=%.0fms", session_id, str(e), latency_ms)
-        draft = _mock_l1(transcript, start)
-        await store_draft(draft)
-        return draft
+        raise
 
 
 def _parse_l1_response(response: str, transcript: str, latency_ms: float, prompt_id: str) -> L1DraftObject:

@@ -54,7 +54,7 @@ async def run_l2_sentry(
     start = time.monotonic()
 
     if is_mock_llm() or not settings.EMERGENT_LLM_KEY:
-        return _mock_l2(transcript, l1_action_class, l1_confidence, start)
+        return _mock_l2(transcript, l1_intent, l1_confidence, start)
 
     try:
         # Skip DS recall if transcript is already gap-filled (contains enriched prefix)
