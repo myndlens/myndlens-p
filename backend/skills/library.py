@@ -176,7 +176,43 @@ def classify_risk(description: str, required_tools: str = "") -> str:
     return "low"
 
 
-async def build_skill(
+async def fetch_skill_spec(view_url: str) -> dict:
+    """Fetch skill metadata from ClawHub JSON API.
+
+    view_url format: https://clawhub.ai/skills/{slug}
+    API endpoint:    https://clawhub.ai/api/v1/skills/{slug}
+
+    Returns enriched skill metadata from ClawHub.
+    Falls back to empty dict on any failure — never blocks execution.
+    """
+    if not view_url or "clawhub.ai" not in view_url:
+        return {}
+    try:
+        import re as _re
+        slug_match = _re.search(r"/skills/([^/?#]+)", view_url)
+        if not slug_match:
+            return {}
+        slug = slug_match.group(1)
+        api_url = f"https://clawhub.ai/api/v1/skills/{slug}"
+
+        import httpx
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(api_url, headers={"Accept": "application/json"})
+            if resp.status_code == 200:
+                data = resp.json()
+                skill_meta = data.get("skill", {})
+                version_meta = data.get("latestVersion", {})
+                return {
+                    "clawhub_slug": slug,
+                    "clawhub_summary": skill_meta.get("summary", ""),
+                    "clawhub_version": version_meta.get("version", ""),
+                    "clawhub_changelog": version_meta.get("changelog", ""),
+                    "clawhub_downloads": skill_meta.get("stats", {}).get("downloads", 0),
+                    "clawhub_api_url": api_url,
+                }
+    except Exception as e:
+        logger.debug("[SkillFetch] Failed to fetch %s: %s", view_url, str(e))
+    return {}
     matched_skills: List[Dict[str, Any]],
     intent: str,
     device_data: Optional[Dict[str, Any]] = None,
