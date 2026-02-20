@@ -59,7 +59,6 @@ async def record_skill_outcome(
 
         usage_entry: Dict[str, Any] = {
             "intent": intent[:60],
-            "action_class": action_class,
             "outcome": outcome,
             "ts": now,
         }

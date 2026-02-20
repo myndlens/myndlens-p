@@ -25,7 +25,7 @@ async def submit_mio_to_adapter(
     mio_id: str,
     signature: str,
     action: str,
-    action_class: str,
+    intent: str,
     params: Dict[str, Any],
     tier: int,
     tenant_id: str,
