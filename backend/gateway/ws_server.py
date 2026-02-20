@@ -403,13 +403,13 @@ async def _handle_execute_request(
             session_id=session_id,
             user_id=user_id,
             transcript=enriched_for_verify,
-            l1_action_class=top.intent,
+            l1_intent=top.intent,
             l1_confidence=top.confidence,
             dimensions={},
         )
         logger.info(
             "L2 Sentry: session=%s intent=%s conf=%.2f",
-            session_id, l2.action_class, l2.confidence,
+            session_id, l2.intent, l2.confidence,
         )
 
         # Stage 6: Skill Determination — LLM decides

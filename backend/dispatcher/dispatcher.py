@@ -83,14 +83,14 @@ async def dispatch(
         latch_proofs["biometric"] = "present"
 
     params = mio_dict.get("intent_envelope", {}).get("params", {})
-    action_class = mio_dict.get("intent_envelope", {}).get("action_class", "")
+    intent = mio_dict.get("intent_envelope", {}).get("intent", "")
     expires_at = str(mio_dict.get("header", {}).get("timestamp", ""))
 
     adapter_result = await submit_mio_to_adapter(
         mio_id=mio_id,
         signature=signature,
         action=action,
-        action_class=action_class,
+        intent=intent,
         params=params,
         tier=tier,
         tenant_id=tenant_id,
