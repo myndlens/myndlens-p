@@ -89,21 +89,22 @@ async def generate_mandate_questions(
     task = (
         f"Intent: {mandate.get('intent', '')}\n"
         f"User said: \"{transcript}\"\n\n"
-        f"These {len(batch)} dimensions are MISSING from the mandate:\n{dim_lines}\n\n"
-        f"Generate EXACTLY {len(batch)} whisper-questions — one per missing dimension.\n\n"
-        "For each question:\n"
-        "- Use Digital Self to personalize (reference names, brands, past patterns)\n"
-        "- Provide realistic options where the dimension has a finite set of choices\n"
-        "- Max 6 words. Secretary whisper. You KNOW this person.\n"
-        "- NEVER generic. NEVER skip a dimension.\n\n"
+        f"There are {len(batch)} missing dimensions across these actions:\n{dim_lines}\n\n"
+        "Club ALL missing dimensions into MAXIMUM 3 conversational questions.\n"
+        "Each question covers MULTIPLE dimensions naturally.\n"
+        "The user should feel like a quick chat, NOT an interrogation.\n\n"
+        "EXAMPLE — 15 missing dims clubbed into 2 questions:\n"
+        "  Q1: 'JFK morning, window, veggie — usual setup?' → covers dep_airport, dep_time, seat, meal\n"
+        "  Q2: 'Hilton double, breakfast, sedan with GPS?' → covers hotel, room, breakfast, car, gps\n\n"
+        "RULES:\n"
+        "- MAXIMUM 3 questions total. Club related dims into one natural question.\n"
+        "- Group by action: flight stuff together, hotel stuff together.\n"
+        "- Use Digital Self: confirm known preferences in bulk: 'usual flight setup?'\n"
+        "- Secretary tone. Max 10 words per question. Natural, not a form.\n"
+        "- For each question, list ALL dimensions it fills.\n\n"
         "Output JSON:\n"
-        "{\"questions\": [\n"
-        + ",\n".join(
-            f'  {{"question": "...", "fills_action": "{d["action"]}", '
-            f'"fills_dimension": "{d["dimension"]}", "options": [...]}}'
-            for d in batch
-        )
-        + "\n]}"
+        "{\"questions\": [{\"question\": str, \"fills\": [{\"action\": str, \"dimension\": str}]}]}\n"
+        "Maximum 3 questions."
     )
 
     orchestrator = PromptOrchestrator()
