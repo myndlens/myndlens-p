@@ -836,4 +836,11 @@ const s = StyleSheet.create({
   syncResult: {
     color: '#00D68F', fontSize: 12, marginTop: 4, lineHeight: 16,
   },
+  // Voice & Calling styles
+  voiceUsageRow: { marginBottom: 12 },
+  voiceUsageBar: { height: 6, backgroundColor: '#1A1A2E', borderRadius: 3, marginBottom: 6, overflow: 'hidden' },
+  voiceUsageFill: { height: '100%' as any, backgroundColor: '#6C5CE7', borderRadius: 3 },
+  voiceUsageText: { color: '#888', fontSize: 12 },
+  byovkActiveRow: { backgroundColor: '#0D2B1A', borderRadius: 10, padding: 12, marginBottom: 8 },
+  byovkActiveText: { color: '#00D68F', fontSize: 13, fontWeight: '600' },
 });
