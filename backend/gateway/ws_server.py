@@ -385,80 +385,35 @@ async def _handle_execute_request(
             return
 
         top = draft.hypotheses[0]
-        dim_state = get_dimension_state(session_id)
 
-        # Re-enrich the transcript for L2/QC — session context is still alive
+        # Re-enrich the transcript for L2/QC
         session_ctx = _session_contexts.get(session_id)
         from intent.gap_filler import enrich_transcript as _enrich
         enriched_for_verify = await _enrich(draft.transcript, session_ctx)
 
         from dispatcher.mandate_dispatch import broadcast_stage, dispatch_mandate
 
-        # Stage 4: Oral approval received — done
+        # Stage 4: Oral approval received
         await broadcast_stage(session_id, 4, "done")
 
-        # Stage 5: L2 Sentry verification (with enriched transcript + DS context)
+        # Stage 5: L2 Sentry verification
         await broadcast_stage(session_id, 5, "active", "Verifying intent...")
         from l2.sentry import run_l2_sentry
         l2 = await run_l2_sentry(
             session_id=session_id,
             user_id=user_id,
             transcript=enriched_for_verify,
-            l1_action_class=top.action_class,
+            l1_action_class=top.intent,
             l1_confidence=top.confidence,
-            dimensions=dim_state.to_dict(),
+            dimensions={},
         )
         logger.info(
-            "L2 Sentry: session=%s action=%s conf=%.2f agrees=%s",
-            session_id, l2.action_class, l2.confidence, l2.shadow_agrees_with_l1,
+            "L2 Sentry: session=%s intent=%s conf=%.2f",
+            session_id, l2.action_class, l2.confidence,
         )
 
-        # L1/L2 disagreement — use L2 as authoritative (shadow derivation principle)
-        effective_action = l2.action_class
-        if not l2.shadow_agrees_with_l1 and l2.conflicts:
-            logger.warning(
-                "L1/L2 disagreement: session=%s L1=%s L2=%s conflicts=%s",
-                session_id, top.action_class, l2.action_class, l2.conflicts,
-            )
-            # L2 (independent derivation) overrides L1 for dispatch
-            # The user confirmed the intent — L2 resolves the ambiguity silently
-
-        # ── Stage 6: Skills matching — BEFORE QC so QC sees tool requirements ─────
-        await broadcast_stage(session_id, 6, "active", "Matching skills...")
-        from skills.library import match_skills_to_intent, build_skill, classify_risk
-        matched_skills = await match_skills_to_intent(
-            enriched_for_verify, top_n=3, action_class=effective_action,
-        )
-        skill_names = [s.get("name") for s in matched_skills if s.get("name")]
-        risk_rank = {"low": 0, "medium": 1, "high": 2}
-        skill_risk = max(
-            (classify_risk(s.get("description", ""), s.get("required_tools", ""))
-             for s in matched_skills),
-            key=lambda r: risk_rank.get(r, 0),
-            default="low",
-        ) if matched_skills else "low"
-
-        # Build full skill contracts including live SKILL.md from MongoDB
-        built_skills = []
-        for skill in matched_skills:
-            # Prefer skill_md stored in MongoDB (full ClawHub SKILL.md)
-            # Fall back to build_skill() which fetches from ClawHub API
-            if skill.get("skill_md"):
-                built_skills.append({
-                    "name": skill.get("slug") or skill.get("name"),
-                    "skill_md": skill["skill_md"],
-                    "required_tools": skill.get("required_tools", ""),
-                    "required_env": skill.get("required_env", []),
-                    "risk": skill.get("risk", skill_risk),
-                    "install_command": skill.get("install_command", f"clawdhub install {skill.get('slug', skill.get('name'))}"),
-                    "oc_tools": skill.get("oc_tools", {}),
-                    "clawhub_api_url": skill.get("clawhub_api_url", ""),
-                })
-            else:
-                built = await build_skill([skill], draft.transcript)
-                built_skills.append(built)
-
-        # ── Skill Determination — LLM decides what skills are needed ────────
+        # Stage 6: Skill Determination — LLM decides
+        await broadcast_stage(session_id, 6, "active", "Determining skills...")
         from skills.determine import determine_skills
         skill_plan = await determine_skills(
             session_id=session_id, user_id=user_id,
