@@ -382,6 +382,11 @@ async def _handle_execute_request(
         top = draft.hypotheses[0]
         dim_state = get_dimension_state(session_id)
 
+        # Re-enrich the transcript for L2/QC — session context is still alive
+        session_ctx = _session_contexts.get(session_id)
+        from intent.gap_filler import enrich_transcript as _enrich
+        enriched_for_verify = await _enrich(draft.transcript, session_ctx)
+
         from dispatcher.mandate_dispatch import broadcast_stage, dispatch_mandate
 
         # Stage 4: Oral approval received — done
