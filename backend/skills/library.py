@@ -127,18 +127,10 @@ async def match_skills_to_intent(
         "FIN_TRANS":     ["finance", "payment", "commerce"],
     }
 
-    # Env vars configured in backend settings (pre-flight availability check)
-    from config.settings import get_settings
-    settings = get_settings()
-    configured_envs: set = set()
-    for field_name, val in settings.__dict__.items():
-        if val and isinstance(val, str) and len(val) > 4:
-            configured_envs.add(field_name.upper())
-    # Add known-configured Maton/integration vars from env
-    import os
-    for k in os.environ:
-        if os.environ[k]:
-            configured_envs.add(k.upper())
+    # Env vars available in the runtime environment (pre-flight availability check).
+    # Use os.environ as the single source of truth — settings.__dict__ adds Python
+    # attribute names (MONGO_URL, JWT_SECRET) that are unrelated to skill credentials.
+    configured_envs: set = {k.upper() for k, v in os.environ.items() if v}
 
     stop_words = {
         "i", "want", "to", "the", "a", "an", "my", "me", "is", "do",
