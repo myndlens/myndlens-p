@@ -1722,7 +1722,7 @@ async def api_rl_loop_status():
             "sub_coverage": it["sub_intent_coverage"],
             "entity_coverage": it["entity_coverage"],
             "failures": it["failure_count"],
-            "corrections": it["corrections_added"],
+            "corrections": it.get("corrections_in_engine", it.get("corrections_added", 0)),
         })
     return {
         "running": state["running"],
