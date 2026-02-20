@@ -46,6 +46,7 @@ async def run_l1_scout(
     user_id: str,
     transcript: str,
     context_capsule: Optional[str] = None,
+    original_transcript: Optional[str] = None,  # raw user words (before gap filling)
 ) -> L1DraftObject:
     """Run L1 Scout on a transcript. Returns max 3 hypotheses.
 
