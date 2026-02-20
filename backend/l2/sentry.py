@@ -86,6 +86,8 @@ async def run_l2_sentry(
                 "Shadow derivation: independently verify the user's intent from this transcript. "
                 "Ignore any prior hypothesis. Determine: action_class, canonical_target, "
                 "primary_outcome, risk_tier (0-3), confidence (0-1). "
+                "action_class MUST be one of: COMM_SEND, SCHED_MODIFY, INFO_RETRIEVE, DOC_EDIT, "
+                "FIN_TRANS, CODE_GEN, TASK_CREATE, REMINDER_SET, DATA_ANALYZE, AUTOMATION, DRAFT_ONLY. "
                 "Provide a chain_of_logic trace explaining your reasoning. "
                 "Output JSON: {action_class, canonical_target, primary_outcome, "
                 "risk_tier, confidence, chain_of_logic}"
