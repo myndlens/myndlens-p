@@ -14,8 +14,13 @@ import {
   UserSettings, DEFAULT_SETTINGS,
 } from '../src/state/settings-prefs';
 import { deleteDigitalSelf } from '../src/digital-self/kill-switch';
-import { runTier1Ingestion } from '../src/digital-self/ingester';
+import { runTier1Ingestion, requestCallLogPermission } from '../src/digital-self/ingester';
 import { getStoredUserId, getStoredToken } from '../src/ws/auth';
+import {
+  requestNotificationPermission,
+  setupNotificationHandler,
+  setupAndroidChannels,
+} from '../src/notifications/manager';
 import {
   saveIMAPCredentials, loadIMAPCredentials, deleteIMAPCredentials,
   saveGmailToken, loadGmailToken,
