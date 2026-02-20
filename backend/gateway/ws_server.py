@@ -833,9 +833,18 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
 
     await _emit_stage("mandate", 3, "done")
 
-    # ── STEP 4: Draft update ─────────────────────────────────────────────────
+    # ── STEP 4: Draft update — includes approval preview for user gate ───────
     if l1_draft.hypotheses:
         top = l1_draft.hypotheses[0]
+        # Quick approval preview (no skills yet — uses action_class heuristic)
+        action_preview = {
+            "COMM_SEND": "I'll send a message on your behalf.",
+            "SCHED_MODIFY": "I'll update your calendar.",
+            "INFO_RETRIEVE": "I'll research and report back.",
+            "DOC_EDIT": "I'll edit the document.",
+            "CODE_GEN": "I'll write the code.",
+            "FIN_TRANS": "I'll process the financial action.",
+        }.get(top.action_class, "I'll carry out this mandate.")
         draft_payload = {
             "draft_id": l1_draft.draft_id,
             "hypothesis": top.hypothesis,
@@ -843,6 +852,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             "confidence": top.confidence,
             "dimensions": dim_state.to_dict(),
             "is_mock": l1_draft.is_mock,
+            "approval_preview": action_preview,   # shown in approval gate card
         }
         logger.info(
             "[MANDATE:4:DRAFT] session=%s draft_id=%s action=%s confidence=%.2f",
