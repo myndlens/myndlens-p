@@ -93,10 +93,15 @@ async def generate_micro_questions(
         f"Current dimensions: {json.dumps(dimensions)}\n"
         f"Missing dimensions: {', '.join(missing) if missing else 'none'}\n"
         f"Trigger: {trigger}\n\n"
-        "Generate 1-3 short, personalized micro-questions to fill the gaps. "
-        "Use the Digital Self memories to make questions specific "
-        "(reference actual people, places, preferences by name). "
-        "Questions will be spoken via TTS — keep them natural and under 15 words."
+        "RULES FOR MICRO-QUESTIONS:\n"
+        "1. NEVER ask generic questions like 'Could you tell me more?' or 'What do you need?'\n"
+        "2. EVERY question MUST reference a SPECIFIC person, place, preference, or pattern from the Digital Self memories\n"
+        "3. If a memory mentions a person (colleague, spouse, CMO), ask if they are involved\n"
+        "4. If a memory mentions a preference (hotel brand, flight class, car rental), confirm it\n"
+        "5. If a memory mentions a past pattern (last trip, usual routine), reference it\n"
+        "6. Questions must be so specific that ONLY this user would understand them\n"
+        "7. If you cannot generate a personalized question from the memories, return ZERO questions\n"
+        "8. Keep questions under 15 words, natural spoken language for TTS"
     )
 
     orchestrator = PromptOrchestrator()
