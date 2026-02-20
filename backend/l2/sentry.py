@@ -117,7 +117,7 @@ async def run_l2_sentry(
     except Exception as e:
         latency_ms = (time.monotonic() - start) * 1000
         logger.error("L2 Sentry failed: session=%s error=%s", session_id, str(e))
-        return _mock_l2(transcript, l1_intent, l1_confidence, start)
+        raise
 
 
 def check_l1_l2_agreement(l1_intent: str, l1_conf: float, l2: L2Verdict) -> tuple[bool, str]:

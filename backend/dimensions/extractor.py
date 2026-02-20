@@ -198,3 +198,24 @@ def _build_mock(transcript: str, intent: str, l1_dims: Optional[Dict] = None) ->
             "actions": [], "people": [], "constraints": [],
             "missing_critical": ["mock_mode"], "confidence": 0.3,
             "_meta": {"source": "mock"}}
+
+
+async def extract_dimensions_via_llm(
+    session_id: str,
+    user_id: str,
+    transcript: str,
+    l1_suggestions: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Diagnostic wrapper: extract dimensions from transcript without requiring intent.
+
+    Used by the /api/dimensions/extract diagnostic endpoint.
+    Infers intent from the transcript itself before extracting dimensions.
+    """
+    return await extract_mandate_dimensions(
+        session_id=session_id,
+        user_id=user_id,
+        transcript=transcript,
+        intent="",  # LLM infers from transcript
+        sub_intents=[],
+        l1_dimensions=l1_suggestions,
+    )
