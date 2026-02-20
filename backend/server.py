@@ -338,7 +338,7 @@ async def delivery_webhook(
                 mandate = dispatch_record.get("mandate", {})
                 # C1 fix: new mandate format uses "skill_slugs", old uses "generated_skills"
                 skill_names = mandate.get("skill_slugs", mandate.get("generated_skills", []))
-                action_class = mandate.get("action_class", "")
+                action_class = mandate.get("intent", "")
                 # C1 fix: new mandate format uses "task", old uses "intent"
                 intent = mandate.get("task", mandate.get("intent", ""))
                 if skill_names:
@@ -346,7 +346,6 @@ async def delivery_webhook(
                     await record_skill_outcome(
                         skill_names=skill_names,
                         intent=intent,
-                        action_class=action_class,
                         outcome=payload.status,
                     )
         except Exception as e:

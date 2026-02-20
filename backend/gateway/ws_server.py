@@ -881,7 +881,6 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             "intent": top.intent,
             "hypothesis": top.hypothesis,
             "sub_intents": top.sub_intents,
-            "action_class": top.action_class,
             "confidence": top.confidence,
             "mandate": {k: v for k, v in (mandate or {}).items() if k != "_meta"} if mandate else {},
             "missing_count": len(missing),
