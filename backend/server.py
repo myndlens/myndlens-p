@@ -347,6 +347,16 @@ async def delivery_webhook(
                         intent=intent,
                         outcome=payload.status,
                     )
+                # Post-mandate Digital Self learning — fires only on successful completion
+                if payload.status == "COMPLETED" and mandate.get("actions"):
+                    user_id = mandate.get("approved_by", "")
+                    if user_id:
+                        from memory.post_mandate_learning import learn_from_mandate
+                        learned = await learn_from_mandate(user_id, mandate)
+                        logger.info(
+                            "[DS Learn] Delivery hook: exec=%s user=%s learned=%d",
+                            payload.execution_id, user_id, learned.get("learned", 0),
+                        )
         except Exception as e:
             logger.warning("Skill RL update failed for exec=%s: %s", payload.execution_id, str(e))
 
