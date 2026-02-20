@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet } from 'react-native';
+import { setupNotificationHandler, setupAndroidChannels } from '../src/notifications/manager';
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Register notification handler so foreground notifications render correctly
+    setupNotificationHandler();
+    setupAndroidChannels();
+  }, []);
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
