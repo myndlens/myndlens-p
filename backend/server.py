@@ -1563,15 +1563,30 @@ async def api_list_archives():
 #  Intent RL Test Framework
 # =====================================================
 
+@api_router.post("/intent-rl/seed")
+async def api_seed_digital_self():
+    """Seed the RL test user's Digital Self with mock data (contacts, facts, routines)."""
+    from intent_rl.seed_digital_self import seed_digital_self, clear_digital_self
+    clear_stats = await clear_digital_self()
+    seed_stats = await seed_digital_self()
+    return {"status": "seeded", "cleared": clear_stats, "seeded": seed_stats}
+
+
 @api_router.post("/intent-rl/run")
-async def api_start_intent_rl(batch_size: int = 100):
-    """Start the intent RL test batch. Runs in background."""
+async def api_start_intent_rl(batch_size: int = 100, seed: bool = True):
+    """Start the intent RL test batch. Auto-seeds Digital Self if seed=true."""
     from intent_rl.runner import run_intent_rl_batch, get_current_run
     current = get_current_run()
     if current and current.in_progress:
         return {"status": "already_running", "run_id": current.run_id, "progress": f"{current.completed}/{current.total}"}
+    if seed:
+        from intent_rl.seed_digital_self import seed_digital_self, clear_digital_self
+        await clear_digital_self()
+        seed_stats = await seed_digital_self()
+    else:
+        seed_stats = None
     run_id = await run_intent_rl_batch(batch_size=min(batch_size, 100))
-    return {"status": "started", "run_id": run_id, "total_cases": min(batch_size, 100)}
+    return {"status": "started", "run_id": run_id, "total_cases": min(batch_size, 100), "digital_self_seeded": seed_stats}
 
 
 @api_router.get("/intent-rl/status")
