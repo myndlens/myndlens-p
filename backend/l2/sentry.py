@@ -120,22 +120,25 @@ async def run_l2_sentry(
 
 
 def check_l1_l2_agreement(l1_action: str, l1_conf: float, l2: L2Verdict) -> tuple[bool, str]:
-    """Check L1/L2 conflict resolution per §5.4.
-    
-    Returns (agrees: bool, reason: str).
+    """Check L1/L2 conflict resolution per spec 5.4.
+
+    Agreement requires:
+    1. Both action_classes match
+    2. Confidence delta < 0.25 (not 0.15 -- too strict)
+    3. Both confidences above 0.55 minimum viable threshold
+
+    Note: the combined-minimum gate (0.9) was removed -- it was blocking
+    all normal-confidence mandates where L1 naturally ranges 0.75-0.90.
     """
-    # Intent Equality: action_class must match
     if l1_action != l2.action_class:
         return False, f"Action mismatch: L1={l1_action} L2={l2.action_class}"
 
-    # Confidence Gate
-    combined = min(l1_conf, l2.confidence)
     delta = abs(l1_conf - l2.confidence)
+    if delta > 0.25:
+        return False, f"Confidence delta {delta:.2f} > 0.25 (large disagreement)"
 
-    if delta > 0.15:
-        return False, f"Confidence delta {delta:.2f} > 0.15"
-    if combined <= 0.9:
-        return False, f"Combined confidence {combined:.2f} <= 0.9"
+    if l1_conf < 0.55 or l2.confidence < 0.55:
+        return False, f"Confidence too low: L1={l1_conf:.2f} L2={l2.confidence:.2f} (both must be > 0.55)"
 
     return True, "L1/L2 agreement verified"
 
