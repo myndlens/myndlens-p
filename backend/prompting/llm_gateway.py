@@ -49,7 +49,7 @@ async def call_llm(
     """
     settings = get_settings()
 
-    # ---- Hard Gate 1: Artifact must exist with prompt_id ----
+    # ---- Gate 1: Artifact must exist with prompt_id ----
     if artifact is None:
         await _log_bypass("null_artifact", call_site_id)
         raise PromptBypassError("PromptArtifact is None")
@@ -62,19 +62,11 @@ async def call_llm(
         await _log_bypass("empty_messages", call_site_id)
         raise PromptBypassError("PromptArtifact.messages is empty")
 
-    # ---- Hard Gate 2: Call site must be registered ----
-    try:
-        get_call_site(call_site_id)
-    except ValueError as e:
-        await _log_bypass(f"unregistered_site:{call_site_id}", call_site_id)
-        raise PromptBypassError(str(e))
-
-    # ---- Hard Gate 3: Purpose must be allowed for this call site ----
-    try:
-        validate_purpose(call_site_id, artifact.purpose)
-    except ValueError as e:
-        await _log_bypass(f"purpose_violation:{artifact.purpose.value}", call_site_id)
-        raise PromptBypassError(str(e))
+    # ---- Gate 2: Audit log the call (no hardcoded restrictions) ----
+    logger.debug(
+        "[LLMGateway] Call: site=%s purpose=%s",
+        call_site_id, artifact.purpose.value,
+    )
 
     # ---- Gate passed: make the LLM call ----
     if not settings.EMERGENT_LLM_KEY:
