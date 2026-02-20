@@ -80,30 +80,18 @@ def tweak_skill_md(skill_md: str, mandate_context: str, agent_name: str) -> str:
 
 
 def name_composed_agent(mandate_intent: str, action_class: str, skills: list[str]) -> str:
-    """Generate a descriptive name for a freshly composed agent."""
-    _ACTION_VERBS = {
-        "COMM_SEND":     "Message",
-        "SCHED_MODIFY":  "Schedule",
-        "INFO_RETRIEVE": "Research",
-        "DOC_EDIT":      "Document",
-        "CODE_GEN":      "Code",
-        "FIN_TRANS":     "Finance",
-        "SYS_CONFIG":    "Config",
-        "DRAFT_ONLY":    "Execute",   # more descriptive than "Task"
-    }
-    verb = _ACTION_VERBS.get(action_class, "Task")
+    """Generate a descriptive name from mandate content — no hardcoded verb map."""
+    action_label = action_class.replace("_", " ").title()
 
-    # Extract the object of the mandate (what/who)
     words = [w for w in re.findall(r'\b[A-Za-z]{4,}\b', mandate_intent)
              if w.lower() not in {"send", "email", "make", "write", "find", "search",
                                    "create", "update", "with", "from", "that", "this",
                                    "about", "using", "user", "manager"}][:2]
-
     if words:
-        return f"{verb} Agent — {' '.join(words).title()}"
+        return f"{action_label} Agent — {' '.join(words).title()}"
     if skills:
-        return f"{verb} Agent ({skills[0]})"
-    return f"{verb} Agent"
+        return f"{action_label} Agent ({skills[0]})"
+    return f"{action_label} Agent"
 
 
 # ── Path 1: Catalogue matching ────────────────────────────────────────────────
