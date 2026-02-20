@@ -53,6 +53,8 @@
       ]
     },
     "ios": {
+      "bundleIdentifier": "com.myndlens.app",
+      "buildNumber": "1",
       "infoPlist": {
         "NSContactsUsageDescription": "MyndLens uses your contacts to personalise your Digital Self and reduce how many questions it needs to ask you.",
         "NSCalendarsUsageDescription": "MyndLens reads your calendar to learn your routines and working patterns for your Digital Self.",
