@@ -15,7 +15,6 @@ import {
 const STAGES = [
   { id: 'contacts',   label: 'Scanning contacts',          icon: '👤', onnx: false },
   { id: 'calendar',   label: 'Extracting calendar patterns', icon: '📅', onnx: false },
-  { id: 'sms',        label: 'Reading SMS signals',          icon: '💬', onnx: false, androidOnly: true },
   { id: 'email',      label: 'Syncing email patterns',       icon: '✉️',  onnx: false, optional: true },
   { id: 'graph',      label: 'Building knowledge graph',     icon: '🕸️',  onnx: false },
   { id: 'embeddings', label: 'Generating ONNX embeddings',   icon: '🧠', onnx: true  },
@@ -84,7 +83,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       await delay(300);
       const { runTier1Ingestion, requestCallLogPermission } = require('../digital-self/ingester');
       const { getItem } = require('../../src/utils/storage');
-      if (includeSms) await requestCallLogPermission();
+      if (includeSms) await requestCallLogPermission();  // READ_CALL_LOG only — no SMS
       const userId = (await getItem('myndlens_user_id')) ?? 'local';
       const importResult = await runTier1Ingestion(userId);
       advance('contacts', 'done');
