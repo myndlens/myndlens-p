@@ -225,6 +225,40 @@ export class MyndLensWSClient {
     }
   }
 
+  /**
+   * Handle ds_resolve: backend matched vector node IDs and needs readable text.
+   * Look up each node_id in the local PKG, return the text-only representation.
+   * Responds immediately with ds_context — keeps pipeline latency minimal.
+   */
+  private async _handleDsResolve(nodeIds: string[], sessionId: string): Promise<void> {
+    try {
+      const userId = this._userId ?? '';
+      if (!userId) return;
+
+      const { loadPKG } = require('../digital-self/pkg');
+      const { nodeToText } = require('../digital-self/sync');
+      const pkg = await loadPKG(userId);
+
+      const nodes = nodeIds
+        .filter(id => pkg.nodes[id])
+        .map((id: string) => ({
+          id,
+          text: nodeToText(pkg.nodes[id]),
+        }));
+
+      this.send('ds_context', {
+        session_id: sessionId,
+        nodes,
+      });
+
+      console.log(`[WS] ds_context sent: ${nodes.length} nodes resolved`);
+    } catch (err) {
+      console.log('[WS] ds_resolve lookup failed:', err);
+      // Send empty ds_context so backend doesn't time out waiting
+      this.send('ds_context', { session_id: sessionId, nodes: [] });
+    }
+  }
+
   private _startHeartbeat(intervalMs: number): void {
     this._stopHeartbeat();
     this.heartbeatSeq = 0;
