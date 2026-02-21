@@ -102,6 +102,14 @@ export default function TalkScreen() {
   const [liveEnergy, setLiveEnergy] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
   const [showDsModal, setShowDsModal] = useState(false);
+
+  // Track whether THIS screen is focused — prevents talk.tsx WS handlers
+  // from navigating to /loading while the user is in Settings or another screen.
+  const isScreenFocused = useRef(true);
+  useFocusEffect(useCallback(() => {
+    isScreenFocused.current = true;
+    return () => { isScreenFocused.current = false; };
+  }, []));
   const chatBubbleAnim = useRef(new Animated.Value(1)).current;
   const micAnim = useRef(new Animated.Value(1)).current;
   const waveAnims = useRef([
