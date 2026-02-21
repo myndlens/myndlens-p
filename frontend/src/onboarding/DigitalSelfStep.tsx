@@ -302,14 +302,22 @@ export default function DigitalSelfStep({ onComplete }: Props) {
         {result && result.contacts > 0 && (
           <Text style={dss.doneStat}>{result.contacts} contacts imported</Text>
         )}
+        {result && result.contacts === 0 && (
+          <Text style={dss.doneWarn}>⚠ No contacts found — your address book is empty</Text>
+        )}
         {result && result.calendar > 0 && (
           <Text style={dss.doneStat}>{result.calendar} calendar patterns extracted</Text>
+        )}
+        {result && result.calendar === 0 && (
+          <Text style={dss.doneWarn}>⚠ No calendar events found</Text>
         )}
         {result && result.callLogs > 0 && (
           <Text style={dss.doneStat}>{result.callLogs} call log signals enriched</Text>
         )}
         {result && result.contacts === 0 && result.calendar === 0 && (
-          <Text style={dss.doneStat}>Ready — will grow as you use MyndLens</Text>
+          <Text style={[dss.doneStat, { marginTop: 10, color: '#aaa', fontSize: 12 }]}>
+            Add contacts to your address book or sync email in Settings → Digital Self to populate your Digital Self.
+          </Text>
         )}
       </View>
 
