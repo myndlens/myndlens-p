@@ -373,6 +373,7 @@ const dss = StyleSheet.create({
   stageLabelActive: { color: '#E0E0E0', fontWeight: '600' },
   onnxTag: { color: '#6C5CE7', fontSize: 11, fontWeight: '700' },
   stageCheck: { color: '#00D68F', fontSize: 15, width: 20, textAlign: 'right' },
+  stageCheckEmpty: { color: '#F39C12', fontSize: 15, width: 20, textAlign: 'right' },
 
   // Done
   doneEmoji: { fontSize: 52, marginBottom: 12 },
@@ -380,4 +381,5 @@ const dss = StyleSheet.create({
   doneCard: { backgroundColor: '#0D2B1A', borderRadius: 14, padding: 16, width: '100%', marginBottom: 24 },
   donePrivacy: { color: '#00D68F', fontSize: 12, marginBottom: 10, fontWeight: '600' },
   doneStat: { color: '#aaa', fontSize: 14, marginBottom: 4 },
+  doneWarn: { color: '#F39C12', fontSize: 14, marginBottom: 4 },
 });
