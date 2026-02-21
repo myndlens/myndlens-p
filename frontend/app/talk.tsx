@@ -620,7 +620,7 @@ export default function TalkScreen() {
         ]}>
           <TouchableOpacity
             onPress={() => setChatOpen(true)}
-            style={styles.chatFABInner}
+            style={[styles.chatFABInner, (ttsText || transcript) ? styles.chatFABInnerActive : null]}
             activeOpacity={0.85}
           >
             <Text style={styles.chatFABIcon}>💬</Text>
