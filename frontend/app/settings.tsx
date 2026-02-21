@@ -662,6 +662,11 @@ export default function SettingsScreen() {
           </View>
         </Section>
 
+        </>)}
+
+        {/* ══ TAB 2: CALLING ════════════════════════════════════════════════ */}
+        {activeTab === 2 && (<>
+
         {/* ─── VOICE & CALLING ────────────────────────────────────────────── */}
         <Section title="📞  Voice & Calling">
 
