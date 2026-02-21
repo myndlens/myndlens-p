@@ -6,6 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { setItem } from '../src/utils/storage';
+import DigitalSelfStep from '../src/onboarding/DigitalSelfStep';
 
 const TOTAL_STEPS = 10;
 const OBEGEE_BASE = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
