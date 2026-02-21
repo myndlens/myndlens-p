@@ -52,9 +52,16 @@ export function nodeToText(node: PKGNode): string {
       if (node.data.attendees) parts.push(`with ${node.data.attendees}`);
       break;
     }
-    case 'Fact': {
+    case 'Task':
+    case 'Project':
+    case 'Document': {
+      if (node.data.description) parts.push(node.data.description);
+      if (node.data.status) parts.push(node.data.status);
+      break;
+    }
+    default: {
       if (node.data.value) parts.push(String(node.data.value));
-      if (node.data.label) parts.push(node.data.label);
+      if (node.data.context) parts.push(String(node.data.context));
       break;
     }
   }
