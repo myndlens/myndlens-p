@@ -1,18 +1,32 @@
 #!/usr/bin/env node
 /**
  * bump-version.js
- * Auto-increments versionCode in android/app/build.gradle and syncs app.json.
- * Run before every EAS build: yarn bump
+ * Pulls latest remote, increments versionCode in android/app/build.gradle,
+ * syncs app.json, then commits immediately.
+ *
+ * Usage: yarn bump
+ * This replaces the manual workflow of: git pull && edit files && git commit
  */
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
-const GRADLE = path.join(__dirname, '../android/app/build.gradle');
-const APP_JSON = path.join(__dirname, '../app.json');
+const REPO_ROOT = path.join(__dirname, '../..');
+const GRADLE   = path.join(__dirname, '../android/app/build.gradle');
+const APP_JSON  = path.join(__dirname, '../app.json');
 
-// ── Read current values ─────────────────────────────────────────────────────
-const gradle = fs.readFileSync(GRADLE, 'utf8');
+// ── Step 1: Pull latest so we never operate on stale versionCode ────────────
+console.log('Pulling latest from remote…');
+try {
+  execSync('git pull --rebase', { cwd: REPO_ROOT, stdio: 'inherit' });
+} catch (e) {
+  console.error('❌ git pull --rebase failed. Resolve conflicts first.');
+  process.exit(1);
+}
+
+// ── Step 2: Read current values ─────────────────────────────────────────────
+const gradle  = fs.readFileSync(GRADLE, 'utf8');
 const appJson = JSON.parse(fs.readFileSync(APP_JSON, 'utf8'));
 
 const codeMatch = gradle.match(/versionCode\s+(\d+)/);
@@ -23,34 +37,30 @@ if (!codeMatch || !nameMatch) {
   process.exit(1);
 }
 
-const oldCode = parseInt(codeMatch[1], 10);
-const newCode = oldCode + 1;
-const versionName = nameMatch[1]; // versionName stays the same (manual semver bump)
+const oldCode   = parseInt(codeMatch[1], 10);
+const newCode   = oldCode + 1;
+const versionName = nameMatch[1];
 
-// ── Update build.gradle ─────────────────────────────────────────────────────
-const newGradle = gradle
-  .replace(/versionCode\s+\d+/, `versionCode ${newCode}`);
-fs.writeFileSync(GRADLE, newGradle);
+// ── Step 3: Write new values ─────────────────────────────────────────────────
+fs.writeFileSync(GRADLE, gradle.replace(/versionCode\s+\d+/, `versionCode ${newCode}`));
 
-// ── Update app.json ─────────────────────────────────────────────────────────
-appJson.expo.version = versionName;
-appJson.expo.android = appJson.expo.android || {};
-appJson.expo.android.versionCode = newCode;
-appJson.expo.ios = appJson.expo.ios || {};
-appJson.expo.ios.buildNumber = String(newCode);
+appJson.expo.version               = versionName;
+appJson.expo.android               = appJson.expo.android || {};
+appJson.expo.android.versionCode   = newCode;
+appJson.expo.ios                   = appJson.expo.ios || {};
+appJson.expo.ios.buildNumber       = String(newCode);
 fs.writeFileSync(APP_JSON, JSON.stringify(appJson, null, 2) + '\n');
 
-console.log(`✅ Version bumped: versionCode ${oldCode} → ${newCode}  (versionName: ${versionName})`);
-console.log(`   build.gradle updated`);
-console.log(`   app.json updated`);
-
-// ── Commit immediately so git pull never conflicts ──────────────────────────
-const { execSync } = require('child_process');
+// ── Step 4: Commit immediately ───────────────────────────────────────────────
 try {
-  execSync(`git -C "${path.join(__dirname, '../..')}" add frontend/android/app/build.gradle frontend/app.json`, { stdio: 'inherit' });
-  execSync(`git -C "${path.join(__dirname, '../..')}" commit -m "chore: bump versionCode to ${newCode}"`, { stdio: 'inherit' });
-  console.log(`   committed to git`);
+  execSync(`git add frontend/android/app/build.gradle frontend/app.json`, { cwd: REPO_ROOT, stdio: 'inherit' });
+  execSync(`git commit -m "chore: bump versionCode ${oldCode} → ${newCode}"`, { cwd: REPO_ROOT, stdio: 'inherit' });
 } catch (e) {
   console.error('❌ git commit failed:', e.message);
   process.exit(1);
 }
+
+console.log(`\n✅ Ready to build:`);
+console.log(`   versionCode  ${oldCode} → ${newCode}`);
+console.log(`   versionName  ${versionName}`);
+console.log(`\n   eas build --platform android --profile production\n`);
