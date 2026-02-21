@@ -535,26 +535,27 @@ async def api_ds_sync(req: DSSyncRequest, request: Request):
     Only the vector + node_id + user_id metadata is stored in ChromaDB/MongoDB.
     The text is never written to any database.
     """
-    from memory.client.vector import add_document
+    from memory.client.vector import add_document_with_embedding
     from memory.client.embedder import embed
 
     if not req.nodes:
         return {"synced": 0}
 
     texts = [n.text for n in req.nodes]
-    vectors = embed(texts)
+    vectors = embed(texts)   # Generate embeddings from text
 
     synced = 0
     for node, vector in zip(req.nodes, vectors):
-        add_document(
+        add_document_with_embedding(
             doc_id=node.node_id,
-            text="",           # Intentionally empty — text is NOT stored
+            embedding=vector,  # Pre-computed vector stored directly
             metadata={
                 "user_id": req.user_id,
                 "node_id": node.node_id,
                 "synced_at": datetime.now(timezone.utc).isoformat(),
             },
         )
+        # node.text is not stored anywhere after this point
         synced += 1
 
     logger.info("[DS Sync] user=%s synced=%d nodes", req.user_id, synced)
