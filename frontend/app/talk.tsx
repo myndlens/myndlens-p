@@ -417,8 +417,8 @@ export default function TalkScreen() {
             <View style={styles.dsModalCard}>
               <Text style={styles.dsModalTitle}>Your Digital Self isn't set up yet</Text>
               <Text style={styles.dsModalBody}>
-                MyndLens works best when it knows who you are — your contacts, routines, and patterns.{'\n\n'}
-                Without it, every mandate starts from scratch. Set it up in Settings to unlock personalised responses.
+                Without it, MyndLens has no context about you — no contacts, no routines, no history. Every mandate starts from scratch and intent extraction will be significantly less accurate.{'\n\n'}
+                Set it up in Settings. It takes 10 seconds and everything stays on your device.
               </Text>
               <TouchableOpacity
                 style={styles.dsModalBtn}
@@ -433,7 +433,7 @@ export default function TalkScreen() {
                 style={styles.dsModalSkip}
                 onPress={() => setShowDsModal(false)}
               >
-                <Text style={styles.dsModalSkipText}>Continue without it</Text>
+                <Text style={styles.dsModalSkipText}>Continue anyway (degraded performance)</Text>
               </TouchableOpacity>
             </View>
           </View>
