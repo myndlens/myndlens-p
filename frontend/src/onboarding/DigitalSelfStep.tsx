@@ -238,7 +238,13 @@ export default function DigitalSelfStep({ onComplete }: Props) {
           <Text style={dss.primaryBtnText}>Build Digital Self</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={dss.skipBtn} onPress={onComplete}>
+        <TouchableOpacity style={dss.skipBtn} onPress={async () => {
+          try {
+            const { setItem: saveFlag } = require('../../src/utils/storage');
+            await saveFlag('myndlens_ds_setup_done', 'skipped');
+          } catch {}
+          onComplete();
+        }}>
           <Text style={dss.skipText}>Skip for now</Text>
         </TouchableOpacity>
       </ScrollView>
