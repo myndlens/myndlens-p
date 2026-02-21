@@ -23,6 +23,7 @@ class WSMessageType(str, Enum):
     EXECUTE_REQUEST = "execute_request"
     CANCEL = "cancel"
     TEXT_INPUT = "text_input"
+    DS_CONTEXT = "ds_context"       # Device → Backend: readable text for resolved node IDs
 
     # Server → Client
     AUTH_OK = "auth_ok"
@@ -38,6 +39,7 @@ class WSMessageType(str, Enum):
     CLARIFICATION_QUESTION = "clarification_question"
     ERROR = "error"
     SESSION_TERMINATED = "session_terminated"
+    DS_RESOLVE = "ds_resolve"       # Backend → Device: "resolve these node IDs for me"
 
 
 # ---- Base Envelope ----
