@@ -153,6 +153,9 @@ export default function SettingsScreen() {
   const [byovkFrom, setByovkFrom] = useState('');
   const [voiceSaveStatus, setVoiceSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
+  // Active settings tab — default: Digital Self (0)
+  const [activeTab, setActiveTab] = useState(0);
+
   useEffect(() => {
     loadSettings().then(setPrefs);
     loadIMAPCredentials().then(c => c && setImapCreds(c));
