@@ -810,6 +810,10 @@ export default function SettingsScreen() {
           <ActionBtn label="Sign Out" onPress={handleSignOut} destructive />
         </Section>
 
+        <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+          <Text style={{ color: '#333350', fontSize: 12 }}>MyndLens v1.0.7 (build 8)</Text>
+        </View>
+
         </>)}
 
       </ScrollView>
