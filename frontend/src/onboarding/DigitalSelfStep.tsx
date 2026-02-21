@@ -131,7 +131,10 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       // A device with no contacts still counts as "set up" — the user went through it.
       try {
         const { setItem: saveFlag } = require('../../src/utils/storage');
-        await saveFlag('myndlens_ds_setup_done', 'true');
+        await saveFlag(
+          'myndlens_ds_setup_done',
+          importResult.contacts > 0 || importResult.calendar > 0 ? 'true' : 'empty',
+        );
 
         // Sync data_sources prefs to reflect what was actually enabled in the wizard.
         // Without this, Settings toggles show all-off even after setup completes.
