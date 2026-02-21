@@ -420,12 +420,30 @@ export default function SettingsScreen() {
         <View style={{ width: 44 }} />
       </View>
 
+      {/* ── Tab Bar ─────────────────────────────────────────────────────── */}
+      <View style={s.tabBar}>
+        {(['Digital Self', 'Assistant', 'Calling', 'Account'] as const).map((tab, i) => (
+          <TouchableOpacity
+            key={tab}
+            style={[s.tabBtn, activeTab === i && s.tabBtnActive]}
+            onPress={() => setActiveTab(i)}
+          >
+            <Text style={[s.tabText, activeTab === i && s.tabTextActive]}>
+              {tab}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <ScrollView
         contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
 
-        {/* ─── 1. TRAVEL MONITORING ───────────────────────────────────────── */}
+        {/* ══ TAB 0: DIGITAL SELF ══════════════════════════════════════════ */}
+        {activeTab === 0 && (<>
+
+        {/* ─── DIGITAL SELF DATA SOURCES ──────────────────────────────── */}
         <Section title="✈️  Travel Monitoring & Concierge">
           <CheckRow
             label="Enable proactive travel monitoring"
