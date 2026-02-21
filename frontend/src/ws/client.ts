@@ -193,6 +193,19 @@ export class MyndLensWSClient {
         // Heartbeat acknowledged — no action needed
         break;
 
+      case 'ds_resolve': {
+        // Backend matched vector nodes and needs us to provide the readable text.
+        // Look up node IDs in local PKG, send back { nodes: [{id, text}] }.
+        const nodeIds: string[] = envelope.payload.node_ids ?? [];
+        const sessionId: string = envelope.payload.session_id ?? this.sessionId ?? '';
+        if (nodeIds.length > 0 && sessionId) {
+          this._handleDsResolve(nodeIds, sessionId).catch(err => {
+            console.log('[WS] ds_resolve handler error:', err);
+          });
+        }
+        break;
+      }
+
       default:
         break;
     }
