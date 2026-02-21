@@ -93,14 +93,9 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       await delay(400);
       advance('calendar', 'done');
 
-      // Stage: SMS (Android only)
-      if (Platform.OS === 'android' && includeSms) {
-        activate('sms');
-        await delay(600);
-        advance('sms', 'done');
-      } else {
-        advance('sms', 'skipped');
-      }
+      // Stage: SMS removed — READ_SMS is a restricted Android permission
+      // (only grantable to the default SMS app). Nothing to do here.
+      advance('sms', 'skipped');
 
       // Stage: email
       if (includeEmail) {
