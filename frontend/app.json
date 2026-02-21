@@ -44,7 +44,7 @@
     ],
     "android": {
       "package": "com.myndlens.app",
-      "versionCode": 11,
+      "versionCode": 12,
       "permissions": [
         "READ_CONTACTS",
         "READ_CALENDAR",
@@ -55,7 +55,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.myndlens.app",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "infoPlist": {
         "NSContactsUsageDescription": "MyndLens uses your contacts to personalise your Digital Self and reduce how many questions it needs to ask you.",
         "NSCalendarsUsageDescription": "MyndLens reads your calendar to learn your routines and working patterns for your Digital Self.",
