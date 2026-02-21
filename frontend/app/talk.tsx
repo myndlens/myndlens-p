@@ -533,6 +533,16 @@ export default function TalkScreen() {
           ) : null}
         </View>
 
+        {/* Disconnected banner — visible when WS is not authenticated */}
+        {connectionStatus === 'disconnected' && (
+          <TouchableOpacity
+            style={styles.reconnectBanner}
+            onPress={() => router.replace('/loading')}
+          >
+            <Text style={styles.reconnectText}>Disconnected — tap to reconnect</Text>
+          </TouchableOpacity>
+        )}
+
         {/* PRIMARY: Large mic button */}
         <View style={styles.controlArea}>
           {/* VAD label — minimal hint below button only */}
@@ -544,8 +554,8 @@ export default function TalkScreen() {
           <Animated.View style={{ transform: [{ scale: micAnim }] }}>
             <TouchableOpacity
               style={[styles.micButton, { backgroundColor: micColor }, audioState === 'THINKING' && styles.micThinking]}
-              onPress={handleMic}
-              disabled={connectionStatus !== 'authenticated' || audioState === 'THINKING'}
+              onPress={connectionStatus !== 'authenticated' ? () => router.replace('/loading') : handleMic}
+              disabled={audioState === 'THINKING'}
               activeOpacity={0.85}
             >
               {audioState === 'CAPTURING' ? (
