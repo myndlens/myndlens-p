@@ -638,6 +638,10 @@ const styles = StyleSheet.create({
   summaryValue: { color: '#F0F0F5', fontSize: 16, fontWeight: '600' },
   nextTitle: { color: '#AAAAB8', fontSize: 16, fontWeight: '600', marginTop: 16, marginBottom: 8 },
   nextItem: { color: '#999', fontSize: 14, marginBottom: 4 },
+  // Digital Self step styles
+  dsResultBox: { backgroundColor: '#0D2B1A', borderRadius: 12, padding: 16, marginVertical: 16, width: '100%' },
+  dsResultTitle: { color: '#00D68F', fontSize: 15, fontWeight: '700', marginBottom: 8 },
+  dsResultItem: { color: '#aaa', fontSize: 14, marginBottom: 4 },
   couponBox: { marginBottom: 16, backgroundColor: '#1a1a2e', borderRadius: 12, padding: 14 },
   couponLabel: { color: '#888', fontSize: 13, marginBottom: 8 },
   couponRow: { flexDirection: 'row', gap: 8 },
