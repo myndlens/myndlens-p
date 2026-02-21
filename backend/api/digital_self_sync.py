@@ -314,7 +314,7 @@ async def sync_imap_email(
 
     try:
         # Run blocking IMAP I/O in a thread -- never blocks the event loop
-        contact_freq, contact_names, subject_tokens = await asyncio.to_thread(
+        inbox_freq, sent_freq, contact_names, subject_tokens = await asyncio.to_thread(
             _run_imap_sync, req
         )
     except imaplib.IMAP4.error as e:
@@ -327,13 +327,28 @@ async def sync_imap_email(
         logger.error("[EmailSync] Unexpected error user=%s: %s", user_id, str(e))
         raise HTTPException(status_code=500, detail="Email sync failed")
 
-    total_messages = sum(contact_freq.values())
+    # ── Bidirectional scoring ──────────────────────────────────────────────────
+    # Real contacts = people you BOTH received from AND replied/sent to.
+    # Score = inbox_freq * 1 + sent_freq * 3  (sent carries 3x weight — you initiated)
+    # One-way inbox-only = newsletters/notifications already filtered by _is_automated().
+    # One-way sent-only  = people you mailed but never replied = low relevance.
+    all_addrs = set(inbox_freq) | set(sent_freq)
+    scored: list[tuple[float, str]] = []
+    for addr in all_addrs:
+        i = inbox_freq.get(addr, 0)
+        s = sent_freq.get(addr, 0)
+        is_bidirectional = i > 0 and s > 0
+        score = i + s * 3
+        # Require at least one reply unless inbox frequency is very high (> 10)
+        if not is_bidirectional and i <= 10:
+            continue
+        scored.append((score, addr))
+
+    scored.sort(reverse=True)
+    top_contacts = scored  # No arbitrary cap — quality threshold applied above
+
     nodes: List[PKGNodeOut] = []
     edges: List[PKGEdgeOut] = []
-
-    #    Build Person nodes + embed                                                
-    # Top 50 contacts by frequency
-    top_contacts = sorted(contact_freq.items(), key=lambda x: x[1], reverse=True)[:50]
 
     embed_texts = []
     for addr, freq in top_contacts:
