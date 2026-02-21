@@ -296,7 +296,9 @@ export default function TalkScreen() {
         setPipelineSubStatus('');
         setPipelineProgress(0);
         setConnectionStatus('disconnected');
-        router.replace('/loading');
+        if (isScreenFocused.current) {
+          router.replace('/loading');
+        }
       }),
       wsClient.on('pipeline_stage' as WSMessageType, (env: WSEnvelope) => {
         const idx = env.payload.stage_index ?? -1;
