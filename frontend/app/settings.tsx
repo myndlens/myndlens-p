@@ -604,7 +604,7 @@ export default function SettingsScreen() {
           </Text>
         </Section>
 
-        {/* ─── 4. PRIVACY, SECURITY & STORAGE ─────────────────────────────── */}
+        {/* ─── PRIVACY, SECURITY & STORAGE ─────────────────────────────── */}
         <Section title="🔒  Privacy, Security & Storage">
           <SegmentRow
             label="Data Residency"
