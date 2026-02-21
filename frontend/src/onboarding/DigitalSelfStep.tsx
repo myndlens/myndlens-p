@@ -54,7 +54,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   async function runBuild() {
     setPhase('building');
     const totalStages = STAGES.filter(s => {
-      if (s.androidOnly && Platform.OS !== 'android') return false;
+
       if (s.optional && !includeEmail) return false;
       return true;
     }).length;
@@ -231,7 +231,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   // ── Building phase ─────────────────────────────────────────────────
   if (phase === 'building') {
     const activeStages = STAGES.filter(s => {
-      if (s.androidOnly && Platform.OS !== 'android') return false;
+
       if (s.optional && !includeEmail) return false;
       return true;
     });
