@@ -306,7 +306,9 @@ export default function DigitalSelfStep({ onComplete }: Props) {
           <Text style={dss.doneStat}>{result.contacts} contacts imported</Text>
         )}
         {result && result.contacts === 0 && (
-          <Text style={dss.doneWarn}>⚠ No contacts found — your address book is empty</Text>
+          <Text style={dss.doneWarn}>
+            ⚠ No contacts found{result.contactsError ? `\n${result.contactsError}` : ' — your address book is empty'}
+          </Text>
         )}
         {result && result.calendar > 0 && (
           <Text style={dss.doneStat}>{result.calendar} calendar patterns extracted</Text>
