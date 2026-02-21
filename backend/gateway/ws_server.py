@@ -691,15 +691,57 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     )
     await _emit_stage("capture", 0, "done")
 
-    # ── STEP 0.5: Gap filling ──────────────────────────────────────────────────
+    # ── STEP 0.5: DS Vector Query → ds_resolve → ds_context → Gap Fill ────────
     session_ctx = _session_contexts.get(session_id)
-    if session_ctx:
+    enriched_transcript = transcript
+    matched_nodes: List[Dict] = []
+
+    # 1. Query vector store for user-specific nodes relevant to this transcript
+    if user_id:
+        try:
+            from memory.client.vector import query as vector_query
+            matched = vector_query(
+                query_text=transcript,
+                n_results=3,
+                where={"user_id": user_id},   # USER ISOLATION — never cross-user
+            )
+            if matched:
+                node_ids = [m["id"] for m in matched]
+                logger.info("[DS] Vector matched %d nodes for session=%s", len(node_ids), session_id[:12])
+
+                # 2. Ask device: "resolve these node IDs → send me the readable text"
+                resolve_payload = _make_envelope(
+                    WSMessageType.DS_RESOLVE,
+                    {"node_ids": node_ids, "session_id": session_id},
+                )
+                await ws.send_text(resolve_payload)
+
+                # 3. Await ds_context response from device (max 2 seconds)
+                event = asyncio.Event()
+                _ds_resolve_events[session_id] = event
+                try:
+                    await asyncio.wait_for(event.wait(), timeout=2.0)
+                    matched_nodes = _ds_context_data.pop(session_id, [])
+                    logger.info("[DS] ds_context received: %d nodes for session=%s", len(matched_nodes), session_id[:12])
+                except asyncio.TimeoutError:
+                    logger.warning("[DS] ds_context timeout for session=%s — using fallback session_ctx", session_id[:12])
+                finally:
+                    _ds_resolve_events.pop(session_id, None)
+        except Exception as e:
+            logger.debug("[DS] Vector query skipped: %s", str(e))
+
+    # 4. Gap fill: targeted context if available, else fallback to generic session_ctx
+    if matched_nodes:
+        # Build a targeted SessionContext from the device-provided text
+        targeted_summary = " | ".join(f"{n['text']}" for n in matched_nodes if n.get("text"))
+        targeted_ctx = parse_capsule_summary(targeted_summary, user_id) if targeted_summary else session_ctx
+        enriched_transcript = await enrich_transcript(transcript, targeted_ctx)
+        if enriched_transcript != transcript:
+            logger.info("[MANDATE:0:GAPFILL] session=%s targeted DS gap fill (%d nodes)", session_id, len(matched_nodes))
+    elif session_ctx:
         enriched_transcript = await enrich_transcript(transcript, session_ctx)
         if enriched_transcript != transcript:
-            logger.info("[MANDATE:0:GAPFILL] session=%s enriched (DS entities=%d)",
-                        session_id, len(session_ctx.entities))
-    else:
-        enriched_transcript = transcript
+            logger.info("[MANDATE:0:GAPFILL] session=%s fallback session_ctx (entities=%d)", session_id, len(session_ctx.entities))
 
     # Extract DS summary for harm check
     context_capsule_summary = session_ctx.raw_summary if session_ctx else ""
