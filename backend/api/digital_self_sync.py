@@ -145,43 +145,102 @@ async def _embed_texts(texts: List[str]) -> List[List[float]]:
     return await asyncio.to_thread(embed, texts)
 
 
-def _run_imap_sync(req: "IMAPRequest") -> tuple[dict, dict, list]:
-    """Synchronous IMAP extraction -- runs in a thread via asyncio.to_thread."""
-    contact_freq: Dict[str, int] = defaultdict(int)
+
+# ── Automated sender / marketing domain filters ──────────────────────────────
+
+_AUTOMATED_LOCAL_PATTERNS = re.compile(
+    r'^(noreply|no.reply|no_reply|donotreply|do.not.reply|do_not_reply|'
+    r'notifications?|newsletter|mailer.daemon|postmaster|bounce|'
+    r'unsubscribe|marketing|promo|promotions?|updates?|info|support|'
+    r'alerts?|security|account|billing|receipts?|payments?|invoices?|'
+    r'system|automated|robot|bot|feedback|hello|hi|team|news|digest|'
+    r'weekly|daily|monthly|report|delivery|shipping|order|confirm|'
+    r'verification|welcome|onboarding|reminders?)$',
+    re.IGNORECASE,
+)
+
+_MARKETING_DOMAINS = frozenset({
+    "mailchimp.com", "sendgrid.net", "sendgrid.com",
+    "constantcontact.com", "mailgun.org", "mailgun.net",
+    "hubspot.com", "marketo.com", "salesforce.com",
+    "pardot.com", "eloqua.com", "exacttarget.com",
+    "klaviyo.com", "campaign-monitor.com", "campaignmonitor.com",
+    "aweber.com", "getresponse.com", "activecampaign.com",
+    "drip.com", "convertkit.com", "mailerlite.com",
+    "brevo.com", "sendinblue.com", "omnisend.com",
+    "freshdesk.com", "zendesk.com", "intercom.io",
+    "amazonses.com", "bounce.amazon.com",
+    "linkedin.com", "facebook.com", "instagram.com",
+    "twitter.com", "youtube.com", "google.com",
+    "github.com", "gitlab.com", "atlassian.com",
+    "jira.com", "confluence.com", "slack.com",
+    "zoom.us", "calendly.com", "eventbrite.com",
+})
+
+
+def _is_automated(addr: str) -> bool:
+    """Return True if this address is automated/marketing — not a real human contact."""
+    local, _, domain = addr.partition("@")
+    if not domain:
+        return True
+    if domain in _MARKETING_DOMAINS:
+        return True
+    if _AUTOMATED_LOCAL_PATTERNS.match(local):
+        return True
+    # Long random-looking local parts (> 30 chars) = likely automated
+    if len(local) > 30 and re.search(r'[0-9]{4,}', local):
+        return True
+    return False
+
+
+def _run_imap_sync(req: "IMAPRequest") -> tuple[dict, dict, dict, list]:
+    """Synchronous IMAP extraction -- runs in a thread via asyncio.to_thread.
+
+    Returns:
+        inbox_freq:   addr → count of emails received from this person
+        sent_freq:    addr → count of emails YOU sent to this person
+        contact_names: addr → display name
+        subject_tokens: list of subject line snippets (for interest extraction)
+
+    Real contacts = those with BOTH inbox_freq and sent_freq > 0 (bidirectional).
+    One-way high-frequency = automated sender or newsletter.
+    """
+    inbox_freq: Dict[str, int] = defaultdict(int)
+    sent_freq: Dict[str, int] = defaultdict(int)
     contact_names: Dict[str, str] = {}
     subject_tokens: List[str] = []
+    user_addr = req.email.lower()
 
     ctx = ssl.create_default_context()
     with imaplib.IMAP4_SSL(req.host, req.port, ssl_context=ctx) as imap:
         imap.socket().settimeout(IMAP_TIMEOUT_SECONDS)
         imap.login(req.email, req.password)
-        imap.select("INBOX", readonly=True)
 
         since_date = datetime.fromtimestamp(
             time.time() - 90 * 86400, tz=timezone.utc
         ).strftime("%d-%b-%Y")
-        _, data = imap.search(None, f'SINCE "{since_date}"')
-        all_uids = data[0].split() if data[0] else []
-        uids_to_fetch = all_uids[-req.max_emails:]
 
-        for uid in uids_to_fetch:
+        # ── INBOX: who sends you emails ──────────────────────────────────────
+        imap.select("INBOX", readonly=True)
+        _, data = imap.search(None, f'SINCE "{since_date}"')
+        inbox_uids = data[0].split() if data[0] else []
+
+        for uid in inbox_uids[-req.max_emails:]:
             try:
-                _, msg_data = imap.fetch(uid, "(BODY[HEADER.FIELDS (FROM TO SUBJECT)])")
+                _, msg_data = imap.fetch(uid, "(BODY[HEADER.FIELDS (FROM SUBJECT)])")
                 if not msg_data or not msg_data[0]:
                     continue
                 msg = email_lib.message_from_bytes(msg_data[0][1])
-
-                for hdr in ("From", "To", "Cc"):
-                    raw = msg.get(hdr, "")
-                    for match in re.finditer(
-                        r'(?:([^<,"]+)\s*<)?([\w.+%-]+@[\w.-]+\.[\w]+)>?', raw
-                    ):
-                        name_raw, addr = match.group(1), match.group(2).lower()
-                        if addr == req.email.lower():
-                            continue
-                        contact_freq[addr] += 1
-                        if name_raw and addr not in contact_names:
-                            contact_names[addr] = name_raw.strip().strip('"')
+                raw_from = msg.get("From", "")
+                for match in re.finditer(
+                    r'(?:([^<,"]+)\s*<)?([\w.+%-]+@[\w.-]+\.[\w]+)>?', raw_from
+                ):
+                    name_raw, addr = match.group(1), match.group(2).lower()
+                    if addr == user_addr or _is_automated(addr):
+                        continue
+                    inbox_freq[addr] += 1
+                    if name_raw and addr not in contact_names:
+                        contact_names[addr] = name_raw.strip().strip('"')
 
                 subj = _decode_subject(msg.get("Subject", ""))
                 if subj and len(subj) > 3:
@@ -189,7 +248,43 @@ def _run_imap_sync(req: "IMAPRequest") -> tuple[dict, dict, list]:
             except Exception:
                 continue
 
-    return dict(contact_freq), contact_names, subject_tokens
+        # ── SENT: who you reply to / initiate with ───────────────────────────
+        sent_folder = None
+        for folder_name in ('"[Gmail]/Sent Mail"', '"Sent"', '"Sent Items"',
+                            '"INBOX.Sent"', '"Sent Messages"'):
+            try:
+                status, _ = imap.select(folder_name, readonly=True)
+                if status == "OK":
+                    sent_folder = folder_name
+                    break
+            except Exception:
+                continue
+
+        if sent_folder:
+            _, data = imap.search(None, f'SINCE "{since_date}"')
+            sent_uids = data[0].split() if data[0] else []
+            for uid in sent_uids[-req.max_emails:]:
+                try:
+                    _, msg_data = imap.fetch(uid, "(BODY[HEADER.FIELDS (TO CC)])")
+                    if not msg_data or not msg_data[0]:
+                        continue
+                    msg = email_lib.message_from_bytes(msg_data[0][1])
+                    for hdr in ("To", "Cc"):
+                        raw = msg.get(hdr, "")
+                        for match in re.finditer(
+                            r'(?:([^<,"]+)\s*<)?([\w.+%-]+@[\w.-]+\.[\w]+)>?', raw
+                        ):
+                            name_raw, addr = match.group(1), match.group(2).lower()
+                            if addr == user_addr or _is_automated(addr):
+                                continue
+                            sent_freq[addr] += 1
+                            if name_raw and addr not in contact_names:
+                                contact_names[addr] = name_raw.strip().strip('"')
+                except Exception:
+                    continue
+
+    return dict(inbox_freq), dict(sent_freq), contact_names, subject_tokens
+
 
 
 #    IMAP Email Sync                                                                
