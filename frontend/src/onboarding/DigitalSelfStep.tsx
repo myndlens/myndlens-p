@@ -281,7 +281,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
                   {stage.onnx ? <Text style={dss.onnxTag}> ONNX</Text> : null}
                 </Text>
                 <Text style={dss.stageCheck}>
-                  {status === 'done' ? '✓' : status === 'active' ? '…' : status === 'skipped' ? '–' : ''}
+                  {status === 'done' ? '✓' : status === 'active' ? '…' : status === 'skipped' ? '–' : status === 'empty' ? '!' : ''}
                 </Text>
               </View>
             );
