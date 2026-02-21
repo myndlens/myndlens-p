@@ -86,12 +86,12 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       await requestCallLogPermission();  // READ_CALL_LOG only (no SMS)
       const userId = (await getItem('myndlens_user_id')) ?? 'local';
       const importResult = await runTier1Ingestion(userId);
-      advance('contacts', 'done');
+      advance('contacts', importResult.contacts > 0 ? 'done' : 'empty');
 
       // Stage: calendar
       activate('calendar');
       await delay(400);
-      advance('calendar', 'done');
+      advance('calendar', importResult.calendar > 0 ? 'done' : 'empty');
 
       // Stage: SMS removed — READ_SMS is a restricted Android permission
       // (only grantable to the default SMS app). Nothing to do here.
