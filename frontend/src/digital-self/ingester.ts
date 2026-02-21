@@ -16,14 +16,18 @@ import { scoreAndFilterContacts, extractCalendarPatterns } from '../onboarding/s
  * Import contacts from device into local PKG.
  * Requires expo-contacts permission.
  */
-export async function ingestContacts(userId: string): Promise<number> {
+export async function ingestContacts(userId: string): Promise<{ count: number; error?: string }> {
   try {
-    // Dynamically import expo-contacts (graceful fallback if not installed)
     const Contacts = require('expo-contacts');
-    const { status } = await Contacts.requestPermissionsAsync();
-    if (status !== 'granted') {
-      console.log('[Ingester] Contacts permission denied');
-      return 0;
+
+    // Check permission — distinguish between denied+can retry vs permanently blocked
+    const permResult = await Contacts.requestPermissionsAsync();
+    if (permResult.status !== 'granted') {
+      const reason = permResult.canAskAgain === false
+        ? 'PERMISSION_BLOCKED: Go to Android Settings → Apps → MyndLens → Permissions → Contacts → Allow'
+        : 'PERMISSION_DENIED: User denied contacts permission';
+      console.log('[Ingester]', reason);
+      return { count: 0, error: reason };
     }
 
     const { data } = await Contacts.getContactsAsync({
@@ -38,31 +42,33 @@ export async function ingestContacts(userId: string): Promise<number> {
       ],
     });
 
-    // Score and filter using existing heuristics
+    console.log(`[Ingester] Raw contacts from device: ${data?.length ?? 0}`);
+
+    if (!data || data.length === 0) {
+      return { count: 0, error: 'EMPTY: getContactsAsync returned 0 contacts from device' };
+    }
+
     const scored = scoreAndFilterContacts(data, 50);
+    console.log(`[Ingester] After scoring: ${scored.length} contacts`);
 
     let count = 0;
     for (const contact of scored) {
-      await registerPerson(
-        userId,
-        contact.name,
-        {
-          email: contact.email,
-          phone: contact.phone,
-          role: contact.role,
-          relationship: contact.relationship,
-          company: contact.company,
-        },
-        'CONTACTS',
-      );
+      await registerPerson(userId, contact.name, {
+        email: contact.email,
+        phone: contact.phone,
+        role: contact.role,
+        relationship: contact.relationship,
+        company: contact.company,
+      }, 'CONTACTS');
       count++;
     }
 
     console.log(`[Ingester] Imported ${count} contacts into PKG`);
-    return count;
-  } catch (err) {
-    console.log('[Ingester] Contacts ingestion unavailable:', err);
-    return 0;
+    return { count };
+  } catch (err: any) {
+    const msg = `EXCEPTION: ${err?.message || String(err)}`;
+    console.log('[Ingester] Contacts ingestion failed:', msg);
+    return { count: 0, error: msg };
   }
 }
 
