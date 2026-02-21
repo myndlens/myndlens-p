@@ -46,6 +46,8 @@
       "package": "com.myndlens.app",
       "versionCode": 11,
       "permissions": [
+        "READ_CONTACTS",
+        "READ_CALENDAR",
         "READ_CALL_LOG",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
