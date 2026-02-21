@@ -108,20 +108,8 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       if (includeEmail) {
         activate('email');
         await delay(800);
-        try {
-          const { loadIMAPCredentials } = require('../digital-self/credentials');
-          const creds = await loadIMAPCredentials();
-          if (creds?.host) {
-            // Trigger email sync via backend if credentials exist
-            const token = (await getItem('myndlens_auth_token')) ?? '';
-            const apiUrl = process.env.EXPO_PUBLIC_BACKEND_URL ?? '';
-            await fetch(`${apiUrl}/api/digital-self/email/sync`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify(creds),
-            });
-          }
-        } catch { /* email sync is best-effort */ }
+        // Email sync runs server-side via saved IMAP/Gmail credentials.
+        // The backend processes email patterns independently — no mobile call needed.
         advance('email', 'done');
       } else {
         advance('email', 'skipped');
