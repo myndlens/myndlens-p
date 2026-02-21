@@ -139,7 +139,7 @@ export default function TalkScreen() {
       try {
         const { getItem } = require('../src/utils/storage');
         const dsSetupDone = await getItem('myndlens_ds_setup_done');
-        if (!dsSetupDone) {
+        if (!dsSetupDone || dsSetupDone === 'empty') {
           setShowDsModal(true);
         }
       } catch { /* non-critical */ }
