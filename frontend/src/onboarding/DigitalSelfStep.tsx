@@ -189,22 +189,6 @@ export default function DigitalSelfStep({ onComplete }: Props) {
           <Text style={dss.sourceOn}>On</Text>
         </View>
 
-        {Platform.OS === 'android' && (
-          <View style={dss.sourceRow}>
-            <Text style={dss.sourceIcon}>💬</Text>
-            <View style={dss.sourceText}>
-              <Text style={dss.sourceTitle}>SMS signals</Text>
-              <Text style={dss.sourceSub}>Contact frequency · relationship strength (Android)</Text>
-            </View>
-            <Switch
-              value={includeSms}
-              onValueChange={setIncludeSms}
-              trackColor={{ false: '#2A2A3E', true: '#6C5CE7' }}
-              thumbColor="#fff"
-            />
-          </View>
-        )}
-
         <View style={dss.sourceRow}>
           <Text style={dss.sourceIcon}>✉️</Text>
           <View style={dss.sourceText}>
