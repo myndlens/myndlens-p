@@ -183,8 +183,23 @@ def query(
 
 
 def delete_document(doc_id: str) -> None:
+    """Delete a document from ChromaDB and MongoDB."""
     coll = _get_collection()
     coll.delete(ids=[doc_id])
+    # Also remove from MongoDB so it doesn't reload on restart
+    try:
+        import asyncio
+        from core.database import get_db
+        async def _del():
+            db = get_db()
+            await db.vector_store.delete_one({"doc_id": doc_id})
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.ensure_future(_del())
+        else:
+            loop.run_until_complete(_del())
+    except Exception as e:
+        logger.warning("[VectorStore] MongoDB delete failed for %s: %s", doc_id, e)
 
 
 def count() -> int:
