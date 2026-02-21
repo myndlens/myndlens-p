@@ -30,7 +30,6 @@ interface Props {
 
 export default function DigitalSelfStep({ onComplete }: Props) {
   const [phase, setPhase] = useState<'source' | 'building' | 'done'>('source');
-  const [includeSms, setIncludeSms] = useState(false);   // opt-in — READ_SMS is restricted on Android
   const [includeEmail, setIncludeEmail] = useState(false);
   const [stageStatuses, setStageStatuses] = useState<Record<string, StageStatus>>(
     Object.fromEntries(STAGES.map(s => [s.id, 'pending'])),
