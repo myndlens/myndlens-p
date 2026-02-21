@@ -74,6 +74,10 @@ export default function SetupWizardScreen() {
   // Delivery channel
   const [deliveryChannels, setDeliveryChannels] = useState<string[]>(['in_app']);
   const [channelDetails, setChannelDetails] = useState<Record<string, string>>({});
+  // Digital Self ingestion
+  const [dsImporting, setDsImporting] = useState(false);
+  const [dsResult, setDsResult] = useState<{ contacts: number; calendar: number; callLogs: number } | null>(null);
+  const [dsSkipped, setDsSkipped] = useState(false);
 
   async function handleRegister() {
     if (!name.trim() || !email.trim() || !password.trim()) return;
@@ -245,6 +249,22 @@ export default function SetupWizardScreen() {
     // Phone is now stored. Generate the pairing code (ObeGee can now SMS it).
     setStep(7);
     generateCode();
+  }
+
+  async function handleDigitalSelf() {
+    setDsImporting(true);
+    try {
+      const { runTier1Ingestion, requestCallLogPermission } = require('../src/digital-self/ingester');
+      await requestCallLogPermission();
+      const userId = await getItem('myndlens_user_id') ?? 'local';
+      const result = await runTier1Ingestion(userId);
+      setDsResult(result);
+    } catch (e: any) {
+      // Import failed — non-fatal, continue to Complete
+      setDsResult({ contacts: 0, calendar: 0, callLogs: 0 });
+    } finally {
+      setDsImporting(false);
+    }
   }
 
   async function handleComplete() {
