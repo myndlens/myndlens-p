@@ -206,9 +206,9 @@ export default function TalkScreen() {
           setPipelineSubStatus('');
           setPipelineProgress(0);
           setConnectionStatus('disconnected');
-          router.replace('/loading');
-        }
-      } else if (nextState === 'background') {
+          if (isScreenFocused.current) {
+            router.replace('/loading');
+          }
         // App going to background — stop any active recording/TTS to free resources
         if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
           await stopRecording().catch(() => {});
