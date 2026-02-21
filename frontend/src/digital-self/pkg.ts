@@ -52,6 +52,7 @@ export interface PKGNode {
   provenance: string;       // CONTACTS | CALENDAR | MANUAL | INFERRED | ONBOARDING
   created_at: string;
   updated_at: string;
+  synced_at?: string;       // Last time this node's vector was synced to backend. Undefined = never synced.
 }
 
 export interface PKGEdge {
