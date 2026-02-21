@@ -101,6 +101,12 @@ async def reload_from_mongodb() -> int:
     Fixes the restart-wipe bug: ChromaDB is in-memory; this restores
     all previously stored Digital Self facts after a server restart.
     Returns number of documents reloaded.
+
+    PRODUCTION NOTE:
+    - This collection must contain ONLY real user vectors synced from devices.
+    - Never seed or pre-populate with test/demo data in production.
+    - Test data must be scoped to test_user_* user_ids and cleared after tests.
+    - All queries MUST filter by user_id (pass where={"user_id": uid} to query()).
     """
     from core.database import get_db
     db = get_db()
