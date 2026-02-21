@@ -154,13 +154,11 @@ export async function requestCallLogPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
   try {
     const { PermissionsAndroid } = require('react-native');
-    const results = await PermissionsAndroid.requestMultiple([
+    const result = await PermissionsAndroid.request(
       'android.permission.READ_CALL_LOG',
-      'android.permission.READ_SMS',
-    ]);
-    const callGranted = results['android.permission.READ_CALL_LOG'] === 'granted';
-    const smsGranted = results['android.permission.READ_SMS'] === 'granted';
-    console.log(`[Ingester] Permissions — READ_CALL_LOG: ${callGranted}, READ_SMS: ${smsGranted}`);
+    );
+    const callGranted = result === 'granted';
+    console.log(`[Ingester] READ_CALL_LOG: ${callGranted}`);
     return callGranted;
   } catch (err) {
     console.log('[Ingester] Permission request failed:', err);
