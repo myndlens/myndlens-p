@@ -16,7 +16,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { wsClient, WSEnvelope, WSMessageType } from '../src/ws/client';
 import { useSessionStore } from '../src/state/session-store';
 import { useAudioStore } from '../src/audio/state-machine';
