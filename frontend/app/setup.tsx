@@ -256,7 +256,8 @@ export default function SetupWizardScreen() {
     try {
       const { runTier1Ingestion, requestCallLogPermission } = require('../src/digital-self/ingester');
       await requestCallLogPermission();
-      const userId = await getItem('myndlens_user_id') ?? 'local';
+      const { getItem: readItem } = require('../src/utils/storage');
+      const userId = await readItem('myndlens_user_id') ?? 'local';
       const result = await runTier1Ingestion(userId);
       setDsResult(result);
     } catch (e: any) {
