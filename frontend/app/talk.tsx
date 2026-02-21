@@ -414,6 +414,34 @@ export default function TalkScreen() {
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 8 }]}>
 
+        {/* ── Digital Self Setup Modal ─────────────────────────────────── */}
+        <Modal visible={showDsModal} transparent animationType="fade">
+          <View style={styles.dsModalOverlay}>
+            <View style={styles.dsModalCard}>
+              <Text style={styles.dsModalTitle}>Your Digital Self isn't set up yet</Text>
+              <Text style={styles.dsModalBody}>
+                MyndLens works best when it knows who you are — your contacts, routines, and patterns.{'\n\n'}
+                Without it, every mandate starts from scratch. Set it up in Settings to unlock personalised responses.
+              </Text>
+              <TouchableOpacity
+                style={styles.dsModalBtn}
+                onPress={() => {
+                  setShowDsModal(false);
+                  router.push('/settings' as any);
+                }}
+              >
+                <Text style={styles.dsModalBtnText}>Set up Digital Self</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dsModalSkip}
+                onPress={() => setShowDsModal(false)}
+              >
+                <Text style={styles.dsModalSkipText}>Continue without it</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         {/* Top bar */}
         <View style={styles.topBar}>
           <View style={[styles.dot, { backgroundColor: connectionDot }]} />
