@@ -92,7 +92,7 @@ android {
         applicationId 'com.myndlens.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 12
+        versionCode 99
         versionName "1.0.9"
         archivesBaseName = "MyndLens-v${versionName}-build${versionCode}"
 
