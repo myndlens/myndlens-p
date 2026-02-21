@@ -85,9 +85,12 @@ export default function LoadingScreen() {
 
       const { getItem } = require('../src/utils/storage');
       const setupDone = await getItem('setup_wizard_complete');
-      if (setupDone === 'true') {
+      const dsStatus = await getItem('myndlens_ds_setup_done');
+
+      if (setupDone === 'true' && dsStatus !== 'empty') {
         router.replace('/talk');
       } else {
+        // First launch OR DS was empty last run — go to setup (lands on Step 9)
         router.replace('/setup');
       }
     } catch (err: any) {
