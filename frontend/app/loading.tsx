@@ -47,6 +47,19 @@ export default function LoadingScreen() {
       await wsClient.connect();
       setConnectionStatus('authenticated');
 
+      // Request notification permission once after first successful connect.
+      // Uses a storage flag so it only fires on first pairing, not every launch.
+      try {
+        const { getItem, setItem: saveItem } = require('../src/utils/storage');
+        const notifAsked = await getItem('myndlens_notif_permission_asked');
+        if (!notifAsked) {
+          const { requestNotificationPermission, setupAndroidChannels } = require('../src/notifications/manager');
+          await requestNotificationPermission();
+          await setupAndroidChannels();
+          await saveItem('myndlens_notif_permission_asked', 'true');
+        }
+      } catch { /* non-critical — never block the main flow */ }
+
       // Send Digital Self context immediately after auth
       try {
         const userId = wsClient.userId ?? '';
