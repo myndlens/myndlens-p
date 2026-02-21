@@ -66,6 +66,11 @@ _clarification_state: Dict[str, dict] = {}
 #                  "enriched_transcript": str, "questions": [...],
 #                  "l1_draft": ..., "context_capsule": ..., "attempts": int }
 
+# Per-session DS resolve events — pipeline holds here waiting for device to
+# return readable text for vector-matched node IDs (ds_resolve / ds_context flow)
+_ds_resolve_events: Dict[str, asyncio.Event] = {}
+_ds_context_data: Dict[str, List[Dict]] = {}   # session_id → [{id, text}, ...]
+
 
 def _make_envelope(msg_type: WSMessageType, payload: dict) -> str:
     """Create a JSON string envelope for sending."""
