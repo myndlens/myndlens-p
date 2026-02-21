@@ -67,15 +67,21 @@ export default function LoginScreen() {
 
       const data = await res.json();
 
-      // Store all pairing response fields securely
-      await setItem('myndlens_auth_token', data.access_token);
-      await setItem('myndlens_tenant_id', data.tenant_id);
-      await setItem('myndlens_workspace_slug', data.workspace_slug || '');
-      await setItem('myndlens_runtime_endpoint', data.runtime_endpoint || '');
-      await setItem('myndlens_dispatch_endpoint', data.dispatch_endpoint || '');
-      await setItem('myndlens_session_id', data.session_id || '');
-      await setItem('myndlens_user_id', data.tenant_id);
+      // Write ALL tokens atomically — Promise.all guarantees every write
+      // completes before navigation fires. Sequential awaits on Android
+      // Keystore can return before data is committed, causing the next
+      // screen to read empty storage and land back on the welcome screen.
+      await Promise.all([
+        setItem('myndlens_auth_token', data.access_token),
+        setItem('myndlens_tenant_id', data.tenant_id),
+        setItem('myndlens_workspace_slug', data.workspace_slug || ''),
+        setItem('myndlens_runtime_endpoint', data.runtime_endpoint || ''),
+        setItem('myndlens_dispatch_endpoint', data.dispatch_endpoint || ''),
+        setItem('myndlens_session_id', data.session_id || ''),
+        setItem('myndlens_user_id', data.tenant_id),
+      ]);
 
+      // Update in-memory auth state AFTER storage is confirmed written
       setAuth(data.tenant_id, deviceId);
       router.replace('/loading');
     } catch (err: any) {
