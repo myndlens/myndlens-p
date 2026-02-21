@@ -57,7 +57,7 @@ export default function SetupWizardScreen() {
       if (token && tenantIdStored) {
         setAuthToken(token);
         setTenantId(tenantIdStored);
-        setStep(5);  // Jump to Activating — skip account/workspace/plan/payment
+        setStep(9);  // Jump straight to Digital Self — account, workspace, pairing already complete
       }
     })();
   }, []);
