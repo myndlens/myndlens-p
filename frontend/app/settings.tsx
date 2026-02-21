@@ -15,7 +15,7 @@ import {
 } from '../src/state/settings-prefs';
 import { deleteDigitalSelf } from '../src/digital-self/kill-switch';
 import { runTier1Ingestion, requestCallLogPermission } from '../src/digital-self/ingester';
-import { getStoredUserId, getStoredToken } from '../src/ws/auth';
+import * as Application from 'expo-application';
 import {
   requestNotificationPermission,
   setupNotificationHandler,
