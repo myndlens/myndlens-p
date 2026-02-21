@@ -612,24 +612,23 @@ export default function TalkScreen() {
           ) : null}
         </View>
 
-        {/* ── Floating Chat Bubble ──────────────────────────────────────── */}
-        {(ttsText || transcript) ? (
-          <Animated.View style={[
-            styles.chatFAB,
-            { transform: [{ scale: chatBubbleAnim }] },
-          ]}>
-            <TouchableOpacity
-              onPress={() => setChatOpen(true)}
-              style={styles.chatFABInner}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.chatFABIcon}>💬</Text>
-              {!chatOpen && (
-                <View style={styles.chatBadge} />
-              )}
-            </TouchableOpacity>
-          </Animated.View>
-        ) : null}
+        {/* ── Floating Chat Bubble — always visible, glows when content present ── */}
+        <Animated.View style={[
+          styles.chatFAB,
+          { transform: [{ scale: chatBubbleAnim }] },
+          (ttsText || transcript) && styles.chatFABActive,
+        ]}>
+          <TouchableOpacity
+            onPress={() => setChatOpen(true)}
+            style={styles.chatFABInner}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.chatFABIcon}>💬</Text>
+            {(ttsText || transcript) && !chatOpen && (
+              <View style={styles.chatBadge} />
+            )}
+          </TouchableOpacity>
+        </Animated.View>
 
         {/* ── Chat Modal — slides in full-screen ───────────────────────── */}
         <Modal
