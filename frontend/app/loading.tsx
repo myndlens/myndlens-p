@@ -60,6 +60,17 @@ export default function LoadingScreen() {
         }
       } catch { /* non-critical — never block the main flow */ }
 
+      // Sync stored user_id to match wsClient.userId (JWT sub).
+      // login.tsx stores tenant_id, but WS auth sets userId from JWT sub — they differ.
+      // PKG is keyed by this userId, so they must match or DS check always sees empty PKG.
+      if (wsClient.userId) {
+        const { setItem: saveItem2, getItem: readItem } = require('../src/utils/storage');
+        const storedUid = await readItem('myndlens_user_id');
+        if (storedUid !== wsClient.userId) {
+          await saveItem2('myndlens_user_id', wsClient.userId);
+        }
+      }
+
       // Send Digital Self context immediately after auth
       try {
         const userId = wsClient.userId ?? '';
