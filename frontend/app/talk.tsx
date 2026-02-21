@@ -100,9 +100,9 @@ export default function TalkScreen() {
   const [pipelineProgress, setPipelineProgress] = React.useState<number>(0);
   const [liveEnergy, setLiveEnergy] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
+  const [showDsModal, setShowDsModal] = useState(false);
   const chatBubbleAnim = useRef(new Animated.Value(1)).current;
   const micAnim = useRef(new Animated.Value(1)).current;
-  // 5 waveform bars — heights driven by liveEnergy
   const waveAnims = useRef([
     new Animated.Value(4),
     new Animated.Value(4),
@@ -111,20 +111,35 @@ export default function TalkScreen() {
     new Animated.Value(4),
   ]).current;
 
-  // Request microphone permission immediately on mount — before the user taps the mic.
-  // On Android, this triggers the system dialog on first open. On iOS it shows
-  // the NSMicrophoneUsageDescription dialog. Both are no-ops if already granted.
+  // Request microphone permission immediately on mount.
+  // Also check if Digital Self has been populated — gate mic if empty.
   useEffect(() => {
     (async () => {
       try {
         const { Audio } = require('expo-av');
         await Audio.requestPermissionsAsync();
-        // Also configure the audio session for recording (iOS background audio mode)
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: true,
           playsInSilentModeIOS: true,
         });
-      } catch { /* graceful — if expo-av is unavailable in web builds */ }
+      } catch { /* graceful fallback for web builds */ }
+
+      // Check PKG node count — show DS modal on first use if skipped during onboarding
+      try {
+        const { loadPKG } = require('../src/digital-self/pkg');
+        const userId = wsClient.userId ?? '';
+        if (userId) {
+          const pkg = await loadPKG(userId);
+          const nodeCount = Object.keys(pkg.nodes || {}).length;
+          if (nodeCount === 0) {
+            // DS is empty — user skipped setup. Show modal on first mic tap.
+            // Store a flag so modal only shows once.
+            const { getItem } = require('../src/utils/storage');
+            const warned = await getItem('myndlens_ds_warned');
+            if (!warned) setShowDsModal(true);
+          }
+        }
+      } catch { /* non-critical */ }
     })();
   }, []);
 
