@@ -770,12 +770,24 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 99,
   },
+  chatFABActive: {
+    // no additional positioning — glow is on chatFABInner
+  },
   chatFABInner: {
     width: 52, height: 52, borderRadius: 26,
-    backgroundColor: '#6C5CE7',
+    backgroundColor: '#1A1A2E',
+    borderWidth: 1.5, borderColor: '#333350',
     alignItems: 'center', justifyContent: 'center',
+  },
+  chatFABInnerActive: {
+    backgroundColor: '#1E1040',
+    borderColor: '#6C5CE7',
     shadowColor: '#6C5CE7',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 14,
+    shadowOpacity: 0.9,
+    elevation: 10,
+  },
     shadowOpacity: 0.5,
     shadowRadius: 8,
     elevation: 8,
