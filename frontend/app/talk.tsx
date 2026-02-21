@@ -133,20 +133,14 @@ export default function TalkScreen() {
         });
       } catch { /* graceful fallback for web builds */ }
 
-      // Check PKG node count — show DS modal on first use if skipped during onboarding
+      // Check DS setup flag — show modal if user has never gone through DS setup.
+      // Using a flag (not nodeCount) because a device with no contacts still counts
+      // as "set up" — the user consciously went through the wizard.
       try {
-        const { loadPKG } = require('../src/digital-self/pkg');
-        const userId = wsClient.userId ?? '';
-        if (userId) {
-          const pkg = await loadPKG(userId);
-          const nodeCount = Object.keys(pkg.nodes || {}).length;
-          if (nodeCount === 0) {
-            // DS is empty — user skipped setup. Show modal on first mic tap.
-            // Store a flag so modal only shows once.
-            const { getItem } = require('../src/utils/storage');
-            const warned = await getItem('myndlens_ds_warned');
-            if (!warned) setShowDsModal(true);
-          }
+        const { getItem } = require('../src/utils/storage');
+        const dsSetupDone = await getItem('myndlens_ds_setup_done');
+        if (!dsSetupDone) {
+          setShowDsModal(true);
         }
       } catch { /* non-critical */ }
     })();
