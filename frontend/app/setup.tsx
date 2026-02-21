@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { setItem } from '../src/utils/storage';
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 10;
 const OBEGEE_BASE = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
 
 // ObeGee API helper — calls ObeGee directly, not the MyndLens backend
@@ -274,7 +274,7 @@ export default function SetupWizardScreen() {
 
   useEffect(() => { if (step === 3) loadPlans(); }, [step]);
 
-  const STEP_LABELS = ['Welcome', 'Account', 'Workspace', 'Plan', 'Payment', 'Activating', 'Preferences', 'Pairing', 'Delivery', 'Complete'];
+  const STEP_LABELS = ['Welcome', 'Account', 'Workspace', 'Plan', 'Payment', 'Activating', 'Preferences', 'Pairing', 'Delivery', 'Digital Self', 'Complete'];
 
   return (
     <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top + 12 }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
