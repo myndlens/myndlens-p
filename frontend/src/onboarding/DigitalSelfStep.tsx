@@ -21,7 +21,7 @@ const STAGES = [
   { id: 'encrypt',    label: 'Encrypting on this device',    icon: '🔐', onnx: false },
 ];
 
-type StageStatus = 'pending' | 'active' | 'done' | 'skipped';
+type StageStatus = 'pending' | 'active' | 'done' | 'skipped' | 'empty';
 
 interface Props {
   onComplete: () => void;
@@ -61,7 +61,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
     let completed = 0;
 
-    const advance = (stageId: string, status: 'done' | 'skipped') => {
+    const advance = (stageId: string, status: 'done' | 'skipped' | 'empty') => {
       setStageStatuses(prev => ({ ...prev, [stageId]: status }));
       completed++;
       Animated.timing(progressAnim, {
