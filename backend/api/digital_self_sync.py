@@ -351,7 +351,7 @@ async def sync_imap_email(
     edges: List[PKGEdgeOut] = []
 
     embed_texts = []
-    for addr, freq in top_contacts:
+    for _score, addr in top_contacts:
         name = contact_names.get(addr, addr.split("@")[0].replace(".", " ").title())
         domain = _domain_from_email(addr)
         label_text = f"{name} ({domain}) email contact"
@@ -359,11 +359,13 @@ async def sync_imap_email(
 
     vectors = await _embed_texts(embed_texts)
 
-    for i, (addr, freq) in enumerate(top_contacts):
+    for i, (score, addr) in enumerate(top_contacts):
         name = contact_names.get(addr, addr.split("@")[0].replace(".", " ").title())
         domain = _domain_from_email(addr)
-        node_id = _node_id_from_email(addr)  # H1: collision-resistant ID
-        rel_label, confidence = _infer_relationship_strength(freq, total_messages)
+        node_id = _node_id_from_email(addr)
+        inbox = inbox_freq.get(addr, 0)
+        sent = sent_freq.get(addr, 0)
+        rel_label, confidence = _infer_relationship_strength(int(score), int(score) * 2)
 
         nodes.append(PKGNodeOut(
             id=node_id,
