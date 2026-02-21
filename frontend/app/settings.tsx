@@ -782,6 +782,20 @@ const s = StyleSheet.create({
   title: { color: '#fff', fontSize: 18, fontWeight: '600' },
   scroll: { paddingHorizontal: 16, paddingTop: 16 },
 
+  // Tab bar
+  tabBar: {
+    flexDirection: 'row', backgroundColor: '#0A0A14',
+    borderBottomWidth: 1, borderBottomColor: '#1A1A2E',
+    paddingHorizontal: 16,
+  },
+  tabBtn: {
+    flex: 1, paddingVertical: 10, alignItems: 'center',
+    borderBottomWidth: 2, borderBottomColor: 'transparent',
+  },
+  tabBtnActive: { borderBottomColor: '#6C5CE7' },
+  tabText: { color: '#555', fontSize: 12, fontWeight: '600' },
+  tabTextActive: { color: '#6C5CE7' },
+
   section: {
     backgroundColor: '#111122', borderRadius: 14, padding: 16,
     marginBottom: 16,
