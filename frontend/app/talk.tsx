@@ -316,17 +316,13 @@ export default function TalkScreen() {
       return;
     }
     if (audioState === 'IDLE') {
-      // Gate: if DS is empty, surface the setup modal every tap until populated
+      // Gate: if DS setup was never completed, surface the setup modal every tap
       try {
-        const { loadPKG } = require('../src/digital-self/pkg');
-        const userId = wsClient.userId ?? '';
-        if (userId) {
-          const pkg = await loadPKG(userId);
-          const nodeCount = Object.keys(pkg.nodes || {}).length;
-          if (nodeCount === 0) {
-            setShowDsModal(true);
-            return;
-          }
+        const { getItem } = require('../src/utils/storage');
+        const dsSetupDone = await getItem('myndlens_ds_setup_done');
+        if (!dsSetupDone) {
+          setShowDsModal(true);
+          return;
         }
       } catch { /* non-critical — proceed anyway */ }
       setPipelineStageIndex(-1);
