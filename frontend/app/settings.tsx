@@ -631,7 +631,12 @@ export default function SettingsScreen() {
           <ActionBtn label="Delete Digital Self" onPress={handleDeleteDS} destructive />
         </Section>
 
-        {/* ─── 5. NOTIFICATIONS & VOICE ───────────────────────────────────── */}
+        </>)}
+
+        {/* ══ TAB 1: ASSISTANT ══════════════════════════════════════════════ */}
+        {activeTab === 1 && (<>
+
+        {/* ─── 1. TRAVEL MONITORING ─────────────────────────────────────── */}
         <Section title="🔔  Notifications & Voice">
           <SegmentRow
             label="Notification Mode"
