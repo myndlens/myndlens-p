@@ -132,6 +132,15 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
       setResult(importResult);
       setCurrentStageLabel('');
+
+      // Mark DS setup as completed — regardless of how many nodes were imported.
+      // The talk screen uses this flag to decide whether to show the setup modal.
+      // A device with no contacts still counts as "set up" — the user went through it.
+      try {
+        const { setItem: saveFlag } = require('../../src/utils/storage');
+        await saveFlag('myndlens_ds_setup_done', 'true');
+      } catch { /* non-critical */ }
+
       setPhase('done');
 
       // Trigger delta sync to backend after successful build
