@@ -701,6 +701,16 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#0A0A0F' },
   container: { flex: 1, paddingHorizontal: 20, backgroundColor: '#0A0A0F' },
 
+  // Digital Self modal
+  dsModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  dsModalCard: { backgroundColor: '#12121E', borderRadius: 20, padding: 28, width: '100%', borderWidth: 1, borderColor: '#2A2A3E' },
+  dsModalTitle: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 12 },
+  dsModalBody: { color: '#888', fontSize: 14, lineHeight: 21, marginBottom: 24 },
+  dsModalBtn: { backgroundColor: '#6C5CE7', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  dsModalBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  dsModalSkip: { alignItems: 'center', paddingVertical: 8 },
+  dsModalSkipText: { color: '#555568', fontSize: 13 },
+
   topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 0 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   gear: { fontSize: 22, color: '#555568' },
