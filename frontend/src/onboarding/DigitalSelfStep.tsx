@@ -33,7 +33,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   const [stageStatuses, setStageStatuses] = useState<Record<string, StageStatus>>(
     Object.fromEntries(STAGES.map(s => [s.id, 'pending'])),
   );
-  const [result, setResult] = useState<{ contacts: number; calendar: number; callLogs: number } | null>(null);
+  const [result, setResult] = useState<{ contacts: number; calendar: number; callLogs: number; contactsError?: string } | null>(null);
   const [currentStageLabel, setCurrentStageLabel] = useState('');
   const progressAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
