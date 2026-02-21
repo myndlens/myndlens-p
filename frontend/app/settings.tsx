@@ -322,7 +322,7 @@ export default function SettingsScreen() {
     try {
       const token = await getStoredToken();
       const uid = await getStoredUserId() ?? 'local';
-      const res = await fetch(`${ENV.API_URL}/digital-self/email/sync`, {
+      const res = await fetch(`${ENV.API_URL}/api/digital-self/email/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(imapCreds),
