@@ -811,7 +811,7 @@ export default function SettingsScreen() {
         </Section>
 
         <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-          <Text style={{ color: '#333350', fontSize: 12 }}>MyndLens v1.0.7 (build 8)</Text>
+          <Text style={{ color: '#333350', fontSize: 12 }}>MyndLens v1.0.8 (build 9)</Text>
         </View>
 
         </>)}
