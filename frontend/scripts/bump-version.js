@@ -19,9 +19,11 @@ const APP_JSON  = path.join(__dirname, '../app.json');
 // ── Step 1: Pull latest so we never operate on stale versionCode ────────────
 console.log('Pulling latest from remote…');
 try {
-  execSync('git pull --rebase', { cwd: REPO_ROOT, stdio: 'inherit' });
+  // Detect remote name (may be 'origin' or 'myndlens' depending on setup)
+  const remote = execSync('git remote', { cwd: REPO_ROOT }).toString().trim().split('\n')[0] || 'origin';
+  execSync(`git pull --rebase ${remote} main`, { cwd: REPO_ROOT, stdio: 'inherit' });
 } catch (e) {
-  console.error('❌ git pull --rebase failed. Resolve conflicts first.');
+  console.error('❌ git pull --rebase failed. Commit or stash local changes first.');
   process.exit(1);
 }
 
