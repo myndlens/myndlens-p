@@ -83,7 +83,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       await delay(300);
       const { runTier1Ingestion, requestCallLogPermission } = require('../digital-self/ingester');
       const { getItem } = require('../../src/utils/storage');
-      if (includeSms) await requestCallLogPermission();  // READ_CALL_LOG only — no SMS
+      await requestCallLogPermission();  // READ_CALL_LOG only (no SMS)
       const userId = (await getItem('myndlens_user_id')) ?? 'local';
       const importResult = await runTier1Ingestion(userId);
       advance('contacts', 'done');
