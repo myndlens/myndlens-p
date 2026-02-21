@@ -721,6 +721,14 @@ const styles = StyleSheet.create({
   dsModalSkip: { alignItems: 'center', paddingVertical: 8 },
   dsModalSkipText: { color: '#555568', fontSize: 13 },
 
+  // Disconnected banner
+  reconnectBanner: {
+    backgroundColor: '#2A1A1A', borderRadius: 10, paddingVertical: 10,
+    paddingHorizontal: 16, marginBottom: 8, alignItems: 'center',
+    borderWidth: 1, borderColor: '#E74C3C33',
+  },
+  reconnectText: { color: '#E74C3C', fontSize: 13, fontWeight: '600' },
+
   topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 0 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   gear: { fontSize: 22, color: '#555568' },
