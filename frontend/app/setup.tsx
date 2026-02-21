@@ -490,8 +490,59 @@ export default function SetupWizardScreen() {
           </View>
         )}
 
-        {/* Step 9: Complete */}
+        {/* Step 9: Digital Self — must be populated before Talk screen */}
         {step === 9 && (
+          <View style={styles.stepBox} data-testid="setup-digital-self">
+            <Text style={styles.title}>Build your Digital Self</Text>
+            <Text style={styles.desc}>
+              Your Digital Self is what makes MyndLens personal. The more it knows about you — your contacts, routines, and patterns — the fewer questions it needs to ask.{'\n\n'}
+              This takes about 10 seconds. You can skip it and add later in Settings.
+            </Text>
+
+            {!dsResult && !dsSkipped && (
+              <>
+                <TouchableOpacity
+                  style={[styles.primaryBtn, dsImporting && styles.disabledBtn]}
+                  onPress={handleDigitalSelf}
+                  disabled={dsImporting}
+                  data-testid="setup-import-ds"
+                >
+                  {dsImporting
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.primaryBtnText}>Import Contacts & Calendar</Text>
+                  }
+                </TouchableOpacity>
+                {dsImporting && (
+                  <Text style={[styles.desc, { textAlign: 'center', marginTop: 12 }]}>
+                    Reading your contacts and calendar patterns...
+                  </Text>
+                )}
+                <TouchableOpacity onPress={() => { setDsSkipped(true); setStep(10); }} style={styles.skipBtn}>
+                  <Text style={styles.skipText}>Skip for now</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {dsResult && (
+              <>
+                <View style={styles.dsResultBox}>
+                  <Text style={styles.dsResultTitle}>Digital Self seeded</Text>
+                  <Text style={styles.dsResultItem}>{dsResult.contacts} contacts imported</Text>
+                  <Text style={styles.dsResultItem}>{dsResult.calendar} calendar patterns extracted</Text>
+                  {dsResult.callLogs > 0 && (
+                    <Text style={styles.dsResultItem}>{dsResult.callLogs} call log signals enriched</Text>
+                  )}
+                </View>
+                <TouchableOpacity style={styles.primaryBtn} onPress={() => setStep(10)} data-testid="setup-ds-continue">
+                  <Text style={styles.primaryBtnText}>Continue</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
+
+        {/* Step 10: Complete */}
+        {step === 10 && (
           <View style={[styles.stepBox, styles.centerBox]} data-testid="setup-complete">
             <Text style={styles.successBig}>All Set!</Text>
             <Text style={styles.title}>Your AI workspace is ready</Text>
