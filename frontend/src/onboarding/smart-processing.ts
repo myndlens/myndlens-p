@@ -43,7 +43,10 @@ export function scoreAndFilterContacts(contacts: RawContact[], maxResults: numbe
 
     const email = c.emails?.[0]?.email || '';
     const phone = c.phoneNumbers?.[0]?.number || '';
-    if (!email && !phone) continue;
+    // Do NOT filter out name-only contacts — they are valid Digital Self nodes.
+    // Many Android contacts (WhatsApp sync, SIM imports, Google contacts) return
+    // empty phoneNumbers/emails arrays even when numbers exist on the device.
+    // A name-only contact is still useful for relationship inference.
 
     let score = 0;
     if (email && phone) score += 2;

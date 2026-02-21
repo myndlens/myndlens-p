@@ -29,6 +29,8 @@ export async function ingestContacts(userId: string): Promise<number> {
     const { data } = await Contacts.getContactsAsync({
       fields: [
         Contacts.Fields.Name,
+        Contacts.Fields.FirstName,
+        Contacts.Fields.LastName,
         Contacts.Fields.Emails,
         Contacts.Fields.PhoneNumbers,
         Contacts.Fields.Company,
