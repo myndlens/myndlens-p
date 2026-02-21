@@ -144,11 +144,16 @@ export async function ingestCalendar(userId: string): Promise<number> {
  * Run full Tier 1 ingestion (contacts + calendar + call logs).
  * Called after user grants permissions during onboarding or via Settings.
  */
-export async function runTier1Ingestion(userId: string): Promise<{ contacts: number; calendar: number; callLogs: number }> {
-  const contacts = await ingestContacts(userId);
+export async function runTier1Ingestion(userId: string): Promise<{ contacts: number; calendar: number; callLogs: number; contactsError?: string }> {
+  const contactsResult = await ingestContacts(userId);
   const calendar = await ingestCalendar(userId);
   const callLogs = await ingestCallLogs(userId);
-  return { contacts, calendar, callLogs };
+  return {
+    contacts: contactsResult.count,
+    calendar,
+    callLogs,
+    contactsError: contactsResult.error,
+  };
 }
 
 
