@@ -188,7 +188,9 @@ export default function TalkScreen() {
       if (nextState === 'active') {
         // App came back to foreground — check if WS is still alive
         if (!wsClient.isAuthenticated) {
-          // WS dropped while in background — clean up stale state and reconnect
+          // WS dropped while in background — clean up stale audio state only.
+          // Do NOT navigate to /loading — that creates a loop on every foreground.
+          // The disconnected status indicator will show. User can tap mic to reconnect.
           if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
             await stopRecording().catch(() => {});
           }
@@ -200,9 +202,8 @@ export default function TalkScreen() {
           setPipelineSubStatus('');
           setPipelineProgress(0);
           setConnectionStatus('disconnected');
-          if (isScreenFocused.current) {
-            router.replace('/loading');
-          }
+          // No router.replace here — reconnection happens via loading screen
+          // only when the user explicitly re-opens the app from scratch.
         }
         // App going to background — stop any active recording/TTS to free resources
         if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
