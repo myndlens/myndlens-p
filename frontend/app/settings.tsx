@@ -752,10 +752,17 @@ export default function SettingsScreen() {
           )}
         </Section>
 
+        </>)}
+
+        {/* ══ TAB 3: ACCOUNT ════════════════════════════════════════════════ */}
+        {activeTab === 3 && (<>
+
         {/* ─── ACCOUNT ────────────────────────────────────────────────────── */}
         <Section title="👤  Account">
           <ActionBtn label="Sign Out" onPress={handleSignOut} destructive />
         </Section>
+
+        </>)}
 
       </ScrollView>
     </View>
