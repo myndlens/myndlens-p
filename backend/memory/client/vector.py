@@ -59,7 +59,9 @@ def add_document(
     text: str,
     metadata: Dict[str, Any],
 ) -> None:
-    """Add a document to the vector store and persist to MongoDB."""
+    """Add a document to the vector store and persist to MongoDB.
+    The ONNX embedding function generates the vector from `text`.
+    """
     coll = _get_collection()
     coll.upsert(
         ids=[doc_id],
@@ -69,6 +71,27 @@ def add_document(
     # Persist to MongoDB immediately
     _persist_one(doc_id, text, metadata)
     logger.debug("[VectorStore] Document added+persisted: id=%s", doc_id)
+
+
+def add_document_with_embedding(
+    doc_id: str,
+    embedding: List[float],
+    metadata: Dict[str, Any],
+) -> None:
+    """Add a pre-computed embedding to the vector store (bypasses ONNX re-embedding).
+
+    Used when the embedding is generated server-side from device-provided text.
+    Text is NOT stored — only the vector + metadata.
+    """
+    coll = _get_collection()
+    coll.upsert(
+        ids=[doc_id],
+        embeddings=[embedding],
+        documents=[""],   # Empty — text was discarded after embedding
+        metadatas=[metadata],
+    )
+    _persist_one(doc_id, "", metadata)
+    logger.debug("[VectorStore] Embedding added (no text): id=%s dim=%d", doc_id, len(embedding))
 
 
 def _persist_one(doc_id: str, text: str, metadata: Dict[str, Any]) -> None:
