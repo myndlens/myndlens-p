@@ -17,7 +17,9 @@ export type WSMessageType =
   | 'transcript_partial' | 'transcript_final'
   | 'draft_update' | 'tts_audio'
   | 'execute_blocked' | 'execute_ok'
-  | 'error' | 'session_terminated';
+  | 'error' | 'session_terminated'
+  | 'ds_resolve'    // Backend → Device: resolve these node IDs
+  | 'ds_context';   // Device → Backend: here is the readable text for those nodes
 
 export interface WSEnvelope {
   type: WSMessageType;
