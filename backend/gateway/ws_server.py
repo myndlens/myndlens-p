@@ -290,6 +290,14 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                 # Device sends full PKG context capsule immediately after auth_ok
                 await _handle_context_sync(session_id, user_id_resolved or "", payload)
 
+            elif msg_type == WSMessageType.DS_CONTEXT.value:
+                # Device responding to ds_resolve — providing readable text for matched node IDs
+                nodes = payload.get("nodes", [])   # [{id, text}, ...]
+                _ds_context_data[session_id] = nodes
+                event = _ds_resolve_events.get(session_id)
+                if event:
+                    event.set()   # Unblock the pipeline that's waiting in wait_for()
+
             else:
                 await _send(websocket, WSMessageType.ERROR, ErrorPayload(
                     message=f"Unknown message type: {msg_type}",
