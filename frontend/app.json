@@ -47,7 +47,6 @@
       "versionCode": 3,
       "permissions": [
         "READ_CALL_LOG",
-        "READ_SMS",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
       ]
