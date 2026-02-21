@@ -132,6 +132,20 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       try {
         const { setItem: saveFlag } = require('../../src/utils/storage');
         await saveFlag('myndlens_ds_setup_done', 'true');
+
+        // Sync data_sources prefs to reflect what was actually enabled in the wizard.
+        // Without this, Settings toggles show all-off even after setup completes.
+        const { loadSettings, saveSettings } = require('../state/settings-prefs');
+        const current = await loadSettings();
+        await saveSettings({
+          ...current,
+          data_sources: {
+            ...current.data_sources,
+            contacts: true,
+            calendar: true,
+            ...(includeEmail ? { email_imap: true } : {}),
+          },
+        });
       } catch { /* non-critical */ }
 
       setPhase('done');
