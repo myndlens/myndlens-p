@@ -145,6 +145,17 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       setResult(importResult);
       setCurrentStageLabel('');
       setPhase('done');
+
+      // Trigger delta sync to backend after successful build
+      try {
+        const { syncPKGToBackend } = require('../../digital-self/sync');
+        const { getItem } = require('../../src/utils/storage');
+        const userId = (await getItem('myndlens_user_id')) ?? 'local';
+        await syncPKGToBackend(userId, true); // force=true for first full sync
+        console.log('[DS] Initial full sync to backend complete');
+      } catch (err) {
+        console.log('[DS] Initial sync failed (non-fatal):', err);
+      }
     } catch (err) {
       // Non-fatal — show partial result
       setResult({ contacts: 0, calendar: 0, callLogs: 0 });
