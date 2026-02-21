@@ -9,8 +9,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://mandate-pipeline-1.preview.emergentagent.com",
-        "EXPO_PUBLIC_OBEGEE_URL": "https://mandate-pipeline-1.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://app.myndlens.com",
+        "EXPO_PUBLIC_OBEGEE_URL": "https://obegee.co.uk"
       }
     }
   },
