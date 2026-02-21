@@ -371,7 +371,8 @@ async def sync_imap_email(
             id=node_id,
             type="Person",
             label=name,
-            data={"domain": domain, "email_frequency": freq},
+            data={"domain": domain, "inbox_count": inbox, "sent_count": sent,
+                  "bidirectional": inbox > 0 and sent > 0},
             confidence=confidence,
             provenance="EMAIL",
             vector=vectors[i] if i < len(vectors) else [],
@@ -385,7 +386,7 @@ async def sync_imap_email(
             label=rel_label,
             confidence=confidence,
             provenance="EMAIL",
-            data={"frequency": freq, "direction": "email"},
+            data={"inbox_count": inbox, "sent_count": sent, "direction": "email"},
         ))
 
     #    Extract Interest nodes from subject clustering                             
