@@ -281,14 +281,14 @@ export default function SetupWizardScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
         {/* Progress */}
-        {step > 0 && step < 8 && (
+        {step > 0 && step < 9 && (
           <View style={styles.progressRow}>
             {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
               <View key={i} style={[styles.progressDot, i <= step && styles.progressDotActive]} />
             ))}
           </View>
         )}
-        {step > 0 && step < 8 && <Text style={styles.progressLabel}>Step {step} of {TOTAL_STEPS} - {STEP_LABELS[step]}</Text>}
+        {step > 0 && step < 9 && <Text style={styles.progressLabel}>Step {step} of {TOTAL_STEPS} - {STEP_LABELS[step]}</Text>}
 
         {/* Step 0: Welcome */}
         {step === 0 && (
