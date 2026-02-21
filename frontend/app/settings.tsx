@@ -471,45 +471,93 @@ export default function SettingsScreen() {
             />
           )}
 
-          <Text style={s.subHeading}>Email Access</Text>
-          <CheckRow
-            label="Gmail (App Password)"
-            sub="Generate at myaccount.google.com/apppasswords"
-            value={prefs.data_sources.email_gmail}
-            onChange={v => update({ data_sources: { ...prefs.data_sources, email_gmail: v } })}
-          />
-          {prefs.data_sources.email_gmail && (
-            <View style={s.credForm}>
-              <TextInput style={s.credInput} placeholder="Gmail App Password" placeholderTextColor="#555"
-                secureTextEntry value={gmailToken} onChangeText={setGmailToken}
-                autoCapitalize="none" />
-              <ActionBtn label="Save Token" onPress={handleSaveGmail} />
-            </View>
-          )}
+          {/* Email Access — optional, collapsed until user enables it */}
+          <View style={{ marginTop: 8 }}>
+            <CheckRow
+              label="Email Access"
+              sub="Allow MyndLens to learn from your email patterns (optional)"
+              value={!!(prefs.data_sources.email_gmail || prefs.data_sources.email_outlook || prefs.data_sources.email_imap)}
+              onChange={v => {
+                if (!v) {
+                  // Disable all email sources at once
+                  update({ data_sources: { ...prefs.data_sources, email_gmail: false, email_outlook: false, email_imap: false } });
+                } else {
+                  // Enable IMAP as default option
+                  update({ data_sources: { ...prefs.data_sources, email_imap: true } });
+                }
+              }}
+            />
+          </View>
 
-          <CheckRow label="Outlook" value={prefs.data_sources.email_outlook}
-            onChange={v => update({ data_sources: { ...prefs.data_sources, email_outlook: v } })} />
+          {(prefs.data_sources.email_gmail || prefs.data_sources.email_outlook || prefs.data_sources.email_imap) && (
+            <View style={{ marginLeft: 8 }}>
+              <Text style={s.subHeading}>Email Provider</Text>
 
-          <CheckRow label="Other (IMAP / Gmail IMAP)" value={prefs.data_sources.email_imap}
-            onChange={v => update({ data_sources: { ...prefs.data_sources, email_imap: v } })} />
-          {prefs.data_sources.email_imap && (
-            <View style={s.credForm}>
-              <TextInput style={s.credInput} placeholder="IMAP Host (e.g. imap.gmail.com)" placeholderTextColor="#555"
-                value={imapCreds.host} onChangeText={v => setImapCreds(c => ({ ...c, host: v }))}
-                autoCapitalize="none" autoCorrect={false} />
-              <TextInput style={s.credInput} placeholder="Port (993)" placeholderTextColor="#555"
-                keyboardType="numeric"
-                value={String(imapCreds.port)} onChangeText={v => setImapCreds(c => ({ ...c, port: parseInt(v) || 993 }))} />
-              <TextInput style={s.credInput} placeholder="Email address" placeholderTextColor="#555"
-                value={imapCreds.email} onChangeText={v => setImapCreds(c => ({ ...c, email: v }))}
-                autoCapitalize="none" keyboardType="email-address" />
-              <TextInput style={s.credInput} placeholder="Password or App Password" placeholderTextColor="#555"
-                secureTextEntry value={imapCreds.password} onChangeText={v => setImapCreds(c => ({ ...c, password: v }))} />
-              <View style={s.credBtns}>
-                <ActionBtn label={imapSaved ? '✓ Saved' : 'Save Credentials'} onPress={handleSaveIMAP} />
-                <ActionBtn label={syncing ? 'Syncing…' : 'Sync Now'} onPress={handleSyncEmail} />
-              </View>
-              {syncResult ? <Text style={s.syncResult}>{syncResult}</Text> : null}
+              <CheckRow
+                label="Gmail (App Password)"
+                sub="Generate at myaccount.google.com/apppasswords"
+                value={prefs.data_sources.email_gmail}
+                onChange={v => update({ data_sources: { ...prefs.data_sources, email_gmail: v, email_imap: false, email_outlook: false } })}
+              />
+              {prefs.data_sources.email_gmail && (
+                <View style={s.credForm}>
+                  <TextInput style={s.credInput} placeholder="Gmail address" placeholderTextColor="#555"
+                    value={imapCreds.email} onChangeText={v => setImapCreds(c => ({ ...c, email: v }))}
+                    autoCapitalize="none" keyboardType="email-address" />
+                  <TextInput style={s.credInput} placeholder="App Password (16 chars)" placeholderTextColor="#555"
+                    secureTextEntry value={gmailToken} onChangeText={setGmailToken}
+                    autoCapitalize="none" />
+                  <ActionBtn label="Save" onPress={handleSaveGmail} />
+                </View>
+              )}
+
+              <CheckRow
+                label="Outlook / Microsoft 365"
+                sub="Use an App Password from account.microsoft.com/security"
+                value={prefs.data_sources.email_outlook}
+                onChange={v => update({ data_sources: { ...prefs.data_sources, email_outlook: v, email_gmail: false, email_imap: false } })}
+              />
+              {prefs.data_sources.email_outlook && (
+                <View style={s.credForm}>
+                  <TextInput style={s.credInput} placeholder="Outlook / Hotmail address" placeholderTextColor="#555"
+                    value={imapCreds.email} onChangeText={v => setImapCreds(c => ({ ...c, email: v, host: 'outlook.office365.com', port: 993 }))}
+                    autoCapitalize="none" keyboardType="email-address" />
+                  <TextInput style={s.credInput} placeholder="App Password" placeholderTextColor="#555"
+                    secureTextEntry value={imapCreds.password} onChangeText={v => setImapCreds(c => ({ ...c, password: v }))} />
+                  <View style={s.credBtns}>
+                    <ActionBtn label={imapSaved ? '✓ Saved' : 'Save Credentials'} onPress={handleSaveIMAP} />
+                    <ActionBtn label={syncing ? 'Syncing…' : 'Sync Now'} onPress={handleSyncEmail} />
+                  </View>
+                  {syncResult ? <Text style={s.syncResult}>{syncResult}</Text> : null}
+                </View>
+              )}
+
+              <CheckRow
+                label="Other (IMAP)"
+                sub="Any IMAP-compatible mail server"
+                value={prefs.data_sources.email_imap}
+                onChange={v => update({ data_sources: { ...prefs.data_sources, email_imap: v, email_gmail: false, email_outlook: false } })}
+              />
+              {prefs.data_sources.email_imap && (
+                <View style={s.credForm}>
+                  <TextInput style={s.credInput} placeholder="IMAP Host (e.g. imap.gmail.com)" placeholderTextColor="#555"
+                    value={imapCreds.host} onChangeText={v => setImapCreds(c => ({ ...c, host: v }))}
+                    autoCapitalize="none" autoCorrect={false} />
+                  <TextInput style={s.credInput} placeholder="Port (993)" placeholderTextColor="#555"
+                    keyboardType="numeric"
+                    value={String(imapCreds.port)} onChangeText={v => setImapCreds(c => ({ ...c, port: parseInt(v) || 993 }))} />
+                  <TextInput style={s.credInput} placeholder="Email address" placeholderTextColor="#555"
+                    value={imapCreds.email} onChangeText={v => setImapCreds(c => ({ ...c, email: v }))}
+                    autoCapitalize="none" keyboardType="email-address" />
+                  <TextInput style={s.credInput} placeholder="Password or App Password" placeholderTextColor="#555"
+                    secureTextEntry value={imapCreds.password} onChangeText={v => setImapCreds(c => ({ ...c, password: v }))} />
+                  <View style={s.credBtns}>
+                    <ActionBtn label={imapSaved ? '✓ Saved' : 'Save Credentials'} onPress={handleSaveIMAP} />
+                    <ActionBtn label={syncing ? 'Syncing…' : 'Sync Now'} onPress={handleSyncEmail} />
+                  </View>
+                  {syncResult ? <Text style={s.syncResult}>{syncResult}</Text> : null}
+                </View>
+              )}
             </View>
           )}
 
