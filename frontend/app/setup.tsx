@@ -45,6 +45,22 @@ export default function SetupWizardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [step, setStep] = useState(0);
+
+  // If the user already has a valid auth token (they paired from ObeGee directly),
+  // skip the ObeGee account creation steps (0-4) and start from Step 5 (Activating).
+  // They already have an account + workspace — no need to create one.
+  useEffect(() => {
+    (async () => {
+      const { getItem } = require('../src/utils/storage');
+      const token = await getItem('myndlens_auth_token');
+      const tenantIdStored = await getItem('myndlens_tenant_id');
+      if (token && tenantIdStored) {
+        setAuthToken(token);
+        setTenantId(tenantIdStored);
+        setStep(5);  // Jump to Activating — skip account/workspace/plan/payment
+      }
+    })();
+  }, []);
   const [loading, setLoading] = useState(false);
   // Account
   const [name, setName] = useState('');
