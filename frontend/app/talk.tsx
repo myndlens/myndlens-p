@@ -111,6 +111,23 @@ export default function TalkScreen() {
     new Animated.Value(4),
   ]).current;
 
+  // Request microphone permission immediately on mount — before the user taps the mic.
+  // On Android, this triggers the system dialog on first open. On iOS it shows
+  // the NSMicrophoneUsageDescription dialog. Both are no-ops if already granted.
+  useEffect(() => {
+    (async () => {
+      try {
+        const { Audio } = require('expo-av');
+        await Audio.requestPermissionsAsync();
+        // Also configure the audio session for recording (iOS background audio mode)
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+      } catch { /* graceful — if expo-av is unavailable in web builds */ }
+    })();
+  }, []);
+
   // Drive waveform bars from live VAD energy — each bar gets a different height multiplier
   const WAVE_PROFILE = [0.55, 0.85, 1.0, 0.85, 0.55]; // centre bar tallest
   useEffect(() => {
