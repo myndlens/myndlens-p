@@ -509,8 +509,76 @@ async def api_recall(req: RecallRequest):
 
 
 # =====================================================
-#  Commit State Machine APIs (Batch 6)
+#  Digital Self Vector Sync (Device → Backend)
+#  Receives node text, generates ONNX vector, stores
+#  vector only — text is NEVER persisted.
 # =====================================================
+
+class DSSyncNode(BaseModel):
+    node_id: str
+    text: str   # Used to generate embedding only. Discarded after.
+
+class DSSyncRequest(BaseModel):
+    user_id: str
+    nodes: List[DSSyncNode]
+
+class DSTombstoneRequest(BaseModel):
+    user_id: str
+    deleted_node_ids: List[str]
+
+
+@api_router.post("/digital-self/sync")
+async def api_ds_sync(req: DSSyncRequest, request: Request):
+    """Receive PKG node texts from device, embed via ONNX, store vectors only.
+
+    The text payload is used ONCE to generate a 384-dim ONNX vector.
+    Only the vector + node_id + user_id metadata is stored in ChromaDB/MongoDB.
+    The text is never written to any database.
+    """
+    from memory.client.vector import add_document
+    from memory.client.embedder import embed
+
+    if not req.nodes:
+        return {"synced": 0}
+
+    texts = [n.text for n in req.nodes]
+    vectors = embed(texts)
+
+    synced = 0
+    for node, vector in zip(req.nodes, vectors):
+        add_document(
+            doc_id=node.node_id,
+            text="",           # Intentionally empty — text is NOT stored
+            metadata={
+                "user_id": req.user_id,
+                "node_id": node.node_id,
+                "synced_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        synced += 1
+
+    logger.info("[DS Sync] user=%s synced=%d nodes", req.user_id, synced)
+    return {"synced": synced}
+
+
+@api_router.delete("/digital-self/sync")
+async def api_ds_tombstone(req: DSTombstoneRequest):
+    """Remove vectors for deleted PKG nodes."""
+    from memory.client.vector import delete_document
+
+    deleted = 0
+    for node_id in req.deleted_node_ids:
+        try:
+            delete_document(node_id)
+            deleted += 1
+        except Exception:
+            pass
+
+    logger.info("[DS Sync] user=%s tombstoned=%d nodes", req.user_id, deleted)
+    return {"deleted": deleted}
+
+
+
 
 class CreateCommitRequest(BaseModel):
     session_id: str
