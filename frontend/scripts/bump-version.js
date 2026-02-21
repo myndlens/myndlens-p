@@ -43,3 +43,14 @@ fs.writeFileSync(APP_JSON, JSON.stringify(appJson, null, 2) + '\n');
 console.log(`✅ Version bumped: versionCode ${oldCode} → ${newCode}  (versionName: ${versionName})`);
 console.log(`   build.gradle updated`);
 console.log(`   app.json updated`);
+
+// ── Commit immediately so git pull never conflicts ──────────────────────────
+const { execSync } = require('child_process');
+try {
+  execSync(`git -C "${path.join(__dirname, '../..')}" add frontend/android/app/build.gradle frontend/app.json`, { stdio: 'inherit' });
+  execSync(`git -C "${path.join(__dirname, '../..')}" commit -m "chore: bump versionCode to ${newCode}"`, { stdio: 'inherit' });
+  console.log(`   committed to git`);
+} catch (e) {
+  console.error('❌ git commit failed:', e.message);
+  process.exit(1);
+}
