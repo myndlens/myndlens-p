@@ -597,7 +597,29 @@ export default function SettingsScreen() {
         {/* ══ TAB 1: ASSISTANT ══════════════════════════════════════════════ */}
         {activeTab === 1 && (<>
 
-        {/* ─── 1. TRAVEL MONITORING ─────────────────────────────────────── */}
+        {/* ─── TRAVEL MONITORING ─────────────────────────────────────────── */}
+        <Section title="✈️  Travel Monitoring & Concierge">
+          <CheckRow
+            label="Enable proactive travel monitoring"
+            sub="Monitor flights, hotels, and ground travel for disruptions and automatically reduce friction."
+            value={prefs.travel_monitoring_enabled}
+            onChange={v => update({ travel_monitoring_enabled: v })}
+          />
+          {prefs.travel_monitoring_enabled && (
+            <>
+              <Text style={s.subHeading}>Monitoring Scope</Text>
+              <CheckRow label="Flights" value={prefs.travel_scope.flights} onChange={v => update({ travel_scope: { ...prefs.travel_scope, flights: v } })} />
+              <CheckRow label="Hotels" value={prefs.travel_scope.hotels} onChange={v => update({ travel_scope: { ...prefs.travel_scope, hotels: v } })} />
+              <CheckRow label="Ground transport" value={prefs.travel_scope.ground} onChange={v => update({ travel_scope: { ...prefs.travel_scope, ground: v } })} />
+              <Text style={s.subHeading}>Auto-Action Policy</Text>
+              <CheckRow label="Low-risk actions (default ON)" sub="Notify hotel of late arrival · Adjust pickup timing" value={prefs.auto_action.low_risk} onChange={v => update({ auto_action: { ...prefs.auto_action, low_risk: v } })} />
+              <CheckRow label="Medium-risk actions" sub="Change seat · Request bed type · Meal requests — confirm once per trip" value={prefs.auto_action.medium_risk} onChange={v => update({ auto_action: { ...prefs.auto_action, medium_risk: v } })} />
+              <CheckRow label="High-risk actions" sub="Rebook flights · Change fare class · Alternate hotel — always ask" value={prefs.auto_action.high_risk} onChange={v => update({ auto_action: { ...prefs.auto_action, high_risk: v } })} />
+            </>
+          )}
+        </Section>
+
+        {/* ─── NOTIFICATIONS & VOICE ─────────────────────────────────────── */}
         <Section title="🔔  Notifications & Voice">
           <SegmentRow
             label="Notification Mode"
