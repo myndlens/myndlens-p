@@ -788,10 +788,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.9,
     elevation: 10,
   },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
-  },
   chatFABIcon: { fontSize: 24 },
   chatBadge: {
     position: 'absolute', top: 6, right: 6,
