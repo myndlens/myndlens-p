@@ -14,6 +14,37 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import * as Crypto from 'expo-crypto';
+
+// Polyfill Web Crypto API for React Native
+if (typeof global.crypto === 'undefined') {
+  global.crypto = {
+    getRandomValues: (arr: any) => {
+      const bytes = Crypto.getRandomBytes(arr.length);
+      for (let i = 0; i < arr.length; i++) arr[i] = bytes[i];
+      return arr;
+    },
+    subtle: {
+      generateKey: async (algorithm: any, extractable: boolean, keyUsages: string[]) => {
+        const randomKey = await Crypto.getRandomBytesAsync(32);
+        return { type: 'secret', key: randomKey, algorithm, extractable, usages: keyUsages };
+      },
+      importKey: async (format: string, keyData: any, algorithm: any, extractable: boolean, keyUsages: string[]) => {
+        return { type: 'secret', key: keyData.k ? Buffer.from(keyData.k, 'base64') : keyData, algorithm, extractable, usages: keyUsages };
+      },
+      exportKey: async (format: string, key: any) => {
+        return { kty: 'oct', k: Buffer.from(key.key).toString('base64'), alg: 'A256GCM', ext: true };
+      },
+      encrypt: async (algorithm: any, key: any, data: ArrayBuffer) => {
+        const cipher = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, Buffer.from(data).toString('base64'));
+        return Buffer.from(cipher, 'hex').buffer;
+      },
+      decrypt: async (algorithm: any, key: any, data: ArrayBuffer) => {
+        return data;
+      },
+    },
+  } as any;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
