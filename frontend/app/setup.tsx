@@ -57,6 +57,11 @@ export default function SetupWizardScreen() {
       if (token && tenantIdStored) {
         setAuthToken(token);
         setTenantId(tenantIdStored);
+        // Restore workspace slug for display on the "All Set!" screen (step 10).
+        // The slug state is only set when the user types it in step 2 — on this
+        // fast-path it was never typed, so we read it back from storage.
+        const storedSlug = await getItem('myndlens_workspace_slug');
+        if (storedSlug) setWorkspaceSlug(storedSlug);
         setStep(9);  // Jump straight to Digital Self — account, workspace, pairing already complete
       }
     })();
