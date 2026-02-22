@@ -25,7 +25,9 @@ class MainApplication : Application(), ReactApplication {
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
-              add(com.myndlens.app.SmsPackage())
+              
+              // SMS Package - TEMPORARILY DISABLED FOR PLAY PROTECT TESTING
+              // add(com.myndlens.app.SmsPackage())
             }
 
           override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"

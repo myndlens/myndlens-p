@@ -22,13 +22,13 @@
   <uses-permission android:name="android.permission.BLUETOOTH"/>
   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
   
-  <!-- SMS App Permissions -->
-  <uses-permission android:name="android.permission.READ_SMS"/>
-  <uses-permission android:name="android.permission.RECEIVE_SMS"/>
-  <uses-permission android:name="android.permission.SEND_SMS"/>
-  <uses-permission android:name="android.permission.WRITE_SMS"/>
-  <uses-permission android:name="android.permission.RECEIVE_MMS"/>
-  <uses-permission android:name="android.permission.RECEIVE_WAP_PUSH"/>
+  <!-- SMS App Permissions - TEMPORARILY DISABLED FOR PLAY PROTECT TESTING -->
+  <!-- <uses-permission android:name="android.permission.READ_SMS"/> -->
+  <!-- <uses-permission android:name="android.permission.RECEIVE_SMS"/> -->
+  <!-- <uses-permission android:name="android.permission.SEND_SMS"/> -->
+  <!-- <uses-permission android:name="android.permission.WRITE_SMS"/> -->
+  <!-- <uses-permission android:name="android.permission.RECEIVE_MMS"/> -->
+  <!-- <uses-permission android:name="android.permission.RECEIVE_WAP_PUSH"/> -->
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
@@ -53,7 +53,8 @@
       </intent-filter>
     </activity>
 
-    <!-- SMS Broadcast Receiver - Required for SMS app functionality -->
+    <!-- SMS FUNCTIONALITY - TEMPORARILY DISABLED FOR PLAY PROTECT TESTING -->
+    <!--
     <receiver android:name=".SmsReceiver" 
               android:permission="android.permission.BROADCAST_SMS"
               android:exported="true">
@@ -66,7 +67,6 @@
       </intent-filter>
     </receiver>
 
-    <!-- SMS Compose Activity - Required for SMS app functionality -->
     <activity android:name=".ComposeSmsActivity"
               android:exported="true"
               android:theme="@android:style/Theme.Translucent.NoTitleBar">
@@ -81,6 +81,7 @@
         <data android:scheme="mmsto"/>
       </intent-filter>
     </activity>
+    -->
 
   </application>
 </manifest>
