@@ -102,6 +102,10 @@ export default function TalkScreen() {
   const [liveEnergy, setLiveEnergy] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
   const [showDsModal, setShowDsModal] = useState(false);
+  const [clarificationQuestion, setClarificationQuestion] = useState<{
+    question: string;
+    options: string[];
+  } | null>(null);
 
   // Track whether THIS screen is focused — prevents talk.tsx WS handlers
   // from navigating to /loading while the user is in Settings or another screen.
