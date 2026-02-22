@@ -68,6 +68,10 @@ export class MyndLensWSClient {
    */
   async connect(): Promise<void> {
     if (this.ws) {
+      // Closing the old socket intentionally — suppress the session_terminated
+      // event that onclose would normally dispatch. This close is part of a
+      // controlled reconnect, not an unexpected session loss.
+      this._suppressNextClose = true;
       this.disconnect();
     }
 
