@@ -16,8 +16,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 
-// Polyfill Web Crypto API for React Native
+// Polyfill Web Crypto API for React Native (minimal stub for PKG encryption)
 if (typeof global.crypto === 'undefined') {
+  // Helper: Array to base64
+  const arrayToBase64 = (arr: Uint8Array): string => {
+    let binary = '';
+    for (let i = 0; i < arr.length; i++) {
+      binary += String.fromCharCode(arr[i]);
+    }
+    return btoa(binary);
+  };
+
+  // Helper: base64 to Array
+  const base64ToArray = (base64: string): Uint8Array => {
+    const binary = atob(base64);
+    const arr = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      arr[i] = binary.charCodeAt(i);
+    }
+    return arr;
+  };
+
   global.crypto = {
     getRandomValues: (arr: any) => {
       const bytes = Crypto.getRandomBytes(arr.length);
@@ -27,20 +46,52 @@ if (typeof global.crypto === 'undefined') {
     subtle: {
       generateKey: async (algorithm: any, extractable: boolean, keyUsages: string[]) => {
         const randomKey = await Crypto.getRandomBytesAsync(32);
-        return { type: 'secret', key: randomKey, algorithm, extractable, usages: keyUsages };
+        return { 
+          type: 'secret', 
+          key: new Uint8Array(randomKey), 
+          algorithm, 
+          extractable, 
+          usages: keyUsages 
+        };
       },
       importKey: async (format: string, keyData: any, algorithm: any, extractable: boolean, keyUsages: string[]) => {
-        return { type: 'secret', key: keyData.k ? Buffer.from(keyData.k, 'base64') : keyData, algorithm, extractable, usages: keyUsages };
+        const keyBytes = keyData.k ? base64ToArray(keyData.k) : new Uint8Array(keyData);
+        return { 
+          type: 'secret', 
+          key: keyBytes, 
+          algorithm, 
+          extractable, 
+          usages: keyUsages 
+        };
       },
       exportKey: async (format: string, key: any) => {
-        return { kty: 'oct', k: Buffer.from(key.key).toString('base64'), alg: 'A256GCM', ext: true };
+        const keyBase64 = arrayToBase64(new Uint8Array(key.key));
+        return { 
+          kty: 'oct', 
+          k: keyBase64, 
+          alg: 'A256GCM', 
+          ext: true 
+        };
       },
       encrypt: async (algorithm: any, key: any, data: ArrayBuffer) => {
-        const cipher = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, Buffer.from(data).toString('base64'));
-        return Buffer.from(cipher, 'hex').buffer;
+        // Simple XOR encryption as fallback (not cryptographically secure, but prevents plaintext storage)
+        const keyBytes = new Uint8Array(key.key);
+        const dataBytes = new Uint8Array(data);
+        const encrypted = new Uint8Array(dataBytes.length);
+        for (let i = 0; i < dataBytes.length; i++) {
+          encrypted[i] = dataBytes[i] ^ keyBytes[i % keyBytes.length];
+        }
+        return encrypted.buffer;
       },
       decrypt: async (algorithm: any, key: any, data: ArrayBuffer) => {
-        return data;
+        // XOR decryption (same as encryption for XOR)
+        const keyBytes = new Uint8Array(key.key);
+        const dataBytes = new Uint8Array(data);
+        const decrypted = new Uint8Array(dataBytes.length);
+        for (let i = 0; i < dataBytes.length; i++) {
+          decrypted[i] = dataBytes[i] ^ keyBytes[i % keyBytes.length];
+        }
+        return decrypted.buffer;
       },
     },
   } as any;
