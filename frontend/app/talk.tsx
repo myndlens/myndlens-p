@@ -21,7 +21,7 @@ import { useCallback } from 'react';
 import { wsClient, WSEnvelope, WSMessageType } from '../src/ws/client';
 import { useSessionStore } from '../src/state/session-store';
 import { useAudioStore } from '../src/audio/state-machine';
-import { startRecording, stopRecording } from '../src/audio/recorder';
+import { startRecording, stopRecording, stopAndGetAudio } from '../src/audio/recorder';
 import * as TTS from '../src/tts/player';
 import { buildContextCapsule } from '../src/digital-self';
 import { MicIcon } from '../src/ui/icons';
