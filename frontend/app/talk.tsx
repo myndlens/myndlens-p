@@ -190,12 +190,23 @@ export default function TalkScreen() {
   // AppState: detect background → foreground transition
   useEffect(() => {
     const appStateSub = AppState.addEventListener('change', async (nextState) => {
-      if (nextState === 'active') {
-        // App came back to foreground — check if WS is still alive
+      if (nextState === 'background' || nextState === 'inactive') {
+        // ── Going to background ──────────────────────────────────────────────
+        appInBackground.current = true;
+        // Stop active media to free resources and avoid recording in background
+        if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
+          await stopRecording().catch(() => {});
+          transition('IDLE');
+        }
+        if (audioState === 'RESPONDING') {
+          await TTS.stop().catch(() => {});
+        }
+      } else if (nextState === 'active') {
+        // ── Returning to foreground ──────────────────────────────────────────
+        appInBackground.current = false;
         if (!wsClient.isAuthenticated) {
-          // WS dropped while in background — clean up stale audio state only.
-          // Do NOT navigate to /loading — that creates a loop on every foreground.
-          // The disconnected status indicator will show. User can tap mic to reconnect.
+          // WS dropped while in background — reset audio state and show
+          // the disconnected banner. The user can tap mic or the banner to reconnect.
           if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
             await stopRecording().catch(() => {});
           }
@@ -207,16 +218,11 @@ export default function TalkScreen() {
           setPipelineSubStatus('');
           setPipelineProgress(0);
           setConnectionStatus('disconnected');
-          // No router.replace here — reconnection happens via loading screen
-          // only when the user explicitly re-opens the app from scratch.
-        }
-        // App going to background — stop any active recording/TTS to free resources
-        if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
-          await stopRecording().catch(() => {});
-          transition('IDLE');
-        }
-        if (audioState === 'RESPONDING') {
-          await TTS.stop().catch(() => {});
+          // Navigate to loading for reconnect only if we're sure the session
+          // is gone and the app is now in the foreground.
+          if (isScreenFocused.current) {
+            router.replace('/loading');
+          }
         }
       }
     });
