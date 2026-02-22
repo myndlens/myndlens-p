@@ -26,6 +26,7 @@ export default function LoadingScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const retryCount = useRef(0);
   const MAX_RETRIES = 8;
+  const activating = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
