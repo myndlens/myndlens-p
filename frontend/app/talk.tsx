@@ -110,6 +110,7 @@ export default function TalkScreen() {
   // Track whether THIS screen is focused — prevents talk.tsx WS handlers
   // from navigating to /loading while the user is in Settings or another screen.
   const isScreenFocused = useRef(true);
+  const appInBackground = useRef(false);
   useFocusEffect(useCallback(() => {
     isScreenFocused.current = true;
     return () => { isScreenFocused.current = false; };
