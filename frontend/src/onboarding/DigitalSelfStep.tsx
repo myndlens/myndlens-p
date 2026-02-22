@@ -42,9 +42,11 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   const [permContacts, setPermContacts] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [permCalendar, setPermCalendar] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [permLocation, setPermLocation] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [permMedia, setPermMedia] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [canAskContacts, setCanAskContacts] = useState(true);
   const [canAskCalendar, setCanAskCalendar] = useState(true);
   const [canAskLocation, setCanAskLocation] = useState(true);
+  const [canAskMedia, setCanAskMedia] = useState(true);
   const [checkingPerms, setCheckingPerms] = useState(false);
 
   // Check permissions on mount
@@ -85,8 +87,13 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       const locationPerm = await Location.getForegroundPermissionsAsync();
       setPermLocation(locationPerm.status === 'granted' ? 'granted' : 'denied');
 
-      // Auto-advance if all granted
-      if (contactsPerm.status === 'granted' && calendarPerm.status === 'granted') {
+      // Media/Photos (expo-media-library)
+      const MediaLibrary = require('expo-media-library');
+      const mediaPerm = await MediaLibrary.getPermissionsAsync();
+      setPermMedia(mediaPerm.status === 'granted' ? 'granted' : 'denied');
+
+      // Auto-advance if all required granted
+      if (contactsPerm.status === 'granted' && calendarPerm.status === 'granted' && mediaPerm.status === 'granted') {
         setPhase('source');
       }
     } catch (err) {
@@ -129,6 +136,18 @@ export default function DigitalSelfStep({ onComplete }: Props) {
     } catch (err) {
       console.log('[DigitalSelfStep] Location permission request failed:', err);
       setPermLocation('denied');
+    }
+  };
+
+  const requestMediaPermission = async () => {
+    try {
+      const MediaLibrary = require('expo-media-library');
+      const result = await MediaLibrary.requestPermissionsAsync();
+      setPermMedia(result.status === 'granted' ? 'granted' : 'denied');
+      setCanAskMedia(result.canAskAgain !== false);
+    } catch (err) {
+      console.log('[DigitalSelfStep] Media permission request failed:', err);
+      setPermMedia('denied');
     }
   };
 
