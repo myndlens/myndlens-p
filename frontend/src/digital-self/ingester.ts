@@ -88,7 +88,10 @@ export async function ingestCalendar(userId: string): Promise<number> {
     // Get events from last 30 days
     const end = new Date();
     const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    console.log(`[Ingester] Fetching calendar events from ${start.toISOString()} to ${end.toISOString()}`);
+    
     const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+    console.log(`[Ingester] Found ${calendars.length} calendars on device`);
     const calendarIds = calendars.map((c: any) => c.id);
 
     // Guard: no calendars granted — nothing to ingest
@@ -98,8 +101,10 @@ export async function ingestCalendar(userId: string): Promise<number> {
     }
 
     const events = await Calendar.getEventsAsync(calendarIds, start, end);
+    console.log(`[Ingester] Fetched ${events.length} raw calendar events`);
 
     const { routines, patterns } = extractCalendarPatterns(events);
+    console.log(`[Ingester] Extracted ${routines.length} routines, ${patterns.length} patterns`);
 
     let count = 0;
     for (const routine of routines) {
