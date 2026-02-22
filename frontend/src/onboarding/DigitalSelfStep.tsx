@@ -28,7 +28,7 @@ interface Props {
 }
 
 export default function DigitalSelfStep({ onComplete }: Props) {
-  const [phase, setPhase] = useState<'source' | 'building' | 'done'>('source');
+  const [phase, setPhase] = useState<'permissions' | 'source' | 'building' | 'done'>('permissions');
   const [includeEmail, setIncludeEmail] = useState(false);
   const [stageStatuses, setStageStatuses] = useState<Record<string, StageStatus>>(
     Object.fromEntries(STAGES.map(s => [s.id, 'pending'])),
@@ -37,6 +37,12 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   const [currentStageLabel, setCurrentStageLabel] = useState('');
   const progressAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Permission states
+  const [permContacts, setPermContacts] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [permCalendar, setPermCalendar] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [permLocation, setPermLocation] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [checkingPerms, setCheckingPerms] = useState(false);
 
   // Pulse the ONNX brain icon while building
   useEffect(() => {
