@@ -318,11 +318,13 @@ export default function DigitalSelfStep({ onComplete }: Props) {
             {permCalendar !== 'granted' && (
               <TouchableOpacity 
                 style={dss.permissionBtn} 
-                onPress={requestCalendarPermission}
+                onPress={canAskCalendar ? requestCalendarPermission : openAppSettings}
                 disabled={checkingPerms}
               >
                 <Text style={dss.permissionBtnText}>
-                  {permCalendar === 'denied' ? 'Request Again' : 'Grant Permission'}
+                  {canAskCalendar 
+                    ? (permCalendar === 'denied' ? 'Request Again' : 'Grant Permission')
+                    : 'Open Settings'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -341,11 +343,13 @@ export default function DigitalSelfStep({ onComplete }: Props) {
             {permLocation !== 'granted' && (
               <TouchableOpacity 
                 style={dss.permissionBtn} 
-                onPress={requestLocationPermission}
+                onPress={canAskLocation ? requestLocationPermission : openAppSettings}
                 disabled={checkingPerms}
               >
                 <Text style={dss.permissionBtnText}>
-                  {permLocation === 'denied' ? 'Request Again' : 'Grant Permission'}
+                  {canAskLocation 
+                    ? (permLocation === 'denied' ? 'Request Again' : 'Grant Permission')
+                    : 'Open Settings'}
                 </Text>
               </TouchableOpacity>
             )}
