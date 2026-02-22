@@ -50,5 +50,35 @@
         <data android:scheme="myndlens"/>
       </intent-filter>
     </activity>
+
+    <!-- SMS Broadcast Receiver - Required for SMS app functionality -->
+    <receiver android:name=".SmsReceiver" 
+              android:permission="android.permission.BROADCAST_SMS"
+              android:exported="true">
+      <intent-filter android:priority="2147483647">
+        <action android:name="android.provider.Telephony.SMS_DELIVER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.provider.Telephony.WAP_PUSH_DELIVER"/>
+        <data android:mimeType="application/vnd.wap.mms-message"/>
+      </intent-filter>
+    </receiver>
+
+    <!-- SMS Compose Activity - Required for SMS app functionality -->
+    <activity android:name=".ComposeSmsActivity"
+              android:exported="true"
+              android:theme="@android:style/Theme.Translucent.NoTitleBar">
+      <intent-filter>
+        <action android:name="android.intent.action.SEND"/>
+        <action android:name="android.intent.action.SENDTO"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="sms"/>
+        <data android:scheme="smsto"/>
+        <data android:scheme="mms"/>
+        <data android:scheme="mmsto"/>
+      </intent-filter>
+    </activity>
+
   </application>
 </manifest>
