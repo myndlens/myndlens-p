@@ -42,6 +42,8 @@ export default function LoadingScreen() {
   }, []);
 
   async function activate() {
+    if (activating.current) return; // prevent concurrent activate() calls
+    activating.current = true;
     setSoftError(null);
     try {
       setConnectionStatus('connecting');
