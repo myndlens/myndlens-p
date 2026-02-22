@@ -11,8 +11,7 @@
       },
       "cache": {
         "key": "myndlens-prod",
-        "cacheDefaultPaths": true,
-        "customPaths": ["node_modules"]
+        "paths": ["node_modules"]
       },
       "env": {
         "EXPO_PUBLIC_BACKEND_URL": "https://app.myndlens.com",
