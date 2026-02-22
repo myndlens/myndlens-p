@@ -979,4 +979,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#6C5CE7', alignItems: 'center', justifyContent: 'center',
   },
   sendIcon: { fontSize: 16, color: '#FFFFFF', fontWeight: '700' },
+
+  // Clarification question card
+  clarifyCard: {
+    backgroundColor: 'rgba(108, 92, 231, 0.12)',
+    borderRadius: 16, borderWidth: 1, borderColor: '#6C5CE744',
+    paddingVertical: 16, paddingHorizontal: 18,
+    marginHorizontal: 16, marginBottom: 14, width: '100%',
+  },
+  clarifyTitle: { color: '#E0D8FF', fontSize: 15, fontWeight: '600', lineHeight: 22, marginBottom: 10 },
+  clarifyOptions: { gap: 8 },
+  clarifyOption: {
+    backgroundColor: '#1E1A3A', borderRadius: 10, borderWidth: 1,
+    borderColor: '#6C5CE766', paddingVertical: 10, paddingHorizontal: 14,
+  },
+  clarifyOptionText: { color: '#C8C0F8', fontSize: 14, fontWeight: '500' },
+  clarifyHint: { color: '#44445A', fontSize: 12, marginTop: 10, textAlign: 'center' },
 });
