@@ -255,6 +255,7 @@ export default function TalkScreen() {
       wsClient.on('transcript_final', (env: WSEnvelope) => {
         setTranscript(env.payload.text || '');
         setPartialTranscript('');
+        setClarificationQuestion(null); // clear any pending clarification
         transition('THINKING');
       }),
       wsClient.on('draft_update', (env: WSEnvelope) => {
