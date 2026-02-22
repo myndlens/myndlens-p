@@ -44,6 +44,73 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   const [permLocation, setPermLocation] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [checkingPerms, setCheckingPerms] = useState(false);
 
+  // Check permissions on mount
+  useEffect(() => {
+    checkAllPermissions();
+  }, []);
+
+  const checkAllPermissions = async () => {
+    setCheckingPerms(true);
+    try {
+      // Contacts
+      const Contacts = require('expo-contacts');
+      const contactsPerm = await Contacts.getPermissionsAsync();
+      setPermContacts(contactsPerm.status === 'granted' ? 'granted' : 'denied');
+
+      // Calendar
+      const Calendar = require('expo-calendar');
+      const calendarPerm = await Calendar.getCalendarPermissionsAsync();
+      setPermCalendar(calendarPerm.status === 'granted' ? 'granted' : 'denied');
+
+      // Location
+      const Location = require('expo-location');
+      const locationPerm = await Location.getForegroundPermissionsAsync();
+      setPermLocation(locationPerm.status === 'granted' ? 'granted' : 'denied');
+
+      // Auto-advance if all granted
+      if (contactsPerm.status === 'granted' && calendarPerm.status === 'granted') {
+        setPhase('source');
+      }
+    } catch (err) {
+      console.log('[DigitalSelfStep] Permission check failed:', err);
+    } finally {
+      setCheckingPerms(false);
+    }
+  };
+
+  const requestContactsPermission = async () => {
+    try {
+      const Contacts = require('expo-contacts');
+      const result = await Contacts.requestPermissionsAsync();
+      setPermContacts(result.status === 'granted' ? 'granted' : 'denied');
+    } catch (err) {
+      console.log('[DigitalSelfStep] Contacts permission request failed:', err);
+      setPermContacts('denied');
+    }
+  };
+
+  const requestCalendarPermission = async () => {
+    try {
+      const Calendar = require('expo-calendar');
+      const result = await Calendar.requestCalendarPermissionsAsync();
+      setPermCalendar(result.status === 'granted' ? 'granted' : 'denied');
+    } catch (err) {
+      console.log('[DigitalSelfStep] Calendar permission request failed:', err);
+      setPermCalendar('denied');
+    }
+  };
+
+  const requestLocationPermission = async () => {
+    try {
+      const Location = require('expo-location');
+      const result = await Location.requestForegroundPermissionsAsync();
+      setPermLocation(result.status === 'granted' ? 'granted' : 'denied');
+    } catch (err) {
+      console.log('[DigitalSelfStep] Location permission request failed:', err);
+      setPermLocation('denied');
+    }
+  };
+
   // Pulse the ONNX brain icon while building
   useEffect(() => {
     if (phase !== 'building') return;
