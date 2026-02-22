@@ -1,9 +1,12 @@
 /**
  * Audio Recorder — cross-platform audio capture with VAD auto-stop.
  *
- * Uses expo-av on native, MediaRecorder on web.
- * Outputs ~250ms audio chunks as base64 for WS streaming.
- * VAD drives auto-stop after silence detected (Siri-like behaviour).
+ * Native: expo-av records to a local file. VAD drives auto-stop via metering.
+ * On stop, the file is read as base64 and returned for a single WS upload.
+ * Web: MediaRecorder streams real chunks.
+ *
+ * FIX: Removed _startSimulatedRecording from native path. Real audio is now
+ * captured by expo-av, read after stop, and sent as one chunk to the server.
  */
 import { Platform } from 'react-native';
 import { vad } from './vad/local-vad';
@@ -23,12 +26,16 @@ let _chunkInterval: ReturnType<typeof setInterval> | null = null;
 let _vadInterval: ReturnType<typeof setInterval> | null = null;
 let _onSpeechEnd: (() => void) | null = null;
 
-// For native, we'd use expo-av Audio.Recording
+// Native expo-av Recording instance
 let _expoRecording: any = null;
 
 /**
- * Start audio recording and emit chunks every ~250ms.
- * onSpeechEnd is called automatically when VAD detects end-of-utterance (Siri-like).
+ * Start audio recording.
+ * Native: starts expo-av recording + VAD via metering. No chunks emitted.
+ *   Call stopAndGetAudio() when done to retrieve the recorded audio as base64.
+ * Web: streams real MediaRecorder chunks via onChunk callback.
+ *
+ * onSpeechEnd is called when VAD detects end-of-utterance (Siri-like auto-stop).
  */
 export async function startRecording(
   onChunk: OnChunkCallback,
@@ -42,23 +49,21 @@ export async function startRecording(
   vad.reset();
 
   if (Platform.OS === 'web') {
-    // Web: Use MediaRecorder API if available, else simulate
     try {
       await _startWebRecording(onChunk);
     } catch (err) {
-      console.warn('[Recorder] Web recording not available, using simulation:', err);
-      _startSimulatedRecording(onChunk);
+      console.warn('[Recorder] Web recording not available:', err);
     }
   } else {
-    // Native: Use expo-av with metering for VAD
+    // Native: Use expo-av for real audio capture + VAD via metering.
+    // No simulated chunks. Audio is read from the file on stop.
     try {
       const { Audio } = require('expo-av');
 
-      // Request microphone permission first
       const { granted } = await Audio.requestPermissionsAsync();
       if (!granted) {
-        console.warn('[Recorder] Microphone permission denied, using simulated recording');
-        _startSimulatedRecording(onChunk);
+        console.warn('[Recorder] Microphone permission denied');
+        _recording = false;
         return;
       }
 
@@ -68,75 +73,138 @@ export async function startRecording(
       });
 
       const recording = new Audio.Recording();
+      // 32kbps mono 16kHz — ideal for STT, keeps file small (<40KB for 10s)
       await recording.prepareToRecordAsync({
-        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        android: {
+          extension: '.m4a',
+          outputFormat: 2,   // MPEG_4
+          audioEncoder: 3,   // AAC
+          sampleRate: 16000,
+          numberOfChannels: 1,
+          bitRate: 32000,
+        },
+        ios: {
+          extension: '.m4a',
+          audioQuality: 32,  // medium
+          sampleRate: 16000,
+          numberOfChannels: 1,
+          bitRate: 32000,
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false,
+        },
         isMeteringEnabled: true,
       });
 
-      // Wire VAD via metering updates
+      // Drive VAD from expo-av metering (100ms updates).
+      // Defer _onSpeechEnd via setTimeout to exit the status-update callback cleanly.
       recording.setProgressUpdateInterval(100);
       recording.setOnRecordingStatusUpdate((status: any) => {
         if (!_recording) return;
         if (status.metering !== undefined) {
-          // Convert dBFS (typically -160 to 0) to linear RMS for VAD
           const rms = Math.pow(10, status.metering / 20);
           const event = vad.processEnergy(rms);
           if (event === 'speechEnd' && _onSpeechEnd) {
             console.log('[Recorder] VAD: speechEnd detected (native)');
-            _onSpeechEnd();
+            const cb = _onSpeechEnd;
+            _onSpeechEnd = null; // prevent double-fire
+            setTimeout(() => cb(), 0);
           }
         }
       });
 
       await recording.startAsync();
       _expoRecording = recording;
-
-      // Emit simulated chunks for WS streaming (expo-av doesn't stream directly)
-      _startSimulatedRecording(onChunk);
+      console.log('[Recorder] Native recording started');
     } catch (err) {
-      console.warn('[Recorder] Native recording unavailable, using simulated:', (err as Error)?.message || err);
-      _startSimulatedRecording(onChunk);
+      console.warn('[Recorder] Native recording failed:', (err as Error)?.message || err);
+      _recording = false;
     }
   }
 }
 
 /**
- * Stop recording and cleanup.
+ * Stop recording, read the captured audio file, and return it as base64.
+ * This is the primary stop method for voice mandates.
+ *
+ * Returns base64 string of the audio file, or null on failure / web.
+ * For web, returns null (web already streamed chunks via onChunk).
  */
-export async function stopRecording(): Promise<void> {
+export async function stopAndGetAudio(): Promise<string | null> {
   _recording = false;
   _onSpeechEnd = null;
 
-  if (_chunkInterval) {
-    clearInterval(_chunkInterval);
-    _chunkInterval = null;
-  }
-
-  if (_vadInterval) {
-    clearInterval(_vadInterval);
-    _vadInterval = null;
-  }
+  // Clear web intervals
+  if (_chunkInterval) { clearInterval(_chunkInterval); _chunkInterval = null; }
+  if (_vadInterval) { clearInterval(_vadInterval); _vadInterval = null; }
 
   vad.detach();
   vad.reset();
 
+  // Web cleanup
   if (_webStream) {
     _webStream.getTracks().forEach(t => t.stop());
     _webStream = null;
   }
   if (_webRecorder) {
-    if (_webRecorder.state === 'recording') {
-      _webRecorder.stop();
+    if (_webRecorder.state === 'recording') _webRecorder.stop();
+    _webRecorder = null;
+  }
+
+  // Native: stop recording and read the file
+  if (_expoRecording) {
+    try {
+      const uri = _expoRecording.getURI(); // get URI before unloading
+      await _expoRecording.stopAndUnloadAsync();
+      _expoRecording = null;
+
+      if (!uri) {
+        console.warn('[Recorder] No recording URI available');
+        return null;
+      }
+
+      const FileSystem = require('expo-file-system');
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Clean up the temp file
+      FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+
+      console.log(`[Recorder] Audio read: ${Math.round(base64.length * 0.75 / 1024)}KB`);
+      return base64;
+    } catch (err) {
+      console.warn('[Recorder] stopAndGetAudio failed:', err);
+      _expoRecording = null;
     }
+  }
+
+  return null;
+}
+
+/**
+ * Stop recording without reading the audio (for kill-switch / error paths).
+ */
+export async function stopRecording(): Promise<void> {
+  _recording = false;
+  _onSpeechEnd = null;
+
+  if (_chunkInterval) { clearInterval(_chunkInterval); _chunkInterval = null; }
+  if (_vadInterval) { clearInterval(_vadInterval); _vadInterval = null; }
+
+  vad.detach();
+  vad.reset();
+
+  if (_webStream) { _webStream.getTracks().forEach(t => t.stop()); _webStream = null; }
+  if (_webRecorder) {
+    if (_webRecorder.state === 'recording') _webRecorder.stop();
     _webRecorder = null;
   }
 
   if (_expoRecording) {
     try {
       await _expoRecording.stopAndUnloadAsync();
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
     _expoRecording = null;
   }
 }
@@ -163,50 +231,24 @@ async function _startWebRecording(onChunk: OnChunkCallback): Promise<void> {
       const buffer = await event.data.arrayBuffer();
       const base64 = _arrayBufferToBase64(buffer);
       _seq++;
-      onChunk({
-        data: base64,
-        seq: _seq,
-        timestamp: Date.now(),
-        durationMs: 250,
-      });
+      onChunk({ data: base64, seq: _seq, timestamp: Date.now(), durationMs: 250 });
     }
   };
 
-  // Attach VAD to the live stream for auto-stop
+  // Attach VAD to live stream for web auto-stop
   vad.attachStream(stream);
   _vadInterval = setInterval(() => {
     if (!_recording) return;
     const event = vad.sampleStream();
     if (event === 'speechEnd' && _onSpeechEnd) {
       console.log('[Recorder] VAD: speechEnd detected (web)');
-      _onSpeechEnd();
+      const cb = _onSpeechEnd;
+      _onSpeechEnd = null;
+      setTimeout(() => cb(), 0);
     }
   }, 100);
 
-  // Request data every 250ms
   recorder.start(250);
-}
-
-// ---- Simulated Recording (fallback) ----
-function _startSimulatedRecording(onChunk: OnChunkCallback): void {
-  _chunkInterval = setInterval(() => {
-    if (!_recording) return;
-    _seq++;
-
-    // Generate a small fake audio chunk (~1KB of random data)
-    const fakeData = new Uint8Array(1024);
-    for (let i = 0; i < fakeData.length; i++) {
-      fakeData[i] = Math.floor(Math.random() * 256);
-    }
-    const base64 = _uint8ToBase64(fakeData);
-
-    onChunk({
-      data: base64,
-      seq: _seq,
-      timestamp: Date.now(),
-      durationMs: 250,
-    });
-  }, 250);
 }
 
 // ---- Utils ----
@@ -215,14 +257,6 @@ function _arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-function _uint8ToBase64(data: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < data.length; i++) {
-    binary += String.fromCharCode(data[i]);
   }
   return btoa(binary);
 }
