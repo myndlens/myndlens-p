@@ -531,6 +531,9 @@ export default function TalkScreen() {
           />
         </View>
 
+        {/* Middle zone — card centered between logo and controls */}
+        <View style={styles.middleZone}>
+
         {/* Clarification Question Card — shown when server needs more context */}
         {clarificationQuestion && (
           <View style={styles.clarifyCard}>
