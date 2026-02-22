@@ -358,9 +358,22 @@ export default function TalkScreen() {
           });
         },
         async () => {
-          // VAD auto-stop: user finished speaking — stop recorder, let server transcribe
+          // VAD auto-stop: user finished speaking
+          // 1. Stop recording and read the real audio file
           console.log('[Talk] VAD triggered auto-stop');
-          await stopRecording();
+          const audioBase64 = await stopAndGetAudio();
+          // 2. Send the real audio to the server
+          if (audioBase64 && sessionId) {
+            wsClient.send('audio_chunk', {
+              session_id: sessionId,
+              audio: audioBase64,
+              seq: 1,
+              timestamp: Date.now(),
+              duration_ms: 0,
+            });
+          }
+          // 3. Signal server to finalize transcript and run pipeline
+          wsClient.send('cancel', { session_id: sessionId, reason: 'vad_end_of_utterance' });
           transition('COMMITTING');
           transition('THINKING');
         },
