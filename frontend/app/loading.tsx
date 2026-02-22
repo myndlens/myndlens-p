@@ -126,10 +126,12 @@ export default function LoadingScreen() {
 
       if (retryCount.current < MAX_RETRIES) {
         // Auto-retry silently
+        activating.current = false; // release lock before retry
         setTimeout(() => activate(), 3000);
       } else {
         // Give up auto-retrying — show manual retry UI.
         // Token is preserved. User taps "Try Again" to re-attempt.
+        activating.current = false;
         setSoftError('Could not connect. Check your internet connection.');
       }
     }
