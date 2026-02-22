@@ -13,7 +13,7 @@ import time
 from datetime import datetime, timezone, timedelta
 import uuid
 
-BACKEND_URL = "https://mandate-pipeline-1.preview.emergentagent.com"
+BACKEND_URL = "https://android-build-dev.preview.emergentagent.com"
 WS_URL = "wss://voice-assistant-dev.preview.emergentagent.com/api/ws"
 API_BASE = f"{BACKEND_URL}/api"
 

@@ -25,7 +25,7 @@ sys.path.insert(0, "/app/backend")
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://mandate-pipeline-1.preview.emergentagent.com"
+    BASE_URL = "https://android-build-dev.preview.emergentagent.com"
 
 PAIR_CODE = "123456"
 

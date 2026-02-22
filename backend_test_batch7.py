@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List
 
 # Test configuration
-BACKEND_URL = "https://mandate-pipeline-1.preview.emergentagent.com/api"
+BACKEND_URL = "https://android-build-dev.preview.emergentagent.com/api"
 WS_URL = "wss://voice-assistant-dev.preview.emergentagent.com/api/ws"
 
 logging.basicConfig(level=logging.INFO)

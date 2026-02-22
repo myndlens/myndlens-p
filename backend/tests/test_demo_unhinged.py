@@ -19,7 +19,7 @@ import pytest
 import requests
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://mandate-pipeline-1.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://android-build-dev.preview.emergentagent.com').rstrip('/')
 
 
 class TestUnhingedApprovalGate:
