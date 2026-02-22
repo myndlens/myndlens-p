@@ -245,6 +245,113 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
   const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+  // ── Permissions phase ──────────────────────────────────────────────────
+  if (phase === 'permissions') {
+    const allGranted = permContacts === 'granted' && permCalendar === 'granted';
+    const PermIcon = ({ status }: { status: 'unknown' | 'granted' | 'denied' }) => {
+      if (status === 'granted') return <Text style={{ fontSize: 24 }}>✅</Text>;
+      if (status === 'denied') return <Text style={{ fontSize: 24 }}>❌</Text>;
+      return <Text style={{ fontSize: 24 }}>⏳</Text>;
+    };
+
+    return (
+      <ScrollView style={dss.root} contentContainerStyle={dss.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={dss.brainIcon}>🔐</Text>
+        <Text style={dss.title}>Grant Permissions</Text>
+        <Text style={dss.subtitle}>
+          MyndLens needs access to build your Digital Self. All data stays on your device.
+        </Text>
+
+        <View style={{ marginTop: 24, gap: 16, width: '100%' }}>
+          {/* Contacts Permission */}
+          <View style={dss.permissionCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={{ fontSize: 32 }}>👤</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={dss.permissionTitle}>Contacts</Text>
+                <Text style={dss.permissionDesc}>Read contact names and relationships</Text>
+              </View>
+              <PermIcon status={permContacts} />
+            </View>
+            {permContacts !== 'granted' && (
+              <TouchableOpacity 
+                style={dss.permissionBtn} 
+                onPress={requestContactsPermission}
+                disabled={checkingPerms}
+              >
+                <Text style={dss.permissionBtnText}>
+                  {permContacts === 'denied' ? 'Request Again' : 'Grant Permission'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Calendar Permission */}
+          <View style={dss.permissionCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={{ fontSize: 32 }}>📅</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={dss.permissionTitle}>Calendar</Text>
+                <Text style={dss.permissionDesc}>Extract patterns from events</Text>
+              </View>
+              <PermIcon status={permCalendar} />
+            </View>
+            {permCalendar !== 'granted' && (
+              <TouchableOpacity 
+                style={dss.permissionBtn} 
+                onPress={requestCalendarPermission}
+                disabled={checkingPerms}
+              >
+                <Text style={dss.permissionBtnText}>
+                  {permCalendar === 'denied' ? 'Request Again' : 'Grant Permission'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Location Permission (Optional) */}
+          <View style={[dss.permissionCard, { opacity: 0.7 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={{ fontSize: 32 }}>📍</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={dss.permissionTitle}>Location (Optional)</Text>
+                <Text style={dss.permissionDesc}>For intent execution & context</Text>
+              </View>
+              <PermIcon status={permLocation} />
+            </View>
+            {permLocation !== 'granted' && (
+              <TouchableOpacity 
+                style={dss.permissionBtn} 
+                onPress={requestLocationPermission}
+                disabled={checkingPerms}
+              >
+                <Text style={dss.permissionBtnText}>
+                  {permLocation === 'denied' ? 'Request Again' : 'Grant Permission'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={[dss.primaryBtn, { marginTop: 32, opacity: allGranted ? 1 : 0.5 }]}
+          onPress={() => setPhase('source')}
+          disabled={!allGranted}
+        >
+          <Text style={dss.primaryBtnText}>
+            {allGranted ? 'Continue' : 'Grant Required Permissions'}
+          </Text>
+        </TouchableOpacity>
+
+        {!allGranted && (
+          <Text style={{ color: '#999', textAlign: 'center', marginTop: 12, fontSize: 13 }}>
+            Contacts and Calendar are required to build your Digital Self
+          </Text>
+        )}
+      </ScrollView>
+    );
+  }
+
   // ── Source selection phase ─────────────────────────────────────────
   if (phase === 'source') {
     return (
