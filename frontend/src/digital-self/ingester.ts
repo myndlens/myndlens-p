@@ -4,23 +4,83 @@
  * Reads contacts + calendar + call logs from the device and populates the local PKG.
  * Uses existing JS heuristics from smart-processing.ts.
  * Requires expo-contacts, expo-calendar (installed).
- * Call log / SMS reading: READ_CALL_LOG + READ_SMS declared in manifest (Android only).
+ * Call log reading: READ_CALL_LOG declared in manifest (Android only).
  * Falls back gracefully if permissions denied.
  */
 
 import { Platform } from 'react-native';
 import { registerPerson, storeFact } from './pkg';
-import { scoreAndFilterContacts, extractCalendarPatterns } from '../onboarding/smart-processing';
+import { scoreAndFilterContacts, extractCalendarPatterns, normalizePhone, CallLogEntry } from '../onboarding/smart-processing';
+
+// ---- Call Log Pre-loading ----
+
+/**
+ * Build a phone → {count, lastDate} map from the last 90 days of call history.
+ * Used to enrich contact scoring BEFORE the top-200 slice is made.
+ *
+ * Requires READ_CALL_LOG permission (Android only).
+ * Returns an empty Map on iOS or if permission is denied.
+ */
+async function loadCallLogMap(): Promise<Map<string, CallLogEntry>> {
+  const result = new Map<string, CallLogEntry>();
+
+  if (Platform.OS !== 'android') return result;
+
+  try {
+    const { PermissionsAndroid } = require('react-native');
+    const granted = await PermissionsAndroid.check('android.permission.READ_CALL_LOG');
+    if (!granted) {
+      console.log('[Ingester] READ_CALL_LOG not granted — scoring without call signals');
+      return result;
+    }
+
+    const CallLogs = require('react-native-call-log').default;
+
+    // Load calls from last 90 days (call-log entries include dateTime as epoch ms string)
+    const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const logs: Array<{
+      phoneNumber: string;
+      dateTime: string; // epoch ms as string
+      callType: string;
+    }> = await CallLogs.loadAll();
+
+    for (const log of logs) {
+      if (!log.phoneNumber) continue;
+      const ts = parseInt(log.dateTime, 10);
+      if (isNaN(ts) || ts < ninetyDaysAgo) continue;
+
+      const key = normalizePhone(log.phoneNumber);
+      if (!key) continue;
+
+      const existing = result.get(key);
+      const callDate = new Date(ts);
+
+      if (existing) {
+        existing.count++;
+        if (callDate > existing.lastDate) existing.lastDate = callDate;
+      } else {
+        result.set(key, { count: 1, lastDate: callDate });
+      }
+    }
+
+    console.log(`[Ingester] Call log map: ${result.size} unique numbers in last 90 days`);
+  } catch (err) {
+    console.log('[Ingester] Call log loading failed (non-fatal):', err);
+  }
+
+  return result;
+}
+
+// ---- Contacts ----
 
 /**
  * Import contacts from device into local PKG.
- * Requires expo-contacts permission.
+ * Pre-loads call log data first so call frequency and recency are part of the ranking.
  */
 export async function ingestContacts(userId: string): Promise<{ count: number; error?: string }> {
   try {
     const Contacts = require('expo-contacts');
 
-    // Check permission — distinguish between denied+can retry vs permanently blocked
     const permResult = await Contacts.requestPermissionsAsync();
     if (permResult.status !== 'granted') {
       const reason = permResult.canAskAgain === false
@@ -39,6 +99,8 @@ export async function ingestContacts(userId: string): Promise<{ count: number; e
         Contacts.Fields.PhoneNumbers,
         Contacts.Fields.Company,
         Contacts.Fields.JobTitle,
+        Contacts.Fields.Image,      // has photo signal (+2)
+        Contacts.Fields.Dates,      // birthday/anniversary signal (+1)
       ],
     });
 
@@ -48,8 +110,13 @@ export async function ingestContacts(userId: string): Promise<{ count: number; e
       return { count: 0, error: 'EMPTY: getContactsAsync returned 0 contacts from device' };
     }
 
-    const scored = scoreAndFilterContacts(data, 200);
-    console.log(`[Ingester] After scoring: ${scored.length} contacts`);
+    // Pre-load call log data — must happen BEFORE scoring so call signals
+    // influence which contacts make the top 200 cut.
+    const callLogMap = await loadCallLogMap();
+    console.log(`[Ingester] Scoring ${data.length} contacts with ${callLogMap.size} call-log entries`);
+
+    const scored = scoreAndFilterContacts(data, 200, callLogMap);
+    console.log(`[Ingester] After scoring+ranking: ${scored.length} contacts selected`);
 
     let count = 0;
     for (const contact of scored) {
@@ -72,10 +139,8 @@ export async function ingestContacts(userId: string): Promise<{ count: number; e
   }
 }
 
-/**
- * Import calendar patterns from device into local PKG.
- * Requires expo-calendar permission.
- */
+// ---- Calendar ----
+
 export async function ingestCalendar(userId: string): Promise<number> {
   try {
     const Calendar = require('expo-calendar');
@@ -85,16 +150,14 @@ export async function ingestCalendar(userId: string): Promise<number> {
       return 0;
     }
 
-    // Get events from last 30 days
     const end = new Date();
     const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     console.log(`[Ingester] Fetching calendar events from ${start.toISOString()} to ${end.toISOString()}`);
-    
+
     const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
     console.log(`[Ingester] Found ${calendars.length} calendars on device`);
     const calendarIds = calendars.map((c: any) => c.id);
 
-    // Guard: no calendars granted — nothing to ingest
     if (calendarIds.length === 0) {
       console.log('[Ingester] No calendars available');
       return 0;
@@ -145,10 +208,8 @@ export async function ingestCalendar(userId: string): Promise<number> {
   }
 }
 
-/**
- * Run full Tier 1 ingestion (contacts + calendar + call logs).
- * Called after user grants permissions during onboarding or via Settings.
- */
+// ---- Tier 1 Runner ----
+
 export async function runTier1Ingestion(userId: string): Promise<{ contacts: number; calendar: number; callLogs: number; contactsError?: string }> {
   const contactsResult = await ingestContacts(userId);
   const calendar = await ingestCalendar(userId);
@@ -161,37 +222,27 @@ export async function runTier1Ingestion(userId: string): Promise<{ contacts: num
   };
 }
 
+// ---- Call Log Permission Request ----
 
-/**
- * Request call log + SMS permissions on Android.
- * On iOS this is a no-op — call logs and SMS are inaccessible by design.
- *
- * Returns true if READ_CALL_LOG was granted (Android), or false on iOS/denied.
- */
 export async function requestCallLogPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
   try {
     const { PermissionsAndroid } = require('react-native');
-    const result = await PermissionsAndroid.request(
-      'android.permission.READ_CALL_LOG',
-    );
-    const callGranted = result === 'granted';
-    console.log(`[Ingester] READ_CALL_LOG: ${callGranted}`);
-    return callGranted;
+    const result = await PermissionsAndroid.request('android.permission.READ_CALL_LOG');
+    const granted = result === 'granted';
+    console.log(`[Ingester] READ_CALL_LOG: ${granted}`);
+    return granted;
   } catch (err) {
     console.log('[Ingester] Permission request failed:', err);
     return false;
   }
 }
 
+// ---- Call Log Ingestion (metadata enrichment of existing PKG nodes) ----
 
 /**
- * Ingest call log data into PKG (Android only).
- *
- * Uses expo-contacts with the Relationships field to enrich existing contact
- * nodes with interaction metadata. READ_CALL_LOG permission must be granted.
- *
- * On iOS: returns 0 — call log API is not available on iOS by design.
+ * After contacts are already imported, enrich high-frequency contacts with
+ * a CALL_LOG provenance signal so the PKG knows these are active relationships.
  */
 export async function ingestCallLogs(userId: string): Promise<number> {
   if (Platform.OS !== 'android') {
@@ -206,43 +257,32 @@ export async function ingestCallLogs(userId: string): Promise<number> {
       return 0;
     }
 
-    // expo-contacts provides contact interaction data on Android when
-    // the READ_CALL_LOG permission is present. We use it to boost scores
-    // for frequently contacted people already in the PKG.
-    const Contacts = require('expo-contacts');
-    const { data } = await Contacts.getContactsAsync({
-      fields: [
-        Contacts.Fields.Name,
-        Contacts.Fields.PhoneNumbers,
-        Contacts.Fields.Emails,
-        Contacts.Fields.Dates,
-      ],
-    });
+    // Re-use the same call log map
+    const callLogMap = await loadCallLogMap();
+    if (callLogMap.size === 0) return 0;
 
-    // Re-score contacts with call log context — starred/recent contacts rank higher
-    const { scoreAndFilterContacts } = require('../onboarding/smart-processing');
-    const scored = scoreAndFilterContacts(data, 30);
-
-    let updated = 0;
-    for (const contact of scored) {
-      if (contact.importance === 'high') {
+    let enriched = 0;
+    for (const [phone, data] of callLogMap.entries()) {
+      if (data.count >= 5) {
+        // Only write enrichment for contacts with meaningful call frequency
         await storeFact(userId, {
-          label: `Frequent contact: ${contact.name}`,
+          label: `Frequent call contact: ${phone}`,
           type: 'Person',
           data: {
-            name: contact.name,
-            phone: contact.phone,
+            phone,
+            call_count_90d: data.count,
+            last_call: data.lastDate.toISOString(),
             signal: 'call_log_high_frequency',
           },
           confidence: 0.75,
           provenance: 'CALL_LOG',
         });
-        updated++;
+        enriched++;
       }
     }
 
-    console.log(`[Ingester] Call log enrichment: ${updated} high-frequency contacts boosted`);
-    return updated;
+    console.log(`[Ingester] Call log enrichment: ${enriched} high-frequency numbers recorded`);
+    return enriched;
   } catch (err) {
     console.log('[Ingester] Call log ingestion unavailable:', err);
     return 0;
