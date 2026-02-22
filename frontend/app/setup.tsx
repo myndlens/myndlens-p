@@ -72,7 +72,7 @@ export default function SetupWizardScreen() {
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [slugSuggestions, setSlugSuggestions] = useState<string[]>([]);
   const [tenantId, setTenantId] = useState('');
-  // Plan
+  const [workspaceSlug, setWorkspaceSlug] = useState(''); // restored from storage on already-paired path  // Plan
   const [plans, setPlans] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState('');
   // Coupon
