@@ -39,6 +39,9 @@ export class MyndLensWSClient {
   private _isConnected: boolean = false;
   private _isAuthenticated: boolean = false;
   private _userId: string | null = null;
+  // Prevents session_terminated from firing when disconnect() is called
+  // intentionally as part of a connect() → reconnect flow.
+  private _suppressNextClose: boolean = false;
 
   get isConnected(): boolean { return this._isConnected; }
   get isAuthenticated(): boolean { return this._isAuthenticated; }
