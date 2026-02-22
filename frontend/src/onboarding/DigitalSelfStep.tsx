@@ -52,6 +52,21 @@ export default function DigitalSelfStep({ onComplete }: Props) {
     checkAllPermissions();
   }, []);
 
+  // Re-check permissions when app comes to foreground (after user returns from Settings)
+  useEffect(() => {
+    const { AppState } = require('react-native');
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        console.log('[DigitalSelfStep] App became active, re-checking permissions');
+        checkAllPermissions();
+      }
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
+
   const checkAllPermissions = async () => {
     setCheckingPerms(true);
     try {
