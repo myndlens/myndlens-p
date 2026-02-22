@@ -317,7 +317,10 @@ export default function TalkScreen() {
         setPipelineSubStatus('');
         setPipelineProgress(0);
         setConnectionStatus('disconnected');
-        if (isScreenFocused.current) {
+        // Only navigate if this screen is focused AND the app is in the foreground.
+        // Navigating while backgrounded causes the race condition where loading.tsx
+        // mounts, reconnects, routes to talk — and then a stale event fires again.
+        if (isScreenFocused.current && !appInBackground.current) {
           router.replace('/loading');
         }
       }),
