@@ -270,12 +270,25 @@ export default function TalkScreen() {
       }),
       wsClient.on('tts_audio', (env: WSEnvelope) => {
         const text = env.payload.text || '';
+        const audioBase64: string = env.payload.audio || '';
+        const isMock: boolean = env.payload.is_mock ?? true;
         setTtsText(text);
         transition('RESPONDING');
         setIsSpeaking(true);
-        TTS.speak(text, {
-          onComplete: () => { setIsSpeaking(false); transition('IDLE'); },
-        });
+        const onComplete = () => { setIsSpeaking(false); transition('IDLE'); };
+        // Play real ElevenLabs audio if available, else fall back to device TTS
+        if (audioBase64 && !isMock) {
+          TTS.speakFromAudio(audioBase64, { onComplete });
+        } else {
+          TTS.speak(text, { onComplete });
+        }
+      }),
+      wsClient.on('clarification_question' as WSMessageType, (env: WSEnvelope) => {
+        // Server paused the pipeline and is asking for more info — show options to user
+        const question = env.payload.question || '';
+        const options: string[] = env.payload.options || [];
+        setClarificationQuestion({ question, options });
+        console.log('[Talk] Clarification question received:', question);
       }),
       wsClient.on('execute_blocked', (env: WSEnvelope) => {
         if (env.payload.code === 'SUBSCRIPTION_INACTIVE' || env.payload.code === 'PRESENCE_STALE') {
