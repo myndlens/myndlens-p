@@ -531,10 +531,35 @@ export default function TalkScreen() {
           />
         </View>
 
-        {/* Middle zone — card centered between logo and controls */}
-        <View style={styles.middleZone}>
-          {/* Intent Pipeline — Current Stage Card */}
-          {(() => {
+        {/* Clarification Question Card — shown when server needs more context */}
+        {clarificationQuestion && (
+          <View style={styles.clarifyCard}>
+            <Text style={styles.clarifyTitle}>{clarificationQuestion.question}</Text>
+            {clarificationQuestion.options.length > 0 && (
+              <View style={styles.clarifyOptions}>
+                {clarificationQuestion.options.map((opt, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={styles.clarifyOption}
+                    onPress={() => {
+                      setClarificationQuestion(null);
+                      wsClient.send('text_input', { session_id: sessionId, text: opt });
+                      setTranscript(opt);
+                      transition('THINKING');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.clarifyOptionText}>{opt}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <Text style={styles.clarifyHint}>Or tap the mic to answer by voice</Text>
+          </View>
+        )}
+
+        {/* Intent Pipeline — Current Stage Card */}
+        {(() => {
             const wsIdx = pipelineStageIndex;
             const activeIndex = wsIdx >= 0 ? wsIdx : PIPELINE_STAGES.findIndex((_, i) => getPipelineState(i, audioState, pendingAction, transcript) === 'active');
             const stage = activeIndex >= 0 ? PIPELINE_STAGES[activeIndex] : null;
