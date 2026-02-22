@@ -112,16 +112,19 @@ export class MyndLensWSClient {
 
         this.ws.onclose = (event) => {
           console.log('[WS] Closed:', event.code, event.reason);
+          const suppressed = this._suppressNextClose;
+          this._suppressNextClose = false;
           this._cleanup();
-          this._dispatch('session_terminated', {
-            type: 'session_terminated',
-            id: '',
-            timestamp: new Date().toISOString(),
-            payload: { code: event.code, reason: event.reason },
-          });
-          // Auto-reconnect is intentionally NOT here.
-          // loading.tsx is the single authority for reconnection.
-          // Dual reconnect (here + loading.tsx) causes race conditions and stuck states.
+          // Only notify listeners of an unexpected session loss.
+          // Suppressed = this close was triggered by connect() to clear a stale socket.
+          if (!suppressed) {
+            this._dispatch('session_terminated', {
+              type: 'session_terminated',
+              id: '',
+              timestamp: new Date().toISOString(),
+              payload: { code: event.code, reason: event.reason },
+            });
+          }
         };
 
         this.ws.onerror = (error) => {
