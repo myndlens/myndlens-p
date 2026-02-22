@@ -536,6 +536,13 @@ const dss = StyleSheet.create({
   sourceSub: { color: '#666', fontSize: 12, marginTop: 2 },
   sourceOn: { color: '#6C5CE7', fontSize: 13, fontWeight: '600' },
 
+  // Permission cards
+  permissionCard: { backgroundColor: '#14141E', borderRadius: 14, padding: 16, marginBottom: 12 },
+  permissionTitle: { color: '#E0E0E0', fontSize: 15, fontWeight: '600', marginBottom: 2 },
+  permissionDesc: { color: '#888', fontSize: 13 },
+  permissionBtn: { backgroundColor: '#6C5CE7', borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 12 },
+  permissionBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+
   onnxBadge: { flexDirection: 'row', backgroundColor: '#1A1A2E', borderRadius: 12, padding: 14, marginVertical: 16, gap: 10, alignItems: 'flex-start' },
   onnxIcon: { fontSize: 20 },
   onnxText: { color: '#888', fontSize: 13, flex: 1, lineHeight: 19 },
