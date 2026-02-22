@@ -13,8 +13,8 @@ from stt.provider.mock import MockSTTProvider
 
 logger = logging.getLogger(__name__)
 
-# Chunk constraints
-MAX_CHUNK_SIZE_BYTES = 64 * 1024  # 64KB max per chunk
+# Chunk constraints — raised to accommodate full-recording uploads (real expo-av audio files)
+MAX_CHUNK_SIZE_BYTES = 512 * 1024  # 512KB — supports ~2min recording at 32kbps
 MAX_CHUNKS_PER_SECOND = 10  # Rate limit
 
 

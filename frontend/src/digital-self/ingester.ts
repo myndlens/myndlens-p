@@ -48,7 +48,7 @@ export async function ingestContacts(userId: string): Promise<{ count: number; e
       return { count: 0, error: 'EMPTY: getContactsAsync returned 0 contacts from device' };
     }
 
-    const scored = scoreAndFilterContacts(data, 50);
+    const scored = scoreAndFilterContacts(data, 200);
     console.log(`[Ingester] After scoring: ${scored.length} contacts`);
 
     let count = 0;
