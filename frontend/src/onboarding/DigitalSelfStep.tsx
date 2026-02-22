@@ -42,6 +42,9 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   const [permContacts, setPermContacts] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [permCalendar, setPermCalendar] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [permLocation, setPermLocation] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [canAskContacts, setCanAskContacts] = useState(true);
+  const [canAskCalendar, setCanAskCalendar] = useState(true);
+  const [canAskLocation, setCanAskLocation] = useState(true);
   const [checkingPerms, setCheckingPerms] = useState(false);
 
   // Check permissions on mount
@@ -83,6 +86,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       const Contacts = require('expo-contacts');
       const result = await Contacts.requestPermissionsAsync();
       setPermContacts(result.status === 'granted' ? 'granted' : 'denied');
+      setCanAskContacts(result.canAskAgain !== false);
     } catch (err) {
       console.log('[DigitalSelfStep] Contacts permission request failed:', err);
       setPermContacts('denied');
@@ -94,6 +98,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       const Calendar = require('expo-calendar');
       const result = await Calendar.requestCalendarPermissionsAsync();
       setPermCalendar(result.status === 'granted' ? 'granted' : 'denied');
+      setCanAskCalendar(result.canAskAgain !== false);
     } catch (err) {
       console.log('[DigitalSelfStep] Calendar permission request failed:', err);
       setPermCalendar('denied');
@@ -105,9 +110,23 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       const Location = require('expo-location');
       const result = await Location.requestForegroundPermissionsAsync();
       setPermLocation(result.status === 'granted' ? 'granted' : 'denied');
+      setCanAskLocation(result.canAskAgain !== false);
     } catch (err) {
       console.log('[DigitalSelfStep] Location permission request failed:', err);
       setPermLocation('denied');
+    }
+  };
+
+  const openAppSettings = async () => {
+    try {
+      const { Linking } = require('react-native');
+      if (Platform.OS === 'android') {
+        await Linking.openSettings();
+      } else {
+        await Linking.openURL('app-settings:');
+      }
+    } catch (err) {
+      console.log('[DigitalSelfStep] Failed to open settings:', err);
     }
   };
 
