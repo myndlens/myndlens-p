@@ -526,7 +526,7 @@ export default function SetupWizardScreen() {
             <Text style={styles.successBig}>All Set!</Text>
             <Text style={styles.title}>Your AI workspace is ready</Text>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>Workspace</Text><Text style={styles.summaryValue}>{slug}</Text>
+              <Text style={styles.summaryLabel}>Workspace</Text><Text style={styles.summaryValue}>{slug || workspaceSlug}</Text>
               <Text style={styles.summaryLabel}>Plan</Text><Text style={styles.summaryValue}>{plans.find(p => p.plan_id === selectedPlan)?.name || 'Pro'}</Text>
             </View>
             <Text style={styles.nextTitle}>What's Next?</Text>
