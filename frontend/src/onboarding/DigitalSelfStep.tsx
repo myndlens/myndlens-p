@@ -71,29 +71,39 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
   const checkAllPermissions = async () => {
     setCheckingPerms(true);
+    console.log('[DigitalSelfStep] Checking all permissions...');
     try {
       // Contacts
       const Contacts = require('expo-contacts');
       const contactsPerm = await Contacts.getPermissionsAsync();
+      console.log('[DigitalSelfStep] Contacts permission:', contactsPerm.status);
       setPermContacts(contactsPerm.status === 'granted' ? 'granted' : 'denied');
 
       // Calendar
       const Calendar = require('expo-calendar');
       const calendarPerm = await Calendar.getCalendarPermissionsAsync();
+      console.log('[DigitalSelfStep] Calendar permission:', calendarPerm.status);
       setPermCalendar(calendarPerm.status === 'granted' ? 'granted' : 'denied');
 
       // Location
       const Location = require('expo-location');
       const locationPerm = await Location.getForegroundPermissionsAsync();
+      console.log('[DigitalSelfStep] Location permission:', locationPerm.status);
       setPermLocation(locationPerm.status === 'granted' ? 'granted' : 'denied');
 
       // Media/Photos (expo-media-library)
       const MediaLibrary = require('expo-media-library');
       const mediaPerm = await MediaLibrary.getPermissionsAsync();
+      console.log('[DigitalSelfStep] Media permission:', mediaPerm.status);
       setPermMedia(mediaPerm.status === 'granted' ? 'granted' : 'denied');
 
       // Auto-advance if all required granted
-      if (contactsPerm.status === 'granted' && calendarPerm.status === 'granted' && mediaPerm.status === 'granted') {
+      const allGranted = contactsPerm.status === 'granted' && 
+                        calendarPerm.status === 'granted' && 
+                        mediaPerm.status === 'granted';
+      console.log('[DigitalSelfStep] All required permissions granted:', allGranted);
+      
+      if (allGranted) {
         setPhase('source');
       }
     } catch (err) {
@@ -116,11 +126,16 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   };
 
   const requestCalendarPermission = async () => {
+    console.log('[DigitalSelfStep] Requesting Calendar permission...');
     try {
       const Calendar = require('expo-calendar');
       const result = await Calendar.requestCalendarPermissionsAsync();
+      console.log('[DigitalSelfStep] Calendar permission result:', result.status, 'canAskAgain:', result.canAskAgain);
       setPermCalendar(result.status === 'granted' ? 'granted' : 'denied');
       setCanAskCalendar(result.canAskAgain !== false);
+      
+      // Force re-check after 500ms (Android sometimes needs time to update)
+      setTimeout(() => checkAllPermissions(), 500);
     } catch (err) {
       console.log('[DigitalSelfStep] Calendar permission request failed:', err);
       setPermCalendar('denied');
@@ -128,11 +143,16 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   };
 
   const requestLocationPermission = async () => {
+    console.log('[DigitalSelfStep] Requesting Location permission...');
     try {
       const Location = require('expo-location');
       const result = await Location.requestForegroundPermissionsAsync();
+      console.log('[DigitalSelfStep] Location permission result:', result.status, 'canAskAgain:', result.canAskAgain);
       setPermLocation(result.status === 'granted' ? 'granted' : 'denied');
       setCanAskLocation(result.canAskAgain !== false);
+      
+      // Force re-check after 500ms
+      setTimeout(() => checkAllPermissions(), 500);
     } catch (err) {
       console.log('[DigitalSelfStep] Location permission request failed:', err);
       setPermLocation('denied');
