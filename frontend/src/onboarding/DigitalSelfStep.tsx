@@ -57,7 +57,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   // Re-check permissions when app comes to foreground (after user returns from Settings)
   useEffect(() => {
     const { AppState } = require('react-native');
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
+    const subscription = AppState.addEventListener('change', (nextAppState: string) => {
       if (nextAppState === 'active') {
         console.log('[DigitalSelfStep] App became active, re-checking permissions');
         checkAllPermissions();
@@ -619,6 +619,7 @@ const dss = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingTop: 8, paddingBottom: 32 },
   buildingRoot: { paddingTop: 24, alignItems: 'center' },
+  brainIcon: { fontSize: 52, marginBottom: 12, textAlign: 'center' },
 
   privacyBadge: {
     backgroundColor: '#0D2B1A', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6,
