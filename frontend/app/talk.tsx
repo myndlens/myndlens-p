@@ -379,7 +379,17 @@ export default function TalkScreen() {
         },
       );
     } else if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
-      await stopRecording();
+      // Manual stop: read the real audio and send to server before signalling
+      const audioBase64 = await stopAndGetAudio();
+      if (audioBase64 && sessionId) {
+        wsClient.send('audio_chunk', {
+          session_id: sessionId,
+          audio: audioBase64,
+          seq: 1,
+          timestamp: Date.now(),
+          duration_ms: 0,
+        });
+      }
       transition('COMMITTING');
       wsClient.send('cancel', { session_id: sessionId, reason: 'user_stop' });
       transition('THINKING');
