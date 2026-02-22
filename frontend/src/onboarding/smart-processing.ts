@@ -1,11 +1,26 @@
 /**
  * Smart Processing — on-device algorithmic contact scoring and pattern extraction.
  * No LLM required. Runs entirely in JavaScript on the device.
- * 
- * Hybrid approach: heuristics on-device, Gemini fallback on server for complex analysis.
+ *
+ * Signal weights (max ~20):
+ *   Has photo          +2   (you care enough to add one)
+ *   Starred            +3   (explicit favourite)
+ *   Calls 11+/90d      +4   call frequency
+ *   Calls 6-10/90d     +3
+ *   Calls 3-5/90d      +2
+ *   Calls 1-2/90d      +1
+ *   Last call <14d     +4   recency
+ *   Last call <30d     +3
+ *   Last call <90d     +1
+ *   Both email+phone   +2   contact richness
+ *   Multiple emails    +1
+ *   Multiple phones    +1
+ *   Has company        +1
+ *   Has job title      +1
+ *   Has dates          +1   (birthday/anniversary → personal relationship)
  */
 
-// ---- Contact Scoring ----
+// ---- Types ----
 
 interface RawContact {
   name?: string;
@@ -17,6 +32,15 @@ interface RawContact {
   jobTitle?: string;
   starred?: boolean;
   contactType?: string;
+  imageAvailable?: boolean;
+  dates?: Array<{ value?: string; label?: string }>;
+}
+
+export interface CallLogEntry {
+  /** Total calls in the scoring window (90 days). */
+  count: number;
+  /** Most recent call timestamp. */
+  lastDate: Date;
 }
 
 export interface ScoredContact {
@@ -34,7 +58,28 @@ export interface ScoredContact {
   import_source: string;
 }
 
-export function scoreAndFilterContacts(contacts: RawContact[], maxResults: number = 15): ScoredContact[] {
+// ---- Phone normalisation (last 10 digits, digits only) ----
+
+export function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  return digits.length >= 10 ? digits.slice(-10) : digits;
+}
+
+// ---- Contact Scoring ----
+
+/**
+ * Score, rank, and return the top `maxResults` contacts.
+ *
+ * @param callLogMap  Optional map normalizedPhone → CallLogEntry.
+ *                    Built from Android call logs before this is called.
+ *                    When present, adds up to +8 points per contact.
+ */
+export function scoreAndFilterContacts(
+  contacts: RawContact[],
+  maxResults: number = 15,
+  callLogMap?: Map<string, CallLogEntry>,
+): ScoredContact[] {
+  const now = Date.now();
   const scored: ScoredContact[] = [];
 
   for (const c of contacts) {
@@ -43,12 +88,10 @@ export function scoreAndFilterContacts(contacts: RawContact[], maxResults: numbe
 
     const email = c.emails?.[0]?.email || '';
     const phone = c.phoneNumbers?.[0]?.number || '';
-    // Do NOT filter out name-only contacts — they are valid Digital Self nodes.
-    // Many Android contacts (WhatsApp sync, SIM imports, Google contacts) return
-    // empty phoneNumbers/emails arrays even when numbers exist on the device.
-    // A name-only contact is still useful for relationship inference.
 
     let score = 0;
+
+    // ── Richness signals ─────────────────────────────────────────────────────
     if (email && phone) score += 2;
     if (c.emails && c.emails.length > 1) score += 1;
     if (c.phoneNumbers && c.phoneNumbers.length > 1) score += 1;
@@ -56,8 +99,36 @@ export function scoreAndFilterContacts(contacts: RawContact[], maxResults: numbe
     if (c.company) score += 1;
     if (c.jobTitle) score += 1;
 
+    // ── Photo signal (+2) ─────────────────────────────────────────────────
+    if (c.imageAvailable) score += 2;
+
+    // ── Personal relationship signal (+1) ─────────────────────────────────
+    // Has a birthday or anniversary → this is someone you know personally
+    if (c.dates && c.dates.length > 0) score += 1;
+
+    // ── Call log signals (up to +8) ───────────────────────────────────────
+    if (callLogMap && phone) {
+      const normalised = normalizePhone(phone);
+      const callData = callLogMap.get(normalised);
+
+      if (callData) {
+        // Frequency (calls in last 90 days)
+        const count = callData.count;
+        if (count >= 11) score += 4;
+        else if (count >= 6) score += 3;
+        else if (count >= 3) score += 2;
+        else if (count >= 1) score += 1;
+
+        // Recency (days since last call)
+        const daysSince = (now - callData.lastDate.getTime()) / 86_400_000;
+        if (daysSince < 14) score += 4;
+        else if (daysSince < 30) score += 3;
+        else if (daysSince < 90) score += 1;
+      }
+    }
+
     const relationship = inferRelationship(c);
-    const importance = score >= 5 ? 'high' : score >= 2 ? 'medium' : 'low';
+    const importance = score >= 8 ? 'high' : score >= 3 ? 'medium' : 'low';
     const preferred_channel = email && phone ? 'whatsapp' : phone ? 'call' : 'email';
 
     const aliases: string[] = [];
@@ -168,7 +239,6 @@ export function extractCalendarPatterns(events: RawCalendarEvent[]): {
     }
   }
 
-  // Detect recurring patterns from non-recurrence events appearing 2+ times
   for (const [title, data] of Object.entries(titleCounts)) {
     if (data.count >= 2) {
       const modeTime = mode(data.times);
@@ -184,7 +254,6 @@ export function extractCalendarPatterns(events: RawCalendarEvent[]): {
     }
   }
 
-  // Working hours pattern
   const allTimes = events
     .filter(e => e.startDate)
     .map(e => extractHour(e.startDate!))
