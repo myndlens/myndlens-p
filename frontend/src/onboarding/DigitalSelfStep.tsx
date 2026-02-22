@@ -300,7 +300,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
   // ── Permissions phase ──────────────────────────────────────────────────
   if (phase === 'permissions') {
-    const allGranted = permContacts === 'granted' && permCalendar === 'granted';
+    const allGranted = permContacts === 'granted' && permCalendar === 'granted' && permMedia === 'granted';
     const PermIcon = ({ status }: { status: 'unknown' | 'granted' | 'denied' }) => {
       if (status === 'granted') return <Text style={{ fontSize: 24 }}>✅</Text>;
       if (status === 'denied') return <Text style={{ fontSize: 24 }}>❌</Text>;
@@ -364,6 +364,31 @@ export default function DigitalSelfStep({ onComplete }: Props) {
             )}
           </View>
 
+          {/* Photos & Files Permission */}
+          <View style={dss.permissionCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={{ fontSize: 32 }}>📸</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={dss.permissionTitle}>Photos & Files</Text>
+                <Text style={dss.permissionDesc}>Access media for context</Text>
+              </View>
+              <PermIcon status={permMedia} />
+            </View>
+            {permMedia !== 'granted' && (
+              <TouchableOpacity 
+                style={dss.permissionBtn} 
+                onPress={canAskMedia ? requestMediaPermission : openAppSettings}
+                disabled={checkingPerms}
+              >
+                <Text style={dss.permissionBtnText}>
+                  {canAskMedia 
+                    ? (permMedia === 'denied' ? 'Request Again' : 'Grant Permission')
+                    : 'Open Settings'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {/* Location Permission (Optional) */}
           <View style={[dss.permissionCard, { opacity: 0.7 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -402,7 +427,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
         {!allGranted && (
           <Text style={{ color: '#999', textAlign: 'center', marginTop: 12, fontSize: 13 }}>
-            Contacts and Calendar are required to build your Digital Self
+            Contacts, Calendar, and Photos are required to build your Digital Self
           </Text>
         )}
       </ScrollView>
