@@ -8,7 +8,7 @@ Next time user says "Sydney trip" → all of these are auto-filled.
 The DS grows with every interaction. Questions shrink to near-zero.
 """
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 

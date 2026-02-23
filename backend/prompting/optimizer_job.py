@@ -140,7 +140,6 @@ async def run_optimization_cycle(days: int = 7) -> Dict[str, Any]:
 
 async def _scheduler_loop(interval_seconds: int):
     """Background loop that runs optimization at fixed intervals."""
-    global _running
     logger.info("Optimization scheduler started: interval=%ds", interval_seconds)
     while _running:
         try:

@@ -9,7 +9,6 @@ Gates:
   - Harm / policy       → SAFETY_GATE LLM (dynamic — context-aware, not keyword)
   - Low confidence      → Clarify (deterministic — L1 score)
 """
-import asyncio
 import json
 import logging
 import time

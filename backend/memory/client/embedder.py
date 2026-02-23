@@ -11,7 +11,7 @@ Why ONNX over ChromaDB default:
 - Portable: same model runs on any platform with onnxruntime
 """
 import logging
-from typing import List, Optional
+from typing import List
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from config.settings import get_settings
 from config.feature_flags import is_mock_llm

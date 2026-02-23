@@ -10,6 +10,7 @@ Persistence layer:
 On startup: reload_from_mongodb() rehydrates ChromaDB from MongoDB.
 On write:   add_document() writes to both ChromaDB and MongoDB atomically.
 """
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -17,6 +18,7 @@ import chromadb
 from chromadb import EmbeddingFunction, Documents, Embeddings
 
 from memory.client.embedder import embed
+from core.database import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +99,6 @@ def add_document_with_embedding(
 def _persist_one(doc_id: str, text: str, metadata: Dict[str, Any]) -> None:
     """Write a single vector document to MongoDB (fire-and-forget via sync)."""
     try:
-        from core.database import get_db
-        import asyncio
         loop = asyncio.get_event_loop()
         if loop.is_running():
             asyncio.ensure_future(_async_persist_one(doc_id, text, metadata))
@@ -109,7 +109,6 @@ def _persist_one(doc_id: str, text: str, metadata: Dict[str, Any]) -> None:
 
 
 async def _async_persist_one(doc_id: str, text: str, metadata: Dict[str, Any]) -> None:
-    from core.database import get_db
     db = get_db()
     await db.vector_store.update_one(
         {"doc_id": doc_id},
@@ -131,7 +130,6 @@ async def reload_from_mongodb() -> int:
     - Test data must be scoped to test_user_* user_ids and cleared after tests.
     - All queries MUST filter by user_id (pass where={"user_id": uid} to query()).
     """
-    from core.database import get_db
     db = get_db()
     coll = _get_collection()
 
