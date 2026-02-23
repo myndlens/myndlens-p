@@ -505,7 +505,8 @@ async def _handle_execute_request(
 
         # Acknowledge execution with TTS — confirms mandate accepted
         ack_text = f"On it. {top.hypothesis[:80]}."
-        tts_ack = await tts.synthesize(ack_text)
+        _tts_ack_provider = get_tts_provider()
+        tts_ack = await _tts_ack_provider.synthesize(ack_text)
         if tts_ack.audio_bytes and not tts_ack.is_mock:
             await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
                 text=ack_text,
@@ -649,27 +650,62 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
     # ── Check if this is a clarification response ──
     clarify = _clarification_state.get(session_id)
     if clarify and clarify.get("pending"):
-        logger.info("[CLARIFICATION] session=%s response='%s' to question='%s'",
-                    session_id, text[:50], clarify["question_asked"][:50])
+        clarify_type = clarify.get("type", "intent")
+        logger.info("[CLARIFICATION] session=%s type=%s response='%s' to='%s'",
+                    session_id, clarify_type, text[:50], clarify.get("question_asked","")[:40])
 
-        # Combine original transcript + clarification response
-        combined = (
-            f"{clarify['original_transcript']}. "
-            f"Clarification: {text}"
-        )
-        # Clear the pending state
+        # ── Permission gate response ──────────────────────────────────────────
+        if clarify_type == "permission":
+            affirmatives = {"yes","sure","ok","okay","proceed","go","do it",
+                            "correct","absolutely","yep","yup","go ahead",
+                            "please","please do","right","alright"}
+            norm = text.lower().strip().rstrip(".,!")
+            is_affirmative = any(a in norm for a in affirmatives) or norm in affirmatives
+
+            if is_affirmative:
+                logger.info("[CLARIFICATION:PERMISSION] session=%s GRANTED", session_id)
+                _clarification_state[session_id] = {"permission_granted": True, "dim_attempts": 0}
+                await _send_mock_tts_response(ws, session_id, clarify["original_transcript"],
+                                              user_id=user_id, context_capsule=clarify.get("context_capsule"))
+            else:
+                neg_prompt = "What would you like to change?"
+                _clarification_state[session_id] = {
+                    "pending": True, "type": "intent",
+                    "original_transcript": clarify["original_transcript"],
+                    "question_asked": neg_prompt,
+                    "context_capsule": clarify.get("context_capsule"),
+                }
+                _tts_neg = get_tts_provider()
+                tts_r = await _tts_neg.synthesize(neg_prompt)
+                if tts_r.audio_bytes and not tts_r.is_mock:
+                    await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, {
+                        "text": neg_prompt, "session_id": session_id,
+                        "format": "mp3", "is_mock": False,
+                        "audio": base64.b64encode(tts_r.audio_bytes).decode("ascii"),
+                        "audio_size_bytes": len(tts_r.audio_bytes),
+                        "is_clarification": True, "auto_record": True,
+                    }))
+                else:
+                    await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                        text=neg_prompt, session_id=session_id, format="text", is_mock=True,
+                    ))
+                logger.info("[CLARIFICATION:PERMISSION] session=%s DECLINED", session_id)
+            return
+
+        # ── Dimension clarification response ──────────────────────────────────
+        if clarify_type == "dimension":
+            combined = f"{clarify['original_transcript']}. Answer: {text}"
+            _clarification_state[session_id] = {"permission_granted": True, "dim_attempts": clarify.get("dim_attempts", 1)}
+            await _send_mock_tts_response(ws, session_id, combined, user_id=user_id,
+                                          context_capsule=clarify.get("context_capsule"))
+            return
+
+        # ── Intent clarification (default) ────────────────────────────────────
+        combined = f"{clarify['original_transcript']}. Clarification: {text}"
         _clarification_state.pop(session_id, None)
-
-        # Re-run the full pipeline with enriched context
-        logger.info("[CLARIFICATION] session=%s re-running pipeline with combined='%s'",
-                    session_id, combined[:80])
-
-        # Use the original context capsule
-        await _send_mock_tts_response(
-            ws, session_id, combined,
-            user_id=user_id,
-            context_capsule=clarify.get("context_capsule"),
-        )
+        logger.info("[CLARIFICATION:INTENT] session=%s combined='%s'", session_id, combined[:80])
+        await _send_mock_tts_response(ws, session_id, combined, user_id=user_id,
+                                      context_capsule=clarify.get("context_capsule"))
         return
 
     logger.info("Text input: session=%s text='%s' has_capsule=%s", session_id, text[:50], bool(context_capsule))

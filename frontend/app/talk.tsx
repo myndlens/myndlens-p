@@ -312,10 +312,18 @@ export default function TalkScreen() {
         const text = env.payload.text || '';
         const audioBase64: string = env.payload.audio || '';
         const isMock: boolean = env.payload.is_mock ?? true;
+        const autoRecord: boolean = env.payload.auto_record ?? false;
         setTtsText(text);
         transition('RESPONDING');
         setIsSpeaking(true);
-        const onComplete = () => { setIsSpeaking(false); transition('IDLE'); };
+        const onComplete = () => {
+          setIsSpeaking(false);
+          transition('IDLE');
+          // Auto-start recording after a clarification TTS so user can speak answer
+          if (autoRecord) {
+            setTimeout(() => handleMic(), 500);
+          }
+        };
         // Play real ElevenLabs audio if available, else fall back to device TTS
         if (audioBase64 && !isMock) {
           TTS.speakFromAudio(audioBase64, { onComplete });
