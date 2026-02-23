@@ -3,7 +3,6 @@
  *
  * Native: expo-av records to a local file. VAD drives auto-stop via metering.
  * On stop, the file is read as base64 and returned for a single WS upload.
- * Web: MediaRecorder streams real chunks.
  *
  * FIX: Removed _startSimulatedRecording from native path. Real audio is now
  * captured by expo-av, read after stop, and sent as one chunk to the server.
@@ -18,14 +17,12 @@ export type AudioChunk = {
   durationMs: number;
 };
 
-export type OnChunkCallback = (chunk: AudioChunk) => void;
 
 let _recording = false;
 let _stopping = false;  // guard against concurrent stop calls
 let _seq = 0;
-let _chunkInterval: ReturnType<typeof setInterval> | null = null;
-let _vadInterval: ReturnType<typeof setInterval> | null = null;
 let _onSpeechEnd: (() => void) | null = null;
+let _onEnergy: ((rms: number) => void) | null = null;
 
 // Native expo-av Recording instance
 let _expoRecording: any = null;
@@ -34,28 +31,21 @@ let _expoRecording: any = null;
  * Start audio recording.
  * Native: starts expo-av recording + VAD via metering. No chunks emitted.
  *   Call stopAndGetAudio() when done to retrieve the recorded audio as base64.
- * Web: streams real MediaRecorder chunks via onChunk callback.
  *
  * onSpeechEnd is called when VAD detects end-of-utterance (Siri-like auto-stop).
  */
 export async function startRecording(
-  onChunk: OnChunkCallback,
   onSpeechEnd?: () => void,
+  onEnergyCallback?: (rms: number) => void,
 ): Promise<void> {
   if (_recording) return;
 
   _recording = true;
-  _seq = 0;
   _onSpeechEnd = onSpeechEnd || null;
+  _onEnergy = onEnergyCallback || null;
   vad.reset();
 
-  if (Platform.OS === 'web') {
-    try {
-      await _startWebRecording(onChunk);
-    } catch (err) {
-      console.warn('[Recorder] Web recording not available:', err);
-    }
-  } else {
+  {
     // Native: Use expo-av for real audio capture + VAD via metering.
     // No simulated chunks. Audio is read from the file on stop.
     try {
@@ -157,21 +147,7 @@ export async function stopAndGetAudio(): Promise<string | null> {
   _onSpeechEnd = null;
 
   // Clear web intervals
-  if (_chunkInterval) { clearInterval(_chunkInterval); _chunkInterval = null; }
-  if (_vadInterval) { clearInterval(_vadInterval); _vadInterval = null; }
-
-  vad.detach();
   vad.reset();
-
-  // Web cleanup
-  if (_webStream) {
-    _webStream.getTracks().forEach(t => t.stop());
-    _webStream = null;
-  }
-  if (_webRecorder) {
-    if (_webRecorder.state === 'recording') _webRecorder.stop();
-    _webRecorder = null;
-  }
 
   // Native: stop recording and read the file
   if (_expoRecording) {
@@ -216,17 +192,6 @@ export async function stopRecording(): Promise<void> {
   _recording = false;
   _onSpeechEnd = null;
 
-  if (_chunkInterval) { clearInterval(_chunkInterval); _chunkInterval = null; }
-  if (_vadInterval) { clearInterval(_vadInterval); _vadInterval = null; }
-
-  vad.detach();
-  vad.reset();
-
-  if (_webStream) { _webStream.getTracks().forEach(t => t.stop()); _webStream = null; }
-  if (_webRecorder) {
-    if (_webRecorder.state === 'recording') _webRecorder.stop();
-    _webRecorder = null;
-  }
 
   if (_expoRecording) {
     try {
@@ -243,50 +208,3 @@ export function isRecording(): boolean {
   return _recording;
 }
 
-// ---- Web MediaRecorder ----
-let _webStream: MediaStream | null = null;
-let _webRecorder: MediaRecorder | null = null;
-
-async function _startWebRecording(onChunk: OnChunkCallback): Promise<void> {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  _webStream = stream;
-
-  const recorder = new MediaRecorder(stream, {
-    mimeType: 'audio/webm;codecs=opus',
-  });
-  _webRecorder = recorder;
-
-  recorder.ondataavailable = async (event) => {
-    if (event.data.size > 0 && _recording) {
-      const buffer = await event.data.arrayBuffer();
-      const base64 = _arrayBufferToBase64(buffer);
-      _seq++;
-      onChunk({ data: base64, seq: _seq, timestamp: Date.now(), durationMs: 250 });
-    }
-  };
-
-  // Attach VAD to live stream for web auto-stop
-  vad.attachStream(stream);
-  _vadInterval = setInterval(() => {
-    if (!_recording) return;
-    const event = vad.sampleStream();
-    if (event === 'speechEnd' && _onSpeechEnd) {
-      console.log('[Recorder] VAD: speechEnd detected (web)');
-      const cb = _onSpeechEnd;
-      _onSpeechEnd = null;
-      setTimeout(() => cb(), 0);
-    }
-  }, 100);
-
-  recorder.start(250);
-}
-
-// ---- Utils ----
-function _arrayBufferToBase64(buffer: ArrayBuffer): string {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}

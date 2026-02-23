@@ -14,6 +14,7 @@ import {
   AppState,
   Modal,
   ScrollView,
+  PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -89,7 +90,7 @@ export default function TalkScreen() {
   const {
     state: audioState, transcript, partialTranscript, ttsText,
     transition, setTranscript, setPartialTranscript, setTtsText,
-    setIsSpeaking, incrementChunks, reset: resetAudio,
+    setIsSpeaking, reset: resetAudio,
   } = useAudioStore();
 
   const [textInput, setTextInput] = React.useState('');
@@ -102,6 +103,13 @@ export default function TalkScreen() {
   const [liveEnergy, setLiveEnergy] = useState(0);
   const [userNickname, setUserNickname] = useState('');
   const [chatOpen, setChatOpen] = useState(false);
+  const openChat = () => {
+    setChatOpen(true);
+    Animated.spring(chatSlideAnim, { toValue: 1, useNativeDriver: true, friction: 7 }).start();
+  };
+  const closeChat = () => {
+    Animated.timing(chatSlideAnim, { toValue: 0, duration: 280, useNativeDriver: true }).start(() => setChatOpen(false));
+  };
   const [showDsModal, setShowDsModal] = useState(false);
   const [clarificationQuestion, setClarificationQuestion] = useState<{
     question: string;
@@ -117,6 +125,22 @@ export default function TalkScreen() {
     return () => { isScreenFocused.current = false; };
   }, []));
   const chatBubbleAnim = useRef(new Animated.Value(1)).current;
+  const chatSlideAnim = useRef(new Animated.Value(0)).current;
+  const chatPanX = useRef(new Animated.Value(0)).current;
+  const chatPanY = useRef(new Animated.Value(0)).current;
+  const chatPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_evt: any, g: any) => Math.abs(g.dx) > 4 || Math.abs(g.dy) > 4,
+      onPanResponderMove: Animated.event([null, { dx: chatPanX, dy: chatPanY }] as any, { useNativeDriver: false }) as any,
+      onPanResponderRelease: (_evt: any, _g: any) => {
+        // Snap to nearest edge (left or right)
+        // Keep current position — no snap for now, free positioning
+        chatPanX.extractOffset();
+        chatPanY.extractOffset();
+      },
+    })
+  ).current;
   const micAnim = useRef(new Animated.Value(1)).current;
   const waveAnims = useRef([
     new Animated.Value(4),
@@ -409,33 +433,21 @@ export default function TalkScreen() {
       await TTS.speak(greeting);
 
       await startRecording(
-        (chunk) => {
-          incrementChunks();
-          wsClient.send('audio_chunk', {
-            session_id: sessionId, audio: chunk.data,
-            seq: chunk.seq, timestamp: chunk.timestamp, duration_ms: chunk.durationMs,
-          });
-        },
         async () => {
           // VAD auto-stop: user finished speaking
-          // 1. Stop recording and read the real audio file
           console.log('[Talk] VAD triggered auto-stop');
           const audioBase64 = await stopAndGetAudio();
-          // 2. Send the real audio to the server
           if (audioBase64 && sessionId) {
             wsClient.send('audio_chunk', {
-              session_id: sessionId,
-              audio: audioBase64,
-              seq: 1,
-              timestamp: Date.now(),
-              duration_ms: 0,
+              session_id: sessionId, audio: audioBase64,
+              seq: 1, timestamp: Date.now(), duration_ms: 0,
             });
           }
-          // 3. Signal server to finalize transcript and run pipeline
           wsClient.send('cancel', { session_id: sessionId, reason: 'vad_end_of_utterance' });
           transition('COMMITTING');
           transition('THINKING');
         },
+        (rms: number) => setLiveEnergy(rms),
       );
     } else if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
       // Manual stop: read the real audio and send to server before signalling
@@ -740,12 +752,15 @@ export default function TalkScreen() {
           ) : null}
         </View>
 
-        {/* ── Floating Chat Bubble — always visible, glows when content present ── */}
-        <Animated.View style={[
-          styles.chatFAB,
-          { transform: [{ scale: chatBubbleAnim }] },
-          (ttsText || transcript) && styles.chatFABActive,
-        ]}>
+        {/* ── Floating Chat Bubble — draggable, glows when content present ── */}
+        <Animated.View
+          style={[
+            styles.chatFAB,
+            { transform: [{ translateX: chatPanX }, { translateY: chatPanY }, { scale: chatBubbleAnim }] },
+            (ttsText || transcript) && styles.chatFABActive,
+          ]}
+          {...chatPanResponder.panHandlers}
+        >
           <TouchableOpacity
             onPress={() => setChatOpen(true)}
             style={[styles.chatFABInner, (ttsText || transcript) ? styles.chatFABInnerActive : null]}
@@ -766,7 +781,10 @@ export default function TalkScreen() {
           onRequestClose={() => setChatOpen(false)}
         >
           <View style={styles.chatModalOverlay}>
-            <View style={styles.chatModalSheet}>
+            <Animated.View style={[
+              styles.chatModalSheet,
+              { transform: [{ translateY: chatSlideAnim.interpolate({ inputRange: [0, 1], outputRange: [800, 0] }) }] },
+            ]}>
               {/* Handle bar */}
               <View style={styles.chatHandle} />
 
@@ -774,7 +792,7 @@ export default function TalkScreen() {
               <View style={styles.chatModalHeader}>
                 <Text style={styles.chatModalTitle}>Conversation</Text>
                 <TouchableOpacity
-                  onPress={() => setChatOpen(false)}
+                  onPress={() => closeChat()}
                   style={styles.chatCloseBtn}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
@@ -810,11 +828,11 @@ export default function TalkScreen() {
               {/* Minimise tap area */}
               <TouchableOpacity
                 style={styles.chatMinimiseBtn}
-                onPress={() => setChatOpen(false)}
+                onPress={() => closeChat()}
               >
                 <Text style={styles.chatMinimiseText}>Minimise  ↓</Text>
               </TouchableOpacity>
-            </View>
+            </Animated.View>
           </View>
         </Modal>
       </View>
@@ -926,14 +944,15 @@ const styles = StyleSheet.create({
 
   // ── Chat Modal ──────────────────────────────────────────────────────────
   chatModalOverlay: {
-    flex: 1, justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.82)',
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.88)',
   },
   chatModalSheet: {
+    flex: 1,
     backgroundColor: '#0A0A14',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
     borderTopWidth: 1, borderColor: '#1E1E32',
-    paddingBottom: 32, maxHeight: '85%', minHeight: '50%',
+    paddingBottom: 32,
   },
   chatHandle: {
     width: 40, height: 4, borderRadius: 2,
