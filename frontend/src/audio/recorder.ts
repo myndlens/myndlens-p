@@ -232,6 +232,7 @@ export async function stopRecording(): Promise<void> {
     } catch { /* ignore */ }
     _expoRecording = null;
   }
+  _stopping = false;
 }
 
 export function isRecording(): boolean {
