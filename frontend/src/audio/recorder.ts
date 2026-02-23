@@ -60,6 +60,15 @@ export async function startRecording(
     try {
       const { Audio } = require('expo-av');
 
+      // Clean up any stale recording from a previous interrupted session.
+      // expo-av allows only one Recording at a time — if a prior one wasn't
+      // fully unloaded (e.g. interrupted by permission dialog), prepareToRecordAsync
+      // throws "Only one Recording object can be prepared at a given time."
+      if (_expoRecording) {
+        try { await _expoRecording.stopAndUnloadAsync(); } catch { /* ignore */ }
+        _expoRecording = null;
+      }
+
       const { granted } = await Audio.requestPermissionsAsync();
       if (!granted) {
         console.warn('[Recorder] Microphone permission denied');
