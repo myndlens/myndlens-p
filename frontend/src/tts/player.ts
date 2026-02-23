@@ -5,7 +5,6 @@
  * speak():          falls back to expo-speech when no audio bytes available.
  * stop():           interrupts either mode.
  */
-import { Platform } from 'react-native';
 import { Audio } from 'expo-av';
 // expo-file-system used via require to avoid TypeScript declaration mismatches
 const FileSystem = require('expo-file-system') as any;
@@ -82,11 +81,7 @@ export async function speak(
 ): Promise<void> {
   await stop();
 
-  if (Platform.OS === 'web') {
-    _speakWeb(text, options);
-  } else {
-    _speakNative(text, options);
-  }
+  _speakNative(text, options);
 }
 
 /**
@@ -102,40 +97,14 @@ export async function stop(): Promise<void> {
     _currentSound = null;
   }
 
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-  } else {
-    try {
-      const Speech = require('expo-speech');
-      await Speech.stop();
-    } catch { /* ignore */ }
-  }
+  try {
+    const Speech = require('expo-speech');
+    await Speech.stop();
+  } catch { /* ignore */ }
 }
 
 export function isSpeaking(): boolean {
   return _isSpeaking;
-}
-
-// ---- Web Speech API ----
-function _speakWeb(
-  text: string,
-  options?: { onStart?: () => void; onComplete?: () => void; rate?: number; pitch?: number },
-): void {
-  if (typeof window === 'undefined' || !window.speechSynthesis) {
-    console.warn('[TTS] Web Speech API not available');
-    options?.onComplete?.();
-    return;
-  }
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = options?.rate || 1.0;
-  utterance.pitch = options?.pitch || 1.0;
-  utterance.lang = 'en-US';
-  utterance.onstart = () => { _isSpeaking = true; options?.onStart?.(); };
-  utterance.onend = () => { _isSpeaking = false; options?.onComplete?.(); };
-  utterance.onerror = () => { _isSpeaking = false; options?.onComplete?.(); };
-  window.speechSynthesis.speak(utterance);
 }
 
 // ---- Native (expo-speech) ----

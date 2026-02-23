@@ -1,58 +1,38 @@
 /**
- * Cross-platform secure storage wrapper.
- * Uses expo-secure-store on native, localStorage on web.
+ * Secure storage wrapper — native only (expo-secure-store).
+ * Mobile-first, voice-first. No localStorage.
  */
-import { Platform } from 'react-native';
-
 let SecureStore: any = null;
 
-// Only import SecureStore on native platforms
-if (Platform.OS !== 'web') {
-  try {
-    SecureStore = require('expo-secure-store');
-  } catch {
-    console.warn('expo-secure-store not available, using fallback');
-  }
+try {
+  SecureStore = require('expo-secure-store');
+} catch {
+  console.warn('[Storage] expo-secure-store not available, using in-memory fallback');
 }
 
+// In-memory fallback for test environments where SecureStore unavailable
+const _mem: Record<string, string> = {};
+
 export async function getItem(key: string): Promise<string | null> {
-  if (Platform.OS === 'web') {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  }
-  if (SecureStore) {
-    return SecureStore.getItemAsync(key);
-  }
-  return null;
+  try {
+    if (SecureStore) return await SecureStore.getItemAsync(key);
+  } catch { /* fall through */ }
+  return _mem[key] ?? null;
 }
 
 export async function setItem(key: string, value: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      // Silently fail on web storage issues
-    }
-    return;
-  }
-  if (SecureStore) {
-    return SecureStore.setItemAsync(key, value);
-  }
+  try {
+    if (SecureStore) { await SecureStore.setItemAsync(key, value); return; }
+  } catch { /* fall through */ }
+  _mem[key] = value;
 }
 
-export async function deleteItem(key: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // Silently fail
-    }
-    return;
-  }
-  if (SecureStore) {
-    return SecureStore.deleteItemAsync(key);
-  }
+export async function removeItem(key: string): Promise<void> {
+  try {
+    if (SecureStore) { await SecureStore.deleteItemAsync(key); return; }
+  } catch { /* fall through */ }
+  delete _mem[key];
 }
+
+// Alias for callers that use deleteItem
+export const deleteItem = removeItem;

@@ -137,8 +137,7 @@ export async function startRecording(
  * Stop recording, read the captured audio file, and return it as base64.
  * This is the primary stop method for voice mandates.
  *
- * Returns base64 string of the audio file, or null on failure / web.
- * For web, returns null (web already streamed chunks via onChunk).
+ * Returns base64 string of the audio file, or null on failure.
  */
 export async function stopAndGetAudio(): Promise<string | null> {
   if (_stopping) return null;  // concurrent stop already in progress

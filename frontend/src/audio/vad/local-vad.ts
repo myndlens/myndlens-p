@@ -38,9 +38,6 @@ export class LocalVAD {
   private _lastEnergy: number = 0;
 
   // Web Audio API refs (web only)
-  private _analyser: AnalyserNode | null = null;
-  private _audioCtx: AudioContext | null = null;
-  private _sourceNode: MediaStreamAudioSourceNode | null = null;
   private _dataArray: Float32Array | null = null;
 
   constructor(config?: Partial<VADConfig>) {
@@ -56,53 +53,11 @@ export class LocalVAD {
   }
 
   /**
-   * Attach to a MediaStream (web) for real-time energy analysis.
-   */
-  attachStream(stream: MediaStream): void {
-    try {
-      this._audioCtx = new AudioContext();
-      this._analyser = this._audioCtx.createAnalyser();
-      this._analyser.fftSize = 512;
-      this._sourceNode = this._audioCtx.createMediaStreamSource(stream);
-      this._sourceNode.connect(this._analyser);
-      this._dataArray = new Float32Array(this._analyser.fftSize);
-      console.log('[VAD] Attached to audio stream');
-    } catch (err) {
-      console.error('[VAD] Failed to attach stream:', err);
-    }
-  }
-
-  /**
    * Detach from the stream and cleanup.
    */
-  detach(): void {
-    if (this._sourceNode) {
-      this._sourceNode.disconnect();
-      this._sourceNode = null;
-    }
-    if (this._audioCtx) {
-      this._audioCtx.close().catch(() => {});
-      this._audioCtx = null;
-    }
-    this._analyser = null;
-    this._dataArray = null;
-    this._isSpeech = false;
-    this._speechStartTime = 0;
-    this._silenceStartTime = 0;
-  }
 
-  /**
-   * Sample current energy from the live stream (web only).
-   * Returns the VAD event.
-   */
-  sampleStream(): VADEvent {
-    if (!this._analyser || !this._dataArray) {
-      return 'none';
-    }
-    this._analyser.getFloatTimeDomainData(this._dataArray as Float32Array<ArrayBuffer>);
-    const rms = computeRMS(this._dataArray);
-    return this.processEnergy(rms);
-  }
+
+
 
   /**
    * Process an energy value (from any source) and return VAD event.
@@ -168,30 +123,15 @@ export class LocalVAD {
   }
 }
 
-/**
- * Compute RMS energy from Float32Array (Web Audio time-domain data).
- */
-export function computeRMS(data: Float32Array): number {
-  let sumSquares = 0;
-  for (let i = 0; i < data.length; i++) {
-    sumSquares += data[i] * data[i];
-  }
-  return Math.sqrt(sumSquares / data.length);
-}
-
-/**
- * Compute RMS energy from raw audio bytes (assumes 16-bit PCM or normalized).
- */
-export function computeRMSFromBytes(bytes: Uint8Array): number {
-  if (bytes.length === 0) return 0;
-  let sumSquares = 0;
-  for (let i = 0; i < bytes.length; i++) {
-    // Normalize byte (0-255) to -1..1 range
-    const normalized = (bytes[i] - 128) / 128;
-    sumSquares += normalized * normalized;
-  }
-  return Math.sqrt(sumSquares / bytes.length);
-}
-
-// Singleton for app-wide use
 export const vad = new LocalVAD();
+
+export function computeRMSFromBytes(bytes: Uint8Array): number {
+  let sum = 0;
+  const n = Math.floor(bytes.length / 2);
+  if (n === 0) return 0;
+  for (let i = 0; i < n; i++) {
+    const s16 = ((bytes[i * 2 + 1] << 8) | bytes[i * 2]) << 16 >> 16;
+    sum += (s16 / 32768) ** 2;
+  }
+  return Math.sqrt(sum / n);
+}

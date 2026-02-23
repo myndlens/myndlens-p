@@ -45,7 +45,7 @@ export default function LoginScreen() {
 
     try {
       const deviceId = await getOrCreateDeviceId();
-      const deviceName = Platform.OS === 'web' ? 'Web Browser' : `${Platform.OS} Device`;
+      const deviceName = `${Platform.OS} Device`;
 
       // Call ObeGee pairing endpoint (or dev mock)
       const pairUrl = `${process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk'}/api/myndlens/pair`;

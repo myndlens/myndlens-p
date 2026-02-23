@@ -161,7 +161,7 @@ export default function TalkScreen() {
           allowsRecordingIOS: true,
           playsInSilentModeIOS: true,
         });
-      } catch { /* graceful fallback for web builds */ }
+      } catch { /* non-critical */ }
 
       // Check DS setup flag — show modal if user has never gone through DS setup.
       // Using a flag (not nodeCount) because a device with no contacts still counts
