@@ -188,7 +188,7 @@ export async function stopAndGetAudio(): Promise<string | null> {
 
       const FileSystem = require('expo-file-system');
       const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
 
       // Clean up the temp file
