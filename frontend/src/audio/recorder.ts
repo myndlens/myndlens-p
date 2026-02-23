@@ -193,6 +193,7 @@ export async function stopAndGetAudio(): Promise<string | null> {
       FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
 
       console.log(`[Recorder] Audio read: ${Math.round(base64.length * 0.75 / 1024)}KB`);
+      _stopping = false;
       return base64;
     } catch (err) {
       console.warn('[Recorder] stopAndGetAudio failed:', err);
@@ -200,6 +201,7 @@ export async function stopAndGetAudio(): Promise<string | null> {
     }
   }
 
+  _stopping = false;
   return null;
 }
 
