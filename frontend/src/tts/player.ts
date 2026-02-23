@@ -6,6 +6,9 @@
  * stop():           interrupts either mode.
  */
 import { Platform } from 'react-native';
+import { Audio } from 'expo-av';
+// expo-file-system used via require to avoid TypeScript declaration mismatches
+const FileSystem = require('expo-file-system') as any;
 
 let _isSpeaking = false;
 let _currentSound: any = null; // expo-av Sound instance (native only)
@@ -20,43 +23,12 @@ export async function speakFromAudio(
 ): Promise<void> {
   await stop();
 
-  if (Platform.OS === 'web') {
-    // Web: decode base64 → Blob → Object URL → Audio element
-    try {
-      const binary = atob(base64Audio);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'audio/mpeg' });
-      const url = URL.createObjectURL(blob);
-      const audio = new window.Audio(url);
-      _isSpeaking = true;
-      audio.onended = () => {
-        _isSpeaking = false;
-        URL.revokeObjectURL(url);
-        options?.onComplete?.();
-      };
-      audio.onerror = () => {
-        _isSpeaking = false;
-        URL.revokeObjectURL(url);
-        options?.onComplete?.();
-      };
-      await audio.play();
-    } catch (err) {
-      console.warn('[TTS] Web audio playback failed:', err);
-      _isSpeaking = false;
-      options?.onComplete?.();
-    }
-    return;
-  }
-
   // Native: write to temp file, play with expo-av
   try {
-    const { Audio } = require('expo-av');
-    const FileSystem = require('expo-file-system');
 
-    const tempPath = `${FileSystem.cacheDirectory}myndlens_tts_${Date.now()}.mp3`;
+    const tempPath = `${FileSystem.documentDirectory}myndlens_tts_${Date.now()}.mp3`;
     await FileSystem.writeAsStringAsync(tempPath, base64Audio, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64',
     });
 
     // Switch audio mode to playback (not recording)

@@ -100,6 +100,7 @@ export default function TalkScreen() {
   const [pipelineSubStatus, setPipelineSubStatus] = React.useState<string>('');
   const [pipelineProgress, setPipelineProgress] = React.useState<number>(0);
   const [liveEnergy, setLiveEnergy] = useState(0);
+  const [userNickname, setUserNickname] = useState('');
   const [chatOpen, setChatOpen] = useState(false);
   const [showDsModal, setShowDsModal] = useState(false);
   const [clarificationQuestion, setClarificationQuestion] = useState<{
@@ -273,6 +274,23 @@ export default function TalkScreen() {
   useEffect(() => {
     const unsubs = [
       wsClient.on('heartbeat_ack', (env: WSEnvelope) => setHeartbeatSeq(env.payload.seq)),
+      wsClient.on('auth_ok', async () => {
+        // Fetch user's first name for greeting
+        try {
+          const tok = await (Storage as any).getItem('access_token');
+          if (tok) {
+            const envCfg = require('../src/config/env').ENV;
+            const resp = await fetch(`${envCfg.API_URL}/auth/me`, {
+              headers: { Authorization: `Bearer ${tok}` },
+            });
+            if (resp.ok) {
+              const me = await resp.json();
+              const fullName = (me.name || me.email?.split('@')[0] || '').trim();
+              setUserNickname(fullName.split(' ')[0]);
+            }
+          }
+        } catch { /* non-critical */ }
+      }),
       wsClient.on('transcript_partial', (env: WSEnvelope) => setPartialTranscript(env.payload.text || '')),
       wsClient.on('transcript_final', (env: WSEnvelope) => {
         setTranscript(env.payload.text || '');
@@ -375,6 +393,13 @@ export default function TalkScreen() {
       setPipelineProgress(0);
       transition('LISTENING');
       transition('CAPTURING');
+
+      // Greet the user before recording starts
+      const greeting = userNickname
+        ? `Hi ${userNickname}, what's on your mind?`
+        : "What's on your mind?";
+      await TTS.speak(greeting);
+
       await startRecording(
         (chunk) => {
           incrementChunks();

@@ -503,6 +503,23 @@ async def _handle_execute_request(
             dispatch_status=result.get("status", "QUEUED"),
         ))
 
+        # Acknowledge execution with TTS — confirms mandate accepted
+        ack_text = f"On it. {top.hypothesis[:80]}."
+        tts_ack = await tts.synthesize(ack_text)
+        if tts_ack.audio_bytes and not tts_ack.is_mock:
+            await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                text=ack_text,
+                session_id=session_id,
+                format="mp3",
+                is_mock=False,
+                audio=base64.b64encode(tts_ack.audio_bytes).decode("ascii"),
+                audio_size_bytes=len(tts_ack.audio_bytes),
+            ))
+        else:
+            await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                text=ack_text, session_id=session_id, format="text", is_mock=True,
+            ))
+
         await log_audit_event(
             AuditEventType.EXECUTE_REQUESTED,
             session_id=session_id,
