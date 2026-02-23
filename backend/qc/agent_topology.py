@@ -8,7 +8,6 @@ Separate from the QC pass/fail check. Answers:
 Called after QC passes and before the approval gate is shown to the user.
 """
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 

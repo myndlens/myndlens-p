@@ -24,7 +24,7 @@ export interface VADConfig {
   minSpeechDurationMs: number;
 }
 
-const DEFAULT_CONFIG: VADConfig = {
+export const DEFAULT_VAD_CONFIG: VADConfig = {
   energyThreshold: 0.015,
   silenceDurationMs: 2000,
   minSpeechDurationMs: 300,
@@ -44,7 +44,7 @@ export class LocalVAD {
   private _dataArray: Float32Array | null = null;
 
   constructor(config?: Partial<VADConfig>) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.config = { ...DEFAULT_VAD_CONFIG, ...config };
   }
 
   get isSpeech(): boolean {

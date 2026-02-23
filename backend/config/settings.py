@@ -32,6 +32,10 @@ class Settings(BaseSettings):
 
     # ── External Services (stubs in early batches) ───────────────
     DEEPGRAM_API_KEY: str = Field(default="")
+    DEEPGRAM_MODEL: str = Field(default="nova-2")
+    DEEPGRAM_LANGUAGE: str = Field(default="en-US")
+    AUDIO_SAMPLE_RATE: int = Field(default=16000)
+    MANDATE_MAX_CLARIFICATION_ROUNDS: int = Field(default=3)
     ELEVENLABS_API_KEY: str = Field(default="")
     GEMINI_API_KEY: str = Field(default="")
 

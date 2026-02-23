@@ -70,9 +70,8 @@ async def run_l1_scout(
 
         if not transcript_is_enriched:
             if context_capsule:
-                import json as _json
                 try:
-                    capsule_data = _json.loads(context_capsule)
+                    capsule_data = json.loads(context_capsule)
                     summary = capsule_data.get("summary", "")
                     if summary:
                         memory_snippets = [{"text": summary, "provenance": "DEVICE_PKG", "distance": 0.0}]

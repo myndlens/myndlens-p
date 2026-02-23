@@ -13,10 +13,11 @@ EXECUTION GUARDRAIL (Patch 5 / §3.2):
   violating it requires an ADR.
 """
 import asyncio
+import base64
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
+from typing import Dict, List
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -280,8 +281,16 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                 )
 
             elif msg_type == WSMessageType.CANCEL.value:
-                logger.info("Cancel received: session=%s", session_id)
-                await _handle_stream_end(websocket, session_id, user_id=user_id_resolved or "")
+                reason = payload.get("reason", "")
+                logger.info("Cancel received: session=%s reason=%s", session_id, reason)
+                if reason == "kill_switch":
+                    stt_p = get_stt_provider()
+                    stt_p._streams.pop(session_id, None)
+                    transcript_assembler.cleanup(session_id)
+                    _clarification_state.pop(session_id, None)
+                    logger.info("Kill switch: pipeline aborted for session=%s", session_id)
+                else:
+                    await _handle_stream_end(websocket, session_id, user_id=user_id_resolved or "")
 
             elif msg_type == WSMessageType.TEXT_INPUT.value:
                 await _handle_text_input(websocket, session_id, payload, user_id=user_id_resolved or "")
@@ -681,7 +690,6 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     Gap Filler enriches the raw transcript with Digital Self context BEFORE
     L1 Scout sees it. The LLM receives a fully-contextualized mandate, not a fragment.
     """
-    import base64
 
     async def _emit_stage(stage_id: str, stage_index: int, status: str = "active", sub_status: str = ""):
         data = _make_envelope(WSMessageType.PIPELINE_STAGE, {
@@ -756,8 +764,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
 
     # Update context_capsule from session if not provided per-request
     if not context_capsule and session_ctx and session_ctx.raw_summary:
-        import json as _json
-        context_capsule = _json.dumps({"summary": session_ctx.raw_summary})
+        context_capsule = json.dumps({"summary": session_ctx.raw_summary})
 
     # ── STEP 1: L1 Scout — intent classification ────────────────────────────
     logger.info("[MANDATE:1:L1_SCOUT] session=%s starting intent hypothesis", session_id)
@@ -839,15 +846,14 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
                         "dimension": question.dimension_filled,
                         "session_id": session_id,
                     }
-                    data = _make_envelope(WSMessageType.CLARIFICATION_QUESTION, clarify_payload)
-                    await ws.send_text(data)
+                    cq_data = _make_envelope(WSMessageType.CLARIFICATION_QUESTION, clarify_payload)
+                    await ws.send_text(cq_data)
 
                     # TTS the question so user HEARS it
                     tts = get_tts_provider()
                     tts_result = await tts.synthesize(question.question)
                     if tts_result.audio_bytes and not tts_result.is_mock:
-                        import base64 as _b64
-                        audio_b64 = _b64.b64encode(tts_result.audio_bytes).decode("ascii")
+                        audio_b64 = base64.b64encode(tts_result.audio_bytes).decode("ascii")
                         tts_payload = {
                             "text": question.question,
                             "session_id": session_id,
@@ -858,7 +864,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
                             "is_clarification": True,
                         }
                         data = _make_envelope(WSMessageType.TTS_AUDIO, tts_payload)
-                        await ws.send_text(data)
+                        await ws.send_text(cq_data)
 
                     logger.info(
                         "[MANDATE:1.5:MICRO_Q] session=%s ASKED: '%s' — waiting for response",
@@ -913,13 +919,57 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         logger.warning("[MANDATE:3:GUARDRAILS] BLOCKED session=%s", session_id)
     elif mandate and l1_draft.hypotheses and not l1_draft.is_mock:
         top = l1_draft.hypotheses[0]
-        # Build response from the mandate — NOT hardcoded
         summary = mandate.get("mandate_summary", top.hypothesis)
         missing_count = len(missing)
-        if missing_count == 0:
-            response_text = f"Got it. {summary}. Tap Approve."
+
+        if missing_count > 0:
+            dim_clarify = _clarification_state.get(session_id, {})
+            dim_attempt = dim_clarify.get("dim_attempts", 0)
+            if dim_attempt < get_settings().MANDATE_MAX_CLARIFICATION_ROUNDS:
+                from intent.mandate_questions import generate_mandate_questions
+                mq_batch = await generate_mandate_questions(
+                    session_id=session_id, user_id=user_id,
+                    transcript=transcript, mandate=mandate, batch_size=3,
+                )
+                if mq_batch.questions:
+                    q = mq_batch.questions[0]
+                    _clarification_state[session_id] = {
+                        "pending": True, "type": "dimension",
+                        "original_transcript": transcript,
+                        "enriched_transcript": enriched_transcript,
+                        "mandate": mandate,
+                        "l1_draft_id": l1_draft.draft_id,
+                        "question_asked": q.question,
+                        "context_capsule": context_capsule,
+                        "dim_attempts": dim_attempt + 1,
+                    }
+                    cq_data = _make_envelope(WSMessageType.CLARIFICATION_QUESTION, {
+                        "question": q.question, "fills_dimension": q.fills_dimension,
+                        "fills_action": q.fills_action,
+                        "missing_total": mq_batch.total_missing, "session_id": session_id,
+                    })
+                    await ws.send_text(cq_data)
+                    tts = get_tts_provider()
+                    tts_result = await tts.synthesize(q.question)
+                    if tts_result.audio_bytes and not tts_result.is_mock:
+                        tts_payload = {
+                            "text": q.question, "session_id": session_id,
+                            "format": "mp3", "is_mock": False,
+                            "audio": base64.b64encode(tts_result.audio_bytes).decode("ascii"),
+                            "audio_size_bytes": len(tts_result.audio_bytes),
+                            "is_clarification": True,
+                        }
+                        await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, tts_payload))
+                    else:
+                        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                            text=q.question, session_id=session_id, format="text", is_mock=True,
+                        ))
+                    logger.info("[MANDATE:2.5:DIM_Q] session=%s ASKED: '%s' (attempt %d, missing=%d)",
+                                session_id, q.question, dim_attempt + 1, mq_batch.total_missing)
+                    return
+            response_text = f"Got it. {summary}. Approve?"
         else:
-            response_text = f"{summary}. I have a few quick questions first."
+            response_text = f"Got it. {summary}. Approve?"
     else:
         top_h = l1_draft.hypotheses[0].hypothesis if l1_draft.hypotheses else transcript[:50]
         response_text = f"Understood: {top_h}. Tap Approve."
@@ -932,6 +982,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         top = l1_draft.hypotheses[0]
         draft_payload = {
             "draft_id": l1_draft.draft_id,
+            "action_class": top.intent,
             "intent": top.intent,
             "hypothesis": top.hypothesis,
             "sub_intents": top.sub_intents,

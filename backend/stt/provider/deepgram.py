@@ -10,13 +10,16 @@ On stream end, send remaining buffer for final transcription.
 STT provides ONLY: transcript fragments + confidence + latency.
 STT does NOT provide: intent inference, VAD, emotion inference.
 """
+from config.settings import get_settings
+from deepgram import DeepgramClient as _DeepgramClient
 import asyncio
+import io
+import wave
 import logging
 import time
 import uuid
 from typing import Dict, List, Optional
 
-from config.settings import get_settings
 from stt.provider.interface import STTProvider, TranscriptFragment
 
 logger = logging.getLogger(__name__)
@@ -48,7 +51,6 @@ class DeepgramSTTProvider(STTProvider):
         """Initialize the Deepgram client."""
         try:
             import os
-            from deepgram import DeepgramClient
             settings = get_settings()
             api_key = settings.DEEPGRAM_API_KEY
             if not api_key:
@@ -56,7 +58,7 @@ class DeepgramSTTProvider(STTProvider):
                 return
             # SDK v5.x reads from DEEPGRAM_API_KEY env var
             os.environ["DEEPGRAM_API_KEY"] = api_key
-            self._client = DeepgramClient()
+            self._client = _DeepgramClient()
             logger.info("[DeepgramSTT] Client initialized")
         except Exception as e:
             logger.error("[DeepgramSTT] Failed to initialize: %s", str(e))
@@ -127,40 +129,46 @@ class DeepgramSTTProvider(STTProvider):
         start_time = time.monotonic()
 
         try:
-            # Deepgram SDK v5.x API - use listen.v1.media.transcribe_file
-            # source should be a file-like object with the buffer data
-            import io
-            audio_buffer = io.BytesIO(buffer_data)
-            
-            # Run in executor to avoid blocking the event loop
+            # Deepgram SDK v5.3.2: wrap PCM in WAV, pass raw bytes (not BytesIO)
+            wav_buf = io.BytesIO()
+            with wave.open(wav_buf, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(get_settings().AUDIO_SAMPLE_RATE)
+                wf.writeframes(buffer_data)
+            wav_bytes = wav_buf.getvalue()
+
             loop = asyncio.get_running_loop()
+            _model = get_settings().DEEPGRAM_MODEL
+            _lang  = get_settings().DEEPGRAM_LANGUAGE
             response = await loop.run_in_executor(
                 None,
                 lambda: self._client.listen.v1.media.transcribe_file(
-                    request=audio_buffer,
-                    model="nova-2",
+                    request=wav_bytes,
+                    model=_model,
                     punctuate=True,
                     smart_format=True,
-                    language="en-US",
+                    language=_lang,
                 ),
             )
 
             latency_ms = (time.monotonic() - start_time) * 1000
 
-            # Extract transcript from response
-            result = response.to_dict() if hasattr(response, 'to_dict') else {}
-            channels = result.get("results", {}).get("channels", [])
+            # SDK v5 returns Pydantic objects — not dicts
+            channels = []
+            if hasattr(response, "results") and response.results:
+                channels = response.results.channels or []
 
             if not channels:
                 logger.debug("[DeepgramSTT] No channels in response: session=%s", session_id)
                 return None
 
-            alternatives = channels[0].get("alternatives", [])
+            alternatives = channels[0].alternatives or []
             if not alternatives:
                 return None
 
-            text = alternatives[0].get("transcript", "").strip()
-            confidence = alternatives[0].get("confidence", 0.0)
+            text = (alternatives[0].transcript or "").strip()
+            confidence = getattr(alternatives[0], "confidence", 0.0) or 0.0
 
             if not text:
                 return None

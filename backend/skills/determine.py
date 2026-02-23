@@ -11,7 +11,7 @@ If no existing skill fits, the LLM designs a new one.
 import json
 import logging
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from config.settings import get_settings
 from config.feature_flags import is_mock_llm
