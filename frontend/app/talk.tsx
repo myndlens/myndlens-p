@@ -381,10 +381,10 @@ export default function TalkScreen() {
   // ---- MIC: Start/Stop voice conversation ----
   async function handleMic() {
     if (audioState === 'RESPONDING') {
+      // Barge-in: user spoke over TTS — stop it and start recording immediately
       await TTS.stop();
       setIsSpeaking(false);
-      transition('IDLE');
-      return;
+      // Fall through to IDLE → CAPTURING path below (do not return)
     }
     if (audioState === 'IDLE') {
       // Gate: if DS setup was never completed, surface the setup modal every tap
