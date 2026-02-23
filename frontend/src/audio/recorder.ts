@@ -71,7 +71,6 @@ export async function startRecording(
       // Do NOT call requestPermissionsAsync() here — on some devices it triggers
       // GrantPermissionsActivity which causes onHostPause → AppState background
       // handler → stopRecording() + transition(IDLE) mid-recording.
-      const { Audio } = require('expo-av');
       const { granted } = await Audio.getPermissionsAsync();
       if (!granted) {
         console.warn('[Recorder] Microphone permission not granted');
