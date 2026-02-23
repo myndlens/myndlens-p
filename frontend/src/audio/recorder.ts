@@ -21,6 +21,7 @@ export type AudioChunk = {
 export type OnChunkCallback = (chunk: AudioChunk) => void;
 
 let _recording = false;
+let _stopping = false;  // guard against concurrent stop calls
 let _seq = 0;
 let _chunkInterval: ReturnType<typeof setInterval> | null = null;
 let _vadInterval: ReturnType<typeof setInterval> | null = null;
