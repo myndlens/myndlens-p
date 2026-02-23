@@ -187,27 +187,43 @@ export default function TalkScreen() {
     }
   }, [ttsText, transcript]);
 
-  // AppState: detect background → foreground transition
+  // AppState: detect background → foreground transition.
+  // Uses audioStateRef (not audioState) to avoid stale closures and prevent
+  // the effect re-running on every state change — which caused a recording
+  // restart loop on audio session resets (observed on OPPO devices).
+  const audioStateRef = useRef(audioState);
+  useEffect(() => { audioStateRef.current = audioState; }, [audioState]);
+
   useEffect(() => {
+    let lastActiveTime = 0;
+
     const appStateSub = AppState.addEventListener('change', async (nextState) => {
       if (nextState === 'background' || nextState === 'inactive') {
         // ── Going to background ──────────────────────────────────────────────
         appInBackground.current = true;
-        // Stop active media to free resources and avoid recording in background
-        if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
+        const state = audioStateRef.current;
+        if (state === 'CAPTURING' || state === 'LISTENING') {
           await stopRecording().catch(() => {});
           transition('IDLE');
         }
-        if (audioState === 'RESPONDING') {
+        if (state === 'RESPONDING') {
           await TTS.stop().catch(() => {});
         }
       } else if (nextState === 'active') {
         // ── Returning to foreground ──────────────────────────────────────────
         appInBackground.current = false;
+        const now = Date.now();
+
+        // Guard: ignore transient background/active cycles caused by audio
+        // session resets on recording stop (< 1 second background duration).
+        if (now - lastActiveTime < 1000) {
+          return;
+        }
+        lastActiveTime = now;
+
         if (!wsClient.isAuthenticated) {
-          // WS dropped while in background — reset audio state and show
-          // the disconnected banner. The user can tap mic or the banner to reconnect.
-          if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
+          const state = audioStateRef.current;
+          if (state === 'CAPTURING' || state === 'LISTENING') {
             await stopRecording().catch(() => {});
           }
           await TTS.stop().catch(() => {});
@@ -218,8 +234,6 @@ export default function TalkScreen() {
           setPipelineSubStatus('');
           setPipelineProgress(0);
           setConnectionStatus('disconnected');
-          // Navigate to loading for reconnect only if we're sure the session
-          // is gone and the app is now in the foreground.
           if (isScreenFocused.current) {
             router.replace('/loading');
           }
@@ -227,7 +241,8 @@ export default function TalkScreen() {
       }
     });
     return () => appStateSub.remove();
-  }, [audioState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);  // Mount once — audioState accessed via audioStateRef
 
   // Mic pulse
   useEffect(() => {
@@ -306,7 +321,8 @@ export default function TalkScreen() {
       }),
       wsClient.on('session_terminated', async () => {
         // Clean up all active state before navigating away
-        if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
+        const state = audioStateRef.current;
+        if (state === 'CAPTURING' || state === 'LISTENING') {
           await stopRecording().catch(() => {});
         }
         await TTS.stop().catch(() => {});

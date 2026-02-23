@@ -63,8 +63,9 @@ export async function startRecording(
 
       // Clean up any stale recording from a previous interrupted session.
       if (_expoRecording) {
-        try { await _expoRecording.stopAndUnloadAsync(); } catch { /* ignore */ }
+        const _rec3 = _expoRecording;
         _expoRecording = null;
+        try { await _rec3.stopAndUnloadAsync(); } catch { /* ignore */ }
       }
 
       // Permission is requested once at Talk screen mount (useEffect).
@@ -133,8 +134,9 @@ export async function startRecording(
       // Without this, the next prepareToRecordAsync() throws "Only one Recording object
       // can be prepared at a given time."
       if (_expoRecording) {
-        try { await _expoRecording.stopAndUnloadAsync(); } catch { /* ignore */ }
+        const _rec4 = _expoRecording;
         _expoRecording = null;
+        try { await _rec4.stopAndUnloadAsync(); } catch { /* ignore */ }
       }
       _recording = false;
     }
@@ -174,9 +176,10 @@ export async function stopAndGetAudio(): Promise<string | null> {
   // Native: stop recording and read the file
   if (_expoRecording) {
     try {
-      const uri = _expoRecording.getURI(); // get URI before unloading
-      await _expoRecording.stopAndUnloadAsync();
-      _expoRecording = null;
+      const uri = _expoRecording.getURI();
+      const _rec1 = _expoRecording;
+      _expoRecording = null; // clear before stop — prevents double-stop on OPPO/Android
+      await _rec1.stopAndUnloadAsync();
 
       if (!uri) {
         console.warn('[Recorder] No recording URI available');
@@ -227,7 +230,9 @@ export async function stopRecording(): Promise<void> {
 
   if (_expoRecording) {
     try {
-      await _expoRecording.stopAndUnloadAsync();
+      const _rec2 = _expoRecording;
+      _expoRecording = null; // clear before stop
+      await _rec2.stopAndUnloadAsync();
     } catch { /* ignore */ }
     _expoRecording = null;
   }
