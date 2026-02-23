@@ -150,6 +150,8 @@ export async function startRecording(
  * For web, returns null (web already streamed chunks via onChunk).
  */
 export async function stopAndGetAudio(): Promise<string | null> {
+  if (_stopping) return null;  // concurrent stop already in progress
+  _stopping = true;
   _recording = false;
   _onSpeechEnd = null;
 
