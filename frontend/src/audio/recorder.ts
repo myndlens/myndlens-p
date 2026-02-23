@@ -209,6 +209,8 @@ export async function stopAndGetAudio(): Promise<string | null> {
  * Stop recording without reading the audio (for kill-switch / error paths).
  */
 export async function stopRecording(): Promise<void> {
+  if (_stopping) return;  // concurrent stop already in progress
+  _stopping = true;
   _recording = false;
   _onSpeechEnd = null;
 
