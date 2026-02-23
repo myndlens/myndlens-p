@@ -127,6 +127,13 @@ export async function startRecording(
       console.log('[Recorder] Native recording started');
     } catch (err) {
       console.warn('[Recorder] Native recording failed:', (err as Error)?.message || err);
+      // Unload the locally-created recording to release expo-av's internal singleton lock.
+      // Without this, the next prepareToRecordAsync() throws "Only one Recording object
+      // can be prepared at a given time."
+      if (_expoRecording) {
+        try { await _expoRecording.stopAndUnloadAsync(); } catch { /* ignore */ }
+        _expoRecording = null;
+      }
       _recording = false;
     }
   }
