@@ -395,13 +395,15 @@ export default function TalkScreen() {
 
   // ---- MIC: Start/Stop voice conversation ----
   async function handleMic() {
-    if (audioState === 'RESPONDING') {
-      // Barge-in: user spoke over TTS — stop it and start recording immediately
+    const isBargeIn = audioState === 'RESPONDING';
+    if (isBargeIn) {
+      // Barge-in: user tapped while TTS was playing — stop it and start recording
       await TTS.stop();
       setIsSpeaking(false);
-      // Fall through to IDLE → CAPTURING path below (do not return)
+      transition('IDLE');
+      // Note: audioState is stale (still 'RESPONDING') — use isBargeIn flag below
     }
-    if (audioState === 'IDLE') {
+    if (audioState === 'IDLE' || isBargeIn) {
       // Gate: if DS setup was never completed, surface the setup modal every tap
       try {
         const { getItem } = require('../src/utils/storage');
