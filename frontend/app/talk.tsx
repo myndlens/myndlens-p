@@ -29,16 +29,16 @@ import { MicIcon } from '../src/ui/icons';
 import { vad } from '../src/audio/vad/local-vad';
 
 const PIPELINE_STAGES = [
-  { id: 'capture', label: 'Intent captured', activeText: 'Capturing your intent...' },
-  { id: 'digital_self', label: 'Enriched with Digital Self', activeText: 'Expanding with your Digital Self...' },
-  { id: 'dimensions', label: 'Dimensions extracted', activeText: 'Extracting dimensions...' },
-  { id: 'mandate', label: 'Mandate created', activeText: 'Creating mandate artefact...' },
-  { id: 'approval', label: 'Oral approval received', activeText: 'Waiting for your approval...' },
-  { id: 'agents', label: 'Agents assigned', activeText: 'Assigning agents & skills...' },
-  { id: 'skills', label: 'Skills & tools defined', activeText: 'Defining skills & tools...' },
-  { id: 'auth', label: 'Authorization granted', activeText: 'Awaiting authorization...' },
-  { id: 'executing', label: 'OpenClaw executing', activeText: 'OpenClaw executing your intent...' },
-  { id: 'delivered', label: 'Results delivered', activeText: 'Delivering results...' },
+  { id: 'capture',      label: 'Intent captured',                 activeText: 'Listening\u2026' },
+  { id: 'digital_self', label: 'Enriched with Digital Self',      activeText: 'Intent Processing via Your Digital Self\u2026' },
+  { id: 'dimensions',   label: 'Dimensions extracted',            activeText: 'Extracting dimensions\u2026' },
+  { id: 'mandate',      label: 'Mandate created',                 activeText: 'Creating mandate artefact\u2026' },
+  { id: 'approval',     label: 'Oral approval received',          activeText: 'Waiting for your approval\u2026' },
+  { id: 'agents',       label: 'Agents assigned',                 activeText: 'Assigning agents & skills\u2026' },
+  { id: 'skills',       label: 'Skills & tools defined',          activeText: 'Defining skills & tools\u2026' },
+  { id: 'auth',         label: 'Authorization granted',           activeText: 'Awaiting authorization\u2026' },
+  { id: 'executing',    label: 'OpenClaw executing',              activeText: 'OpenClaw executing your intent\u2026' },
+  { id: 'delivered',    label: 'Results delivered',               activeText: 'Delivering results\u2026' },
 ];
 
 function getPipelineState(
@@ -53,8 +53,11 @@ function getPipelineState(
     return 'pending';
   }
   if (audioState === 'THINKING') {
-    if (stageIndex < 2) return 'done';
-    if (stageIndex === 2) return 'active';
+    // Hold at stage 1 (digital_self) while waiting for backend pipeline_stage messages.
+    // The backend emits stage 1 first (digital_self active) before stage 2 (dimensions).
+    // Mapping to stage 2 here caused it to jump 1→2 before stage 1 was ever seen.
+    if (stageIndex === 0) return 'done';
+    if (stageIndex === 1) return 'active';
     return 'pending';
   }
   if (audioState === 'RESPONDING') {
@@ -669,7 +672,11 @@ export default function TalkScreen() {
                     </View>
                   ) : (
                     <View style={styles.pipelineActiveInner}>
-                      <Text style={styles.pipelineActiveText}>{stage?.activeText ?? ''}</Text>
+                      <Text style={styles.pipelineActiveText}>
+                        {activeIndex === 0 && userNickname
+                          ? `Listening, ${userNickname}\u2026`
+                          : stage?.activeText ?? ''}
+                      </Text>
                       {pipelineSubStatus ? (
                         <Text style={styles.pipelineSubStatus}>{pipelineSubStatus}</Text>
                       ) : null}

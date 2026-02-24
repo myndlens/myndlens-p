@@ -1029,9 +1029,28 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
                     logger.info("[MANDATE:2.5:DIM_Q] session=%s ASKED: '%s' (attempt %d, missing=%d)",
                                 session_id, q.question, dim_attempt + 1, mq_batch.total_missing)
                     return
-            response_text = f"Got it. {summary}. Approve?"
+            # Build TTS response: speak the intent structure with sub-intents
+            sub_intents = top.sub_intents if top.sub_intents else []
+            if sub_intents and len(sub_intents) > 0:
+                sub_list = ". ".join(str(s) for s in sub_intents[:3] if s)
+                response_text = (
+                    f"I understand. {summary}. "
+                    f"This covers: {sub_list}. "
+                    f"Shall I proceed?"
+                )
+            else:
+                response_text = f"I understand. {summary}. Shall I proceed?"
         else:
-            response_text = f"Got it. {summary}. Approve?"
+            sub_intents = top.sub_intents if top.sub_intents else []
+            if sub_intents and len(sub_intents) > 0:
+                sub_list = ". ".join(str(s) for s in sub_intents[:3] if s)
+                response_text = (
+                    f"I understand. {summary}. "
+                    f"This covers: {sub_list}. "
+                    f"Shall I proceed?"
+                )
+            else:
+                response_text = f"I understand. {summary}. Shall I proceed?"
     else:
         top_h = l1_draft.hypotheses[0].hypothesis if l1_draft.hypotheses else transcript[:50]
         response_text = f"Understood: {top_h}. Tap Approve."
