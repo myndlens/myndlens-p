@@ -69,6 +69,9 @@ export async function speakFromAudio(
 
 /**
  * Speak text using device TTS (expo-speech). Fallback when no audio bytes.
+ * Returns a Promise that resolves only when speech FINISHES playing —
+ * not when it starts. This prevents the microphone picking up TTS audio
+ * when recording starts immediately after.
  */
 export async function speak(
   text: string,
@@ -81,7 +84,23 @@ export async function speak(
 ): Promise<void> {
   await stop();
 
-  _speakNative(text, options);
+  return new Promise<void>((resolve) => {
+    // Safety timeout — resolve after 8s max regardless of TTS state
+    const timeout = setTimeout(() => {
+      _isSpeaking = false;
+      resolve();
+    }, 8000);
+
+    _speakNative(text, {
+      ...options,
+      onComplete: () => {
+        clearTimeout(timeout);
+        _isSpeaking = false;
+        options?.onComplete?.();
+        resolve();  // ← resolves AFTER speech finishes
+      },
+    });
+  });
 }
 
 /**

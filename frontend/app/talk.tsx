@@ -492,11 +492,15 @@ export default function TalkScreen() {
       transition('LISTENING');
       transition('CAPTURING');
 
-      // Greet the user before recording starts
+      // Greet the user before recording starts.
+      // await TTS.speak() now resolves AFTER speech finishes (not immediately).
+      // 400ms acoustic decay after greeting before mic opens — prevents the
+      // device speaker audio being captured as user speech by the microphone.
       const greeting = userNickname
         ? `Hi ${userNickname}, what's on your mind?`
         : "What's on your mind?";
       await TTS.speak(greeting);
+      await new Promise(r => setTimeout(r, 400));
 
       await startRecording(
         async () => {
