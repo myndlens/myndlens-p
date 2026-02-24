@@ -1080,21 +1080,30 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     tts = get_tts_provider()
     result = await tts.synthesize(response_text)
 
+    # needs_approval: mandate summary requires user to say Yes/No
+    # auto_record ensures mic starts automatically after TTS — no tap needed
+    needs_approval = "shall i proceed" in response_text.lower() or "i understand" in response_text.lower()
+
     if result.audio_bytes and not result.is_mock:
         audio_b64 = base64.b64encode(result.audio_bytes).decode("ascii")
-        payload = TTSAudioPayload(
-            text=response_text, session_id=session_id, format="mp3", is_mock=False,
-        )
-        payload_dict = payload.model_dump()
-        payload_dict["audio"] = audio_b64
-        payload_dict["audio_size_bytes"] = len(result.audio_bytes)
-        data = _make_envelope(WSMessageType.TTS_AUDIO, payload_dict)
-        await ws.send_text(data)
+        payload_dict = {
+            "text": response_text, "session_id": session_id,
+            "format": "mp3", "is_mock": False,
+            "audio": audio_b64,
+            "audio_size_bytes": len(result.audio_bytes),
+            "auto_record": needs_approval,
+            "is_clarification": needs_approval,
+        }
+        await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, payload_dict))
         logger.info("[MANDATE:5:TTS] session=%s DONE real_audio bytes=%d", session_id, len(result.audio_bytes))
     else:
-        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-            text=response_text, session_id=session_id, format="text", is_mock=True,
-        ))
+        payload_dict = {
+            "text": response_text, "session_id": session_id,
+            "format": "text", "is_mock": True,
+            "auto_record": needs_approval,
+            "is_clarification": needs_approval,
+        }
+        await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, payload_dict))
         logger.info("[MANDATE:5:TTS] session=%s DONE mock_text", session_id)
 
     logger.info(

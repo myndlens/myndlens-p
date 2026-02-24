@@ -397,9 +397,34 @@ export default function TalkScreen() {
         const onComplete = () => {
           setIsSpeaking(false);
           transition('IDLE');
-          // Auto-start recording after a clarification TTS so user can speak answer
+          // Auto-start recording after mandate summary ("Shall I proceed?")
+          // Skip greeting — user is in context, they know to say Yes/No directly
           if (autoRecord) {
-            setTimeout(() => handleMic(), 500);
+            setTimeout(async () => {
+              const sid = wsClient.currentSessionId;
+              if (!sid) return;
+              transition('LISTENING');
+              transition('CAPTURING');
+              // Start recording WITHOUT greeting — user is answering a direct question
+              await startRecording(
+                async () => {
+                  const audioBase64r = await stopAndGetAudio();
+                  const sid2 = wsClient.currentSessionId;
+                  if (audioBase64r && sid2) {
+                    wsClient.send('audio_chunk', {
+                      session_id: sid2, audio: audioBase64r,
+                      seq: 1, timestamp: Date.now(), duration_ms: 0,
+                    });
+                    wsClient.send('cancel', { session_id: sid2, reason: 'vad_end_of_utterance' });
+                    transition('COMMITTING');
+                    transition('THINKING');
+                  } else {
+                    transition('IDLE');
+                  }
+                },
+                (rms: number) => setLiveEnergy(rms),
+              );
+            }, 400);
           }
         };
         // Play real ElevenLabs audio if available, else fall back to device TTS
