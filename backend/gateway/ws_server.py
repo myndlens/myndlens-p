@@ -251,7 +251,6 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             _greeting_display_name = await get_user_display_name(user_id_resolved)
         except Exception:
             _greeting_display_name = None
-        _greeting_sent = False  # Send once on first heartbeat
 
         # Send AUTH_OK
         await _send(websocket, WSMessageType.AUTH_OK, AuthOkPayload(
@@ -259,6 +258,29 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             user_id=user_id_resolved,
             heartbeat_interval_ms=get_heartbeat_interval_ms(),
         ))
+
+        # Send greeting 1.5s after AUTH_OK — talk.tsx is mounted by then,
+        # and fires before the user can physically tap the mic button.
+        async def _send_greeting():
+            await asyncio.sleep(1.5)
+            if session_id not in active_connections:
+                return  # Session disconnected before greeting could fire
+            try:
+                greeting_word = _get_time_greeting()
+                if _greeting_display_name:
+                    greeting_text = f"{greeting_word}, {_greeting_display_name}. Ready when you are."
+                else:
+                    greeting_text = f"{greeting_word}. Ready when you are."
+                await _send(websocket, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                    text=greeting_text,
+                    session_id=session_id,
+                    format="text",
+                ))
+                logger.debug("Sent greeting: session=%s name=%s", session_id, _greeting_display_name)
+            except Exception as _ge:
+                logger.warning("Greeting TTS failed (non-fatal): %s", str(_ge))
+
+        asyncio.create_task(_send_greeting())
 
         # Pre-load Digital Self into session memory — zero-latency for first mandate
         await _preload_session_context(session_id, user_id_resolved or "")
@@ -289,23 +311,6 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
 
             if msg_type == WSMessageType.HEARTBEAT.value:
                 await _handle_heartbeat(websocket, session_id, payload)
-                # Send greeting TTS on first heartbeat (talk.tsx is now mounted)
-                if not _greeting_sent:
-                    _greeting_sent = True
-                    try:
-                        greeting_word = _get_time_greeting()
-                        if _greeting_display_name:
-                            greeting_text = f"{greeting_word}, {_greeting_display_name}. Ready when you are."
-                        else:
-                            greeting_text = f"{greeting_word}. Ready when you are."
-                        await _send(websocket, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                            text=greeting_text,
-                            session_id=session_id,
-                            format="text",
-                        ))
-                        logger.debug("Sent greeting: session=%s name=%s", session_id, _greeting_display_name)
-                    except Exception as _ge:
-                        logger.warning("Greeting TTS failed (non-fatal): %s", str(_ge))
 
             elif msg_type == WSMessageType.AUDIO_CHUNK.value:
                 await _handle_audio_chunk(websocket, session_id, payload, user_id=user_id_resolved or "")
