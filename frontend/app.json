@@ -40,11 +40,18 @@
           "sounds": [],
           "iosDisplayInForeground": true
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "MyndLens uses your location to enrich your Digital Self with places you frequent and to read full calendar event details.",
+          "locationWhenInUsePermission": "MyndLens uses your location to enrich your Digital Self with places you frequent."
+        }
       ]
     ],
     "android": {
       "package": "com.myndlens.app",
-      "versionCode": 15,
+      "versionCode": 16,
       "permissions": [
         "READ_CONTACTS",
         "READ_CALENDAR",

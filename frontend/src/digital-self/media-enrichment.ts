@@ -68,9 +68,11 @@ export async function runMediaEnrichment(params: {
 async function collectPhotos(): Promise<any[]> {
   try {
     const MediaLibrary = require('expo-media-library');
-    const { status } = await MediaLibrary.requestPermissionsAsync();
+    // Check existing permission — do NOT prompt again here.
+    // Permission is requested once during DS setup wizard.
+    const { status } = await MediaLibrary.getPermissionsAsync();
     if (status !== 'granted') {
-      console.log('[DSEnrich] Photos: permission not granted');
+      console.log('[DSEnrich] Photos: permission not granted — skipping');
       return [];
     }
 
