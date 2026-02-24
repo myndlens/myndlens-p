@@ -51,14 +51,14 @@
         "READ_CALL_LOG",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_DOCUMENTS",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
       ],
       "blockedPermissions": [
         "READ_EXTERNAL_STORAGE",
-        "READ_MEDIA_IMAGES",
         "READ_MEDIA_VIDEO",
-        "READ_MEDIA_DOCUMENTS",
         "WRITE_EXTERNAL_STORAGE"
       ]
     },

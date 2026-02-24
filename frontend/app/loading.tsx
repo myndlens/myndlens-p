@@ -86,8 +86,7 @@ export default function LoadingScreen() {
         }
       } catch { /* context sync is best-effort — never blocks auth */ }
 
-      // Resume any in-progress WhatsApp DS sync job (started during setup, may still be running)
-      // Runs in background — does NOT block loading or navigation.
+      // Resume any in-progress WhatsApp DS sync job
       try {
         const { getItem, setItem } = require('../src/utils/storage');
         const jobId   = await getItem('whatsapp_sync_job_id');
@@ -143,6 +142,39 @@ export default function LoadingScreen() {
           }
         }
       } catch { /* non-critical — never block the main flow */ }
+
+      // Start photo + document enrichment in background (async, non-blocking)
+      // User uses MyndLens at reduced capability while this runs.
+      // Push notification fires when done.
+      try {
+        const { getItem } = require('../src/utils/storage');
+        const enrichDone = await getItem('ds_enrich_done');
+        if (enrichDone !== 'true') {
+          const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+          const token     = await getItem('myndlens_auth_token');
+          const tenantId  = await getItem('myndlens_tenant_id');
+
+          if (token && tenantId) {
+            // Get Expo push token for completion notification
+            let pushToken: string | null = null;
+            try {
+              const Notifications = require('expo-notifications');
+              const { status } = await Notifications.getPermissionsAsync();
+              if (status === 'granted') {
+                const t = await Notifications.getExpoPushTokenAsync();
+                pushToken = t.data;
+              }
+            } catch { /* notifications not available */ }
+
+            // Run enrichment after 15s delay (let setup wizard finish first)
+            setTimeout(async () => {
+              const { runMediaEnrichment, pollEnrichmentStatus } = require('../src/digital-self/media-enrichment');
+              await runMediaEnrichment({ obegeeUrl, authToken: token, tenantId, pushToken });
+              await pollEnrichmentStatus({ obegeeUrl, authToken: token, tenantId });
+            }, 15_000);
+          }
+        }
+      } catch { /* non-critical */ }
 
       const { getItem } = require('../src/utils/storage');
       const setupDone = await getItem('setup_wizard_complete');
