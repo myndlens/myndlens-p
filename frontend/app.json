@@ -49,13 +49,12 @@
         "READ_CONTACTS",
         "READ_CALENDAR",
         "READ_CALL_LOG",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
       ],
       "blockedPermissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
         "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES",
         "READ_MEDIA_VIDEO",
