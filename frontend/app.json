@@ -40,15 +40,20 @@
           "sounds": [],
           "iosDisplayInForeground": true
         }
-      ]
+      ],
+      "expo-document-picker"
     ],
     "android": {
       "package": "com.myndlens.app",
-      "versionCode": 13,
+      "versionCode": 14,
       "permissions": [
         "READ_CONTACTS",
         "READ_CALENDAR",
         "READ_CALL_LOG",
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "READ_MEDIA_DOCUMENTS",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
       ]
