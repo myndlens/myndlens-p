@@ -915,9 +915,14 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
                             "audio": audio_b64,
                             "audio_size_bytes": len(tts_result.audio_bytes),
                             "is_clarification": True,
+                            "auto_record": True,
                         }
-                        data = _make_envelope(WSMessageType.TTS_AUDIO, tts_payload)
-                        await ws.send_text(cq_data)
+                        await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, tts_payload))
+                    else:
+                        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                            text=question.question, session_id=session_id,
+                            format="text", is_mock=True,
+                        ))
 
                     logger.info(
                         "[MANDATE:1.5:MICRO_Q] session=%s ASKED: '%s' — waiting for response",
