@@ -13,8 +13,6 @@ STT does NOT provide: intent inference, VAD, emotion inference.
 from config.settings import get_settings
 from deepgram import DeepgramClient as _DeepgramClient
 import asyncio
-import io
-import wave
 import logging
 import time
 import uuid
@@ -129,22 +127,16 @@ class DeepgramSTTProvider(STTProvider):
         start_time = time.monotonic()
 
         try:
-            # Deepgram SDK v5.3.2: wrap PCM in WAV, pass raw bytes (not BytesIO)
-            wav_buf = io.BytesIO()
-            with wave.open(wav_buf, "wb") as wf:
-                wf.setnchannels(1)
-                wf.setsampwidth(2)
-                wf.setframerate(get_settings().AUDIO_SAMPLE_RATE)
-                wf.writeframes(buffer_data)
-            wav_bytes = wav_buf.getvalue()
-
+            # Send audio bytes directly — the recorder produces M4A/AAC files.
+            # Do NOT wrap in WAV (that was treating compressed audio as raw PCM).
+            # Deepgram auto-detects M4A/AAC format from the file header.
             loop = asyncio.get_running_loop()
             _model = get_settings().DEEPGRAM_MODEL
             _lang  = get_settings().DEEPGRAM_LANGUAGE
             response = await loop.run_in_executor(
                 None,
                 lambda: self._client.listen.v1.media.transcribe_file(
-                    request=wav_bytes,
+                    request=buffer_data,
                     model=_model,
                     punctuate=True,
                     smart_format=True,

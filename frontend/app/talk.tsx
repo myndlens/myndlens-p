@@ -85,7 +85,7 @@ export default function TalkScreen() {
   const router = useRouter();
   const {
     connectionStatus, sessionId,
-    setConnectionStatus, setHeartbeatSeq, setExecuteBlocked,
+    setConnectionStatus, setSessionId, setHeartbeatSeq, setExecuteBlocked,
   } = useSessionStore();
   const {
     state: audioState, transcript, partialTranscript, ttsText,
@@ -106,6 +106,8 @@ export default function TalkScreen() {
   const openChat = () => {
     setChatOpen(true);
     Animated.spring(chatSlideAnim, { toValue: 1, useNativeDriver: true, friction: 7 }).start();
+    // Clear badge — user has read the content
+    setTtsText('');
   };
   const closeChat = () => {
     Animated.timing(chatSlideAnim, { toValue: 0, duration: 280, useNativeDriver: true }).start(() => setChatOpen(false));
@@ -299,11 +301,29 @@ export default function TalkScreen() {
     const unsubs = [
       wsClient.on('heartbeat_ack', (env: WSEnvelope) => setHeartbeatSeq(env.payload.seq)),
       wsClient.on('auth_ok', async () => {
-        // Read user name stored at pairing time — no API call needed
+        // Set session ID in store — used by VAD callback to send audio
+        setSessionId(wsClient.currentSessionId);
         try {
           const { getItem } = require('../src/utils/storage');
           const stored = await getItem('myndlens_user_name');
-          if (stored) setUserNickname(stored.split(' ')[0]);
+          const firstName = stored ? stored.split(' ')[0] : '';
+          if (firstName) setUserNickname(firstName);
+
+          const hour = new Date().getHours();
+          const word = hour >= 5 && hour < 12 ? 'Good morning'
+                     : hour >= 12 && hour < 17 ? 'Good afternoon'
+                     : hour >= 17 && hour < 21 ? 'Good evening'
+                     : 'Hey';
+          const greeting = firstName
+            ? `${word}, ${firstName}. Ready when you are.`
+            : `${word}. Ready when you are.`;
+
+          setTtsText(greeting);
+          transition('RESPONDING');
+          setIsSpeaking(true);
+          TTS.speak(greeting, {
+            onComplete: () => { setIsSpeaking(false); transition('IDLE'); },
+          });
         } catch { /* non-critical */ }
       }),
       wsClient.on('transcript_partial', (env: WSEnvelope) => setPartialTranscript(env.payload.text || '')),
@@ -430,39 +450,36 @@ export default function TalkScreen() {
           // VAD auto-stop: user finished speaking
           console.log('[Talk] VAD triggered auto-stop');
           const audioBase64 = await stopAndGetAudio();
-          if (audioBase64 && sessionId) {
+          const sid = wsClient.currentSessionId;  // read live, not from stale closure
+          if (audioBase64 && sid) {
             wsClient.send('audio_chunk', {
-              session_id: sessionId, audio: audioBase64,
+              session_id: sid, audio: audioBase64,
               seq: 1, timestamp: Date.now(), duration_ms: 0,
             });
-            wsClient.send('cancel', { session_id: sessionId, reason: 'vad_end_of_utterance' });
+            wsClient.send('cancel', { session_id: sid, reason: 'vad_end_of_utterance' });
             transition('COMMITTING');
             transition('THINKING');
           } else {
-            // Audio capture failed — reset to IDLE so user can speak again
-            console.warn('[Talk] stopAndGetAudio returned null — resetting to IDLE');
+            console.warn('[Talk] stopAndGetAudio null or no session — resetting to IDLE');
             transition('IDLE');
           }
         },
         (rms: number) => setLiveEnergy(rms),
       );
     } else if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
-      // Manual stop: read the real audio and send to server before signalling
+      // Manual stop
       const audioBase64 = await stopAndGetAudio();
-      if (audioBase64 && sessionId) {
+      const sid = wsClient.currentSessionId;  // read live, not from stale closure
+      if (audioBase64 && sid) {
         wsClient.send('audio_chunk', {
-          session_id: sessionId,
-          audio: audioBase64,
-          seq: 1,
-          timestamp: Date.now(),
-          duration_ms: 0,
+          session_id: sid, audio: audioBase64,
+          seq: 1, timestamp: Date.now(), duration_ms: 0,
         });
         transition('COMMITTING');
-        wsClient.send('cancel', { session_id: sessionId, reason: 'user_stop' });
+        wsClient.send('cancel', { session_id: sid, reason: 'user_stop' });
         transition('THINKING');
       } else {
-        // Audio capture failed — reset to IDLE so user can speak again
-        console.warn('[Talk] stopAndGetAudio returned null (manual stop) — resetting to IDLE');
+        console.warn('[Talk] stopAndGetAudio null or no session (manual stop) — resetting to IDLE');
         transition('IDLE');
       }
     }
@@ -763,7 +780,7 @@ export default function TalkScreen() {
           {...chatPanResponder.panHandlers}
         >
           <TouchableOpacity
-            onPress={() => setChatOpen(true)}
+            onPress={() => openChat()}
             style={[styles.chatFABInner, (ttsText || transcript) ? styles.chatFABInnerActive : null]}
             activeOpacity={0.85}
           >

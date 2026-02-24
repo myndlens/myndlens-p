@@ -50,7 +50,6 @@ from tts.orchestrator import get_tts_provider
 from l1.scout import run_l1_scout
 from transcript.assembler import transcript_assembler
 from transcript.storage import save_transcript
-from tenants.obegee_reader import get_user_display_name
 
 from intent.gap_filler import SessionContext, parse_capsule_summary, enrich_transcript
 
@@ -78,19 +77,6 @@ def _make_envelope(msg_type: WSMessageType, payload: dict) -> str:
     """Create a JSON string envelope for sending."""
     envelope = WSEnvelope(type=msg_type, payload=payload)
     return envelope.model_dump_json()
-
-
-def _get_time_greeting() -> str:
-    """Return time-appropriate greeting word."""
-    hour = datetime.now(timezone.utc).hour
-    if 5 <= hour < 12:
-        return "Good morning"
-    elif 12 <= hour < 17:
-        return "Good afternoon"
-    elif 17 <= hour < 21:
-        return "Good evening"
-    else:
-        return "Hey"
 
 
 async def _send(ws: WebSocket, msg_type: WSMessageType, payload_model) -> None:
@@ -246,41 +232,12 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
         session_id = session.session_id
         active_connections[session_id] = websocket
 
-        # Fetch user display name for greeting (non-blocking, best-effort)
-        try:
-            _greeting_display_name = await get_user_display_name(user_id_resolved)
-        except Exception:
-            _greeting_display_name = None
-
         # Send AUTH_OK
         await _send(websocket, WSMessageType.AUTH_OK, AuthOkPayload(
             session_id=session_id,
             user_id=user_id_resolved,
             heartbeat_interval_ms=get_heartbeat_interval_ms(),
         ))
-
-        # Send greeting 1.5s after AUTH_OK — talk.tsx is mounted by then,
-        # and fires before the user can physically tap the mic button.
-        async def _send_greeting():
-            await asyncio.sleep(1.5)
-            if session_id not in active_connections:
-                return  # Session disconnected before greeting could fire
-            try:
-                greeting_word = _get_time_greeting()
-                if _greeting_display_name:
-                    greeting_text = f"{greeting_word}, {_greeting_display_name}. Ready when you are."
-                else:
-                    greeting_text = f"{greeting_word}. Ready when you are."
-                await _send(websocket, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                    text=greeting_text,
-                    session_id=session_id,
-                    format="text",
-                ))
-                logger.debug("Sent greeting: session=%s name=%s", session_id, _greeting_display_name)
-            except Exception as _ge:
-                logger.warning("Greeting TTS failed (non-fatal): %s", str(_ge))
-
-        asyncio.create_task(_send_greeting())
 
         # Pre-load Digital Self into session memory — zero-latency for first mandate
         await _preload_session_context(session_id, user_id_resolved or "")
