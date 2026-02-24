@@ -103,6 +103,7 @@ export default function TalkScreen() {
   const [pipelineStageIndex, setPipelineStageIndex] = React.useState<number>(-1);
   const [pipelineSubStatus, setPipelineSubStatus] = React.useState<string>('');
   const [pipelineProgress, setPipelineProgress] = React.useState<number>(0);
+  const [completedStages, setCompletedStages] = React.useState<string[]>([]);  // labels of done stages
   const [liveEnergy, setLiveEnergy] = useState(0);
   const [userNickname, setUserNickname] = useState('');
   const [chatOpen, setChatOpen] = useState(false);
@@ -408,9 +409,15 @@ export default function TalkScreen() {
         const idx = env.payload.stage_index ?? -1;
         const sub = env.payload.sub_status || '';
         const prog = env.payload.progress || 0;
-        setPipelineStageIndex(idx);
-        setPipelineSubStatus(sub);
-        setPipelineProgress(prog);
+        const status = env.payload.status || 'active';
+        if (status === 'done' && idx >= 0 && idx < PIPELINE_STAGES.length) {
+          const label = PIPELINE_STAGES[idx].label;
+          setCompletedStages(prev => prev.includes(label) ? prev : [...prev, label]);
+        } else if (status === 'active') {
+          setPipelineStageIndex(idx);
+          setPipelineSubStatus(sub);
+          setPipelineProgress(prog);
+        }
       }),
     ];
     return () => unsubs.forEach((u) => u());
@@ -427,6 +434,10 @@ export default function TalkScreen() {
       // Note: audioState is stale (still 'RESPONDING') — use isBargeIn flag below
     }
     if (audioState === 'IDLE' || isBargeIn) {
+      // Fresh session — clear completed stages so live feed starts clean
+      setCompletedStages([]);
+      setPipelineStageIndex(-1);
+      setPipelineSubStatus('');
       // Gate: if DS setup was never completed, surface the setup modal every tap
       try {
         const { getItem } = require('../src/utils/storage');
@@ -653,43 +664,54 @@ export default function TalkScreen() {
           </View>
         )}
 
-        {/* Intent Pipeline — Current Stage Card */}
+        {/* ── Activity Window — Sequential live pipeline feed ── */}
         {(() => {
-            const wsIdx = pipelineStageIndex;
-            const activeIndex = wsIdx >= 0 ? wsIdx : PIPELINE_STAGES.findIndex((_, i) => getPipelineState(i, audioState, pendingAction, transcript) === 'active');
-            const stage = activeIndex >= 0 ? PIPELINE_STAGES[activeIndex] : null;
-            const isIdle = !stage && audioState === 'IDLE';
-            return (
-              <View style={styles.pipelineWrapper} data-testid="pipeline-progress">
-                {!isIdle && (
-                  <ActivityIndicator size={28} color="#6C63FF" style={styles.pipelineSpinner} />
-                )}
-                <View style={[styles.pipelineCard, isIdle && styles.pipelineCardIdle]}>
-                  {isIdle ? (
-                    <View style={styles.pipelineIdleInner}>
-                      <Text style={styles.pipelineIdleTitle}>What's on Your Mind Right Now?</Text>
-                      <Text style={styles.pipelineIdleSubtext}>Tap the mic to instruct me.</Text>
+          const wsIdx = pipelineStageIndex;
+          const activeIndex = wsIdx >= 0
+            ? wsIdx
+            : PIPELINE_STAGES.findIndex((_, i) => getPipelineState(i, audioState, pendingAction, transcript) === 'active');
+          const activeStage = activeIndex >= 0 ? PIPELINE_STAGES[activeIndex] : null;
+          const isIdle = !activeStage && audioState === 'IDLE' && completedStages.length === 0;
+
+          const activeText = activeIndex === 0 && userNickname
+            ? `Listening, ${userNickname}\u2026`
+            : activeStage?.activeText ?? '';
+
+          return (
+            <View style={styles.pipelineWrapper} data-testid="pipeline-progress">
+              {isIdle ? (
+                <View style={[styles.pipelineCard, styles.pipelineCardIdle]}>
+                  <View style={styles.pipelineIdleInner}>
+                    <Text style={styles.pipelineIdleTitle}>What's on Your Mind Right Now?</Text>
+                    <Text style={styles.pipelineIdleSubtext}>Tap the mic to instruct me.</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.activityFeed}>
+                  {/* Completed stages — stacked above, each with ✓ */}
+                  {completedStages.map((label, i) => (
+                    <View key={i} style={styles.activityDone}>
+                      <Text style={styles.activityDoneTick}>{'\u2713'}</Text>
+                      <Text style={styles.activityDoneLabel}>{label}</Text>
                     </View>
-                  ) : (
-                    <View style={styles.pipelineActiveInner}>
-                      <Text style={styles.pipelineActiveText}>
-                        {activeIndex === 0 && userNickname
-                          ? `Listening, ${userNickname}\u2026`
-                          : stage?.activeText ?? ''}
-                      </Text>
-                      {pipelineSubStatus ? (
-                        <Text style={styles.pipelineSubStatus}>{pipelineSubStatus}</Text>
-                      ) : null}
-                      <Text style={styles.pipelineStepNum}>Step {activeIndex + 1} of {PIPELINE_STAGES.length}</Text>
-                      <View style={styles.pipelineBarBg}>
-                        <View style={[styles.pipelineBarFill, { width: `${pipelineProgress > 0 ? pipelineProgress : ((activeIndex + 1) / PIPELINE_STAGES.length) * 100}%` }]} />
+                  ))}
+                  {/* Current active stage */}
+                  {activeStage && (
+                    <View style={styles.activityActive}>
+                      <ActivityIndicator size={16} color="#6C63FF" style={styles.activitySpinner} />
+                      <View style={styles.activityActiveText}>
+                        <Text style={styles.pipelineActiveText}>{activeText}</Text>
+                        {pipelineSubStatus ? (
+                          <Text style={styles.pipelineSubStatus}>{pipelineSubStatus}</Text>
+                        ) : null}
                       </View>
                     </View>
                   )}
                 </View>
-              </View>
-            );
-          })()}
+              )}
+            </View>
+          );
+        })()}
 
           {audioState === 'THINKING' ? (
             <View style={styles.thinkingRow}>
@@ -921,15 +943,24 @@ const styles = StyleSheet.create({
   pipelineIdleSubtext: { color: '#555568', fontSize: 15, textAlign: 'center', marginTop: 4, lineHeight: 22 },
   pipelineActiveInner: { alignItems: 'center' },
   pipelineTextBlock: { flex: 1 },
-  pipelineActiveText: { color: '#E0E0F0', fontSize: 15, fontWeight: '600', textAlign: 'center', lineHeight: 22 },
-  pipelineSubStatus: { color: '#6C63FF', fontSize: 13, textAlign: 'center', marginTop: 2, fontStyle: 'italic' },
-  pipelineStepNum: { color: '#555568', fontSize: 12, marginTop: 4, textAlign: 'center' },
+  pipelineActiveText: { color: '#E0E0F0', fontSize: 15, fontWeight: '600', lineHeight: 22 },
+  pipelineSubStatus: { color: '#6C63FF', fontSize: 13, marginTop: 2, fontStyle: 'italic' },
+  pipelineStepNum: { color: '#555568', fontSize: 12, marginTop: 4 },
   pipelineBarBg: { height: 3, backgroundColor: '#1A1A28', borderRadius: 2, marginTop: 10, overflow: 'hidden', width: '100%' },
   pipelineBarFill: { height: '100%', backgroundColor: '#6C63FF', borderRadius: 2 },
 
   middleZone: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  pipelineWrapper: { alignItems: 'center', width: '100%' },
+  pipelineWrapper: { alignItems: 'flex-start', width: '100%', paddingHorizontal: 20 },
   pipelineSpinner: { marginBottom: 12 },
+
+  // Sequential live activity feed
+  activityFeed: { width: '100%', paddingVertical: 4 },
+  activityDone: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5 },
+  activityDoneTick: { color: '#4CAF50', fontSize: 13, marginRight: 10, fontWeight: '700' },
+  activityDoneLabel: { color: '#555568', fontSize: 13, fontWeight: '500' },
+  activityActive: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 6, marginTop: 2 },
+  activitySpinner: { marginRight: 10, marginTop: 3 },
+  activityActiveText: { flex: 1 },
 
   // Controls
   controlArea: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
