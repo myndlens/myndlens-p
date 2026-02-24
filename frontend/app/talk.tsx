@@ -299,20 +299,11 @@ export default function TalkScreen() {
     const unsubs = [
       wsClient.on('heartbeat_ack', (env: WSEnvelope) => setHeartbeatSeq(env.payload.seq)),
       wsClient.on('auth_ok', async () => {
-        // Fetch user's first name for greeting
+        // Read user name stored at pairing time — no API call needed
         try {
-          const tok = await (Storage as any).getItem('access_token');
-          if (tok) {
-            const envCfg = require('../src/config/env').ENV;
-            const resp = await fetch(`${envCfg.API_URL}/auth/me`, {
-              headers: { Authorization: `Bearer ${tok}` },
-            });
-            if (resp.ok) {
-              const me = await resp.json();
-              const fullName = (me.name || me.email?.split('@')[0] || '').trim();
-              setUserNickname(fullName.split(' ')[0]);
-            }
-          }
+          const { getItem } = require('../src/utils/storage');
+          const stored = await getItem('myndlens_user_name');
+          if (stored) setUserNickname(stored.split(' ')[0]);
         } catch { /* non-critical */ }
       }),
       wsClient.on('transcript_partial', (env: WSEnvelope) => setPartialTranscript(env.payload.text || '')),

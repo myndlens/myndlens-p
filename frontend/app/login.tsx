@@ -78,6 +78,7 @@ export default function LoginScreen() {
         setItem('myndlens_dispatch_endpoint', data.dispatch_endpoint || ''),
         setItem('myndlens_session_id', data.session_id || ''),
         setItem('myndlens_user_id', data.tenant_id),
+        setItem('myndlens_user_name', data.user_name || ''),
       ]);
 
       // Update in-memory auth state AFTER storage is confirmed written
