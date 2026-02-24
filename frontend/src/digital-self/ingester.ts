@@ -99,8 +99,9 @@ export async function ingestContacts(userId: string): Promise<{ count: number; e
         Contacts.Fields.PhoneNumbers,
         Contacts.Fields.Company,
         Contacts.Fields.JobTitle,
-        Contacts.Fields.Image,      // has photo signal (+2)
-        Contacts.Fields.Dates,      // birthday/anniversary signal (+1)
+        Contacts.Fields.Image,
+        Contacts.Fields.Dates,     // birthday / anniversary
+        Contacts.Fields.Note,      // any notes saved
       ],
     });
 
@@ -110,27 +111,75 @@ export async function ingestContacts(userId: string): Promise<{ count: number; e
       return { count: 0, error: 'EMPTY: getContactsAsync returned 0 contacts from device' };
     }
 
-    // Pre-load call log data — must happen BEFORE scoring so call signals
-    // influence which contacts make the top 200 cut.
-    const callLogMap = await loadCallLogMap();
-    console.log(`[Ingester] Scoring ${data.length} contacts with ${callLogMap.size} call-log entries`);
+    // ── Build a lookup map: normalised phone → full contact ────────────────
+    // Used to enrich WhatsApp inner-circle contacts with birthday, email, etc.
+    const phoneIndex = new Map<string, any>();
+    const nameIndex  = new Map<string, any>();
+    for (const c of data) {
+      const name = c.name || [c.firstName, c.lastName].filter(Boolean).join(' ');
+      if (name) nameIndex.set(name.toLowerCase(), c);
+      for (const p of (c.phoneNumbers || [])) {
+        const norm = p.number?.replace(/\D/g, '').slice(-10);
+        if (norm) phoneIndex.set(norm, c);
+      }
+    }
 
-    const scored = scoreAndFilterContacts(data, 50, callLogMap);  // top 50 with real interaction signals
-    console.log(`[Ingester] After scoring+ranking: ${scored.length} contacts selected`);
+    // ── Step 1: Use WhatsApp PKG nodes as inner circle (PRIMARY source) ────
+    // These were identified from real communication frequency — not arbitrary.
+    const { getPKGNodes } = require('./pkg');
+    const waNodes: any[] = ((await getPKGNodes(userId)) || [])
+      .filter((n: any) => n.provenance === 'whatsapp_live' || n.provenance === 'whatsapp_export');
 
     let count = 0;
-    for (const contact of scored) {
-      // Use same name resolution as scoreAndFilterContacts
-      const resolvedName = contact.name;
-      if (!resolvedName) continue;
-      await registerPerson(userId, resolvedName, {
-        email: contact.email,
-        phone: contact.phone,
-        role: contact.role,
-        relationship: contact.relationship,
-        company: contact.company,
-      }, 'CONTACTS');
-      count++;
+
+    if (waNodes.length > 0) {
+      // WhatsApp IS the inner circle. Phone book ENRICHES them.
+      console.log(`[Ingester] WhatsApp inner circle: ${waNodes.length} contacts. Enriching from phone book.`);
+      for (const node of waNodes) {
+        const phone  = node.data?.phone?.replace(/\D/g, '').slice(-10);
+        const pbEntry = (phone && phoneIndex.get(phone)) || nameIndex.get((node.label || '').toLowerCase());
+
+        if (pbEntry) {
+          // Enrich with phone book data: birthday, email, company
+          await registerPerson(userId, node.label, {
+            email:        pbEntry.emails?.[0]?.email || node.data?.email || '',
+            phone:        pbEntry.phoneNumbers?.[0]?.number || node.data?.phone || '',
+            company:      pbEntry.company || '',
+            role:         pbEntry.jobTitle || '',
+            relationship: 'personal',
+            birthday:     pbEntry.dates?.find((d: any) => d.label === 'birthday')?.date || '',
+          }, 'CONTACTS');
+        } else {
+          // WhatsApp contact not in phone book — import as-is
+          await registerPerson(userId, node.label, {
+            phone:        node.data?.phone || '',
+            relationship: 'personal',
+          }, 'CONTACTS');
+        }
+        count++;
+      }
+    } else {
+      // ── Step 2: No WhatsApp data yet — fallback: starred + 3+ calls only ─
+      // Phone book CANNOT reliably identify inner circle without WhatsApp.
+      // Only import contacts with real interaction signals.
+      console.log('[Ingester] No WhatsApp data — using call log + starred fallback');
+      const callLogMap = await loadCallLogMap();
+      const strict = scoreAndFilterContacts(data, 50, callLogMap);
+
+      for (const contact of strict) {
+        const resolvedName = contact.name;
+        if (!resolvedName) continue;
+        // Only import if clearly an inner circle signal
+        if (contact.score < 4 && !contact.starred) continue;
+        await registerPerson(userId, resolvedName, {
+          email:        contact.email,
+          phone:        contact.phone,
+          role:         contact.role,
+          relationship: contact.relationship,
+          company:      contact.company,
+        }, 'CONTACTS');
+        count++;
+      }
     }
 
     console.log(`[Ingester] Imported ${count} contacts into PKG`);

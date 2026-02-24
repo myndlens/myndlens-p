@@ -220,8 +220,18 @@ async function _decrypt(encrypted: string, key: CryptoKey): Promise<string> {
 
 // ── Core CRUD (hardware-encrypted) ──────────────────────────────────────────
 
-export async function loadPKG(userId: string): Promise<PKG> {
-  try {
+/** Return all PKG nodes as a flat array for ingestion lookups. */
+export async function getPKGNodes(userId: string): Promise<Array<{id: string; label: string; data: any; provenance: string}>> {
+  const pkg = await loadPKG(userId);
+  return Object.values(pkg.nodes || {}).map((n: any) => ({
+    id:         n.id,
+    label:      n.label || '',
+    data:       n.data || {},
+    provenance: n.provenance || '',
+  }));
+}
+
+export async function loadPKG(userId: string): Promise<PKG> {  try {
     const key = await _getOrCreateAESKey(userId);
     const raw = await AsyncStorage.getItem(`${PKG_KEY_PREFIX}_${userId}`);
     if (raw) {
