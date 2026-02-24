@@ -90,12 +90,16 @@ export function scoreAndFilterContacts(
     const phone = c.phoneNumbers?.[0]?.number || '';
 
     // ── HARD GATE: must have actual interaction signal ─────────────────────
-    // A contact in your phone book with zero interaction is NOT in your circle.
-    // Eliminates all saved-once business cards and brief one-off contacts.
+    // Only applied when call log data is available (permission granted, calls exist).
+    // When call log is unavailable (permission denied or no calls in 90d),
+    // skip the gate and score all contacts by richness only.
     const normalised = phone ? normalizePhone(phone) : '';
     const callData = (callLogMap && normalised) ? callLogMap.get(normalised) : undefined;
-    const hasInteraction = c.starred || (callData !== undefined);
-    if (!hasInteraction) continue;
+    const hasCallLogData = callLogMap && callLogMap.size > 0;
+    if (hasCallLogData) {
+      const hasInteraction = c.starred || (callData !== undefined);
+      if (!hasInteraction) continue;
+    }
 
     let score = 0;
 

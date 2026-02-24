@@ -120,7 +120,10 @@ export async function ingestContacts(userId: string): Promise<{ count: number; e
 
     let count = 0;
     for (const contact of scored) {
-      await registerPerson(userId, contact.name, {
+      // Use same name resolution as scoreAndFilterContacts
+      const resolvedName = contact.name;
+      if (!resolvedName) continue;
+      await registerPerson(userId, resolvedName, {
         email: contact.email,
         phone: contact.phone,
         role: contact.role,
