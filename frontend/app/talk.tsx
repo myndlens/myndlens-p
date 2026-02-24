@@ -433,10 +433,14 @@ export default function TalkScreen() {
               session_id: sessionId, audio: audioBase64,
               seq: 1, timestamp: Date.now(), duration_ms: 0,
             });
+            wsClient.send('cancel', { session_id: sessionId, reason: 'vad_end_of_utterance' });
+            transition('COMMITTING');
+            transition('THINKING');
+          } else {
+            // Audio capture failed — reset to IDLE so user can speak again
+            console.warn('[Talk] stopAndGetAudio returned null — resetting to IDLE');
+            transition('IDLE');
           }
-          wsClient.send('cancel', { session_id: sessionId, reason: 'vad_end_of_utterance' });
-          transition('COMMITTING');
-          transition('THINKING');
         },
         (rms: number) => setLiveEnergy(rms),
       );
@@ -451,10 +455,14 @@ export default function TalkScreen() {
           timestamp: Date.now(),
           duration_ms: 0,
         });
+        transition('COMMITTING');
+        wsClient.send('cancel', { session_id: sessionId, reason: 'user_stop' });
+        transition('THINKING');
+      } else {
+        // Audio capture failed — reset to IDLE so user can speak again
+        console.warn('[Talk] stopAndGetAudio returned null (manual stop) — resetting to IDLE');
+        transition('IDLE');
       }
-      transition('COMMITTING');
-      wsClient.send('cancel', { session_id: sessionId, reason: 'user_stop' });
-      transition('THINKING');
     }
   }
 
