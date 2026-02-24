@@ -226,45 +226,73 @@ export default function DigitalSelfStep({ onComplete }: Props) {
     };
 
     try {
-      // Stage: WhatsApp — richest relationship signal via chat export
-      // User exports chat backup from WhatsApp → we parse it on-device
+      // Stage: WhatsApp — richest relationship signal
+      // Priority 1: paired Baileys session → all contacts + message history via OpenClaw CLI
+      // Priority 2: .txt export fallback → on-device parse
       activate('whatsapp');
       await delay(300);
       try {
         const { getItem, setItem } = require('../../src/utils/storage');
-        const userId = (await getItem('myndlens_user_id')) ?? 'local';
-        const waExportText = await getItem('whatsapp_export_text');  // set by file import step
+        const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+        const token = await getItem('myndlens_auth_token');
+        const userId2 = (await getItem('myndlens_user_id')) ?? 'local';
+        const tenantId = await getItem('myndlens_tenant_id');
+        let waDone = false;
 
-        if (waExportText) {
-          setCurrentStageLabel('Analysing WhatsApp chats...');
-          const parsed = parseWhatsAppExport(waExportText);
-          if (parsed.contacts.length > 0) {
+        if (token && tenantId) {
+          const statusRes = await fetch(`${obegeeUrl}/api/whatsapp/status/${tenantId}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          }).catch(() => null);
+          if (statusRes?.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.status === 'connected') {
+              setCurrentStageLabel('Extracting WhatsApp chats...');
+              const syncRes = await fetch(`${obegeeUrl}/api/whatsapp/sync-contacts/${tenantId}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+              }).catch(() => null);
+              if (syncRes?.ok) {
+                const syncData = await syncRes.json();
+                const waContacts = (syncData.contacts || []).filter((c: any) => c.importance !== 'low');
+                if (waContacts.length > 0) {
+                  const { registerPerson } = require('../digital-self/pkg');
+                  for (const c of waContacts.slice(0, 100)) {
+                    await registerPerson(userId2, {
+                      name: c.name, phone: c.phone || '', company: '', role: '',
+                      relationship: 'personal', importance: c.importance,
+                      preferred_channel: 'whatsapp', score: c.score, import_source: 'whatsapp_live',
+                    });
+                  }
+                  await setItem('whatsapp_paired', 'true');
+                  advance('whatsapp', 'done');
+                  waDone = true;
+                }
+              }
+            }
+          }
+        }
+
+        if (!waDone) {
+          // Fallback: .txt export
+          const waExportText = await getItem('whatsapp_export_text');
+          if (waExportText) {
+            setCurrentStageLabel('Analysing WhatsApp export...');
+            const parsed = parseWhatsAppExport(waExportText);
             const { registerPerson } = require('../digital-self/pkg');
-            for (const c of parsed.contacts.filter(x => x.importance !== 'low').slice(0, 100)) {
-              await registerPerson(userId, {
-                name:              c.name,
-                phone:             '',
-                company:           '',
-                role:              '',
-                relationship:      'personal',
-                importance:        c.importance,
-                preferred_channel: 'whatsapp',
-                score:             c.score,
-                import_source:     'whatsapp_export',
+            for (const c of parsed.contacts.filter((x: any) => x.importance !== 'low').slice(0, 100)) {
+              await registerPerson(userId2, {
+                name: c.name, phone: '', company: '', role: '',
+                relationship: 'personal', importance: c.importance,
+                preferred_channel: 'whatsapp', score: c.score, import_source: 'whatsapp_export',
               });
             }
-            console.log(`[DS] Imported ${parsed.contacts.length} WhatsApp contacts (${parsed.totalMessages} messages)`);
-            await setItem('whatsapp_export_imported', 'true');
-            advance('whatsapp', 'done');
+            advance('whatsapp', parsed.contacts.length > 0 ? 'done' : 'empty');
           } else {
-            advance('whatsapp', 'empty');
+            advance('whatsapp', 'skipped');
           }
-        } else {
-          // No export provided yet — skip gracefully, user can do this later
-          advance('whatsapp', 'skipped');
         }
       } catch (err) {
-        console.log('[DS] WhatsApp export parse failed (non-fatal):', err);
+        console.log('[DS] WhatsApp step failed (non-fatal):', err);
         advance('whatsapp', 'skipped');
       }
 
