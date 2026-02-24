@@ -40,22 +40,27 @@
           "sounds": [],
           "iosDisplayInForeground": true
         }
-      ],
-      "expo-document-picker"
+      ]
     ],
     "android": {
       "package": "com.myndlens.app",
-      "versionCode": 14,
+      "versionCode": 15,
       "permissions": [
         "READ_CONTACTS",
         "READ_CALENDAR",
         "READ_CALL_LOG",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ],
+      "blockedPermissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
         "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES",
         "READ_MEDIA_VIDEO",
         "READ_MEDIA_DOCUMENTS",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "WRITE_EXTERNAL_STORAGE"
       ]
     },
     "ios": {
