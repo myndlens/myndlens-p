@@ -520,19 +520,51 @@ export default function DigitalSelfStep({ onComplete }: Props) {
           All processing runs locally using on-device heuristics and ONNX scoring.
         </Text>
 
-        {/* WhatsApp — Step 1, richest signal — auto-extracted after pairing */}
-        <Text style={[dss.sectionLabel, { marginTop: 20 }]}>STEP 1 — WHATSAPP</Text>
+        {/* WhatsApp — Step 1 */}
+        <Text style={[dss.sectionLabel, { marginTop: 20 }]}>STEP 1 — CONNECT WHATSAPP</Text>
         <View style={[dss.sourceRow, { borderColor: '#25D366', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 4 }]}>
           <Text style={dss.sourceIcon}>💬</Text>
           <View style={dss.sourceText}>
-            <Text style={dss.sourceTitle}>WhatsApp Chats</Text>
-            <Text style={dss.sourceSub}>Auto-extracted if paired · your true inner circle</Text>
+            <Text style={dss.sourceTitle}>WhatsApp</Text>
+            <Text style={dss.sourceSub}>OpenClaw channel + Digital Self</Text>
           </View>
-          <Text style={{ color: '#25D366', fontWeight: '700', fontSize: 13 }}>Auto</Text>
+          <Text style={{ color: '#25D366', fontWeight: '700', fontSize: 13 }}>Required</Text>
         </View>
-        <Text style={{ color: '#555568', fontSize: 12, marginBottom: 8, marginLeft: 4 }}>
-          Pair WhatsApp from obegee.co.uk → Integrations. Chats are extracted automatically — no manual steps.
-        </Text>
+
+        {/* Clear explanation of both purposes */}
+        <View style={{ backgroundColor: 'rgba(37,211,102,0.08)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <Text style={{ color: '#D0D0E0', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>
+            Why connect WhatsApp?
+          </Text>
+          <Text style={{ color: '#A0A0B8', fontSize: 13, lineHeight: 20, marginBottom: 8 }}>
+            {'1.  OpenClaw Channel — Once connected, you can send voice mandates via WhatsApp. OpenClaw receives your instructions and executes them on your behalf.\n\n2.  Digital Self — Your WhatsApp chats reveal who you truly communicate with. MyndLens analyses this to build a precise picture of your relationships, priorities and working style.'}
+          </Text>
+          <Text style={{ color: '#555568', fontSize: 12, fontStyle: 'italic' }}>
+            All analysis runs on your private OpenClaw workspace. Nothing is shared externally.
+          </Text>
+        </View>
+
+        {/* Step-by-step pairing instructions */}
+        <View style={{ backgroundColor: 'rgba(20,20,34,0.6)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <Text style={{ color: '#D0D0E0', fontSize: 13, fontWeight: '700', marginBottom: 8 }}>
+            How to pair WhatsApp:
+          </Text>
+          {[
+            'Open obegee.co.uk on your computer or tablet',
+            'Log in → go to Integrations → WhatsApp',
+            'Enter your WhatsApp phone number (include country code)',
+            'Click "Connect with Phone Number"',
+            'An 8-character code will appear on screen',
+            'On your phone: WhatsApp → Settings → Linked Devices → Link a Device → Link with phone number instead',
+            'Enter the code shown on your screen',
+            'Done — return to MyndLens. Digital Self will update automatically.',
+          ].map((step, i) => (
+            <View key={i} style={{ flexDirection: 'row', marginBottom: 6 }}>
+              <Text style={{ color: '#6C63FF', fontSize: 13, fontWeight: '700', width: 22 }}>{i + 1}.</Text>
+              <Text style={{ color: '#A0A0B8', fontSize: 13, flex: 1, lineHeight: 19 }}>{step}</Text>
+            </View>
+          ))}
+        </View>
 
         <Text style={dss.sectionLabel}>OTHER SOURCES</Text>
 

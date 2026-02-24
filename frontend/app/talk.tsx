@@ -106,6 +106,7 @@ export default function TalkScreen() {
   const [completedStages, setCompletedStages] = React.useState<string[]>([]);  // labels of done stages
   const [liveEnergy, setLiveEnergy] = useState(0);
   const [userNickname, setUserNickname] = useState('');
+  const [waNotPaired, setWaNotPaired]   = useState(false);  // nudge for users who haven't paired WA
   const [chatOpen, setChatOpen] = useState(false);
   const openChat = () => {
     setChatOpen(true);
@@ -178,6 +179,9 @@ export default function TalkScreen() {
         if (!dsSetupDone || dsSetupDone === 'empty') {
           setShowDsModal(true);
         }
+        // Check if WhatsApp is paired — show nudge if not
+        const waPaired = await getItem('whatsapp_paired');
+        setWaNotPaired(!waPaired);
       } catch { /* non-critical */ }
     })();
   }, []);
@@ -680,12 +684,24 @@ export default function TalkScreen() {
           return (
             <View style={styles.pipelineWrapper} data-testid="pipeline-progress">
               {isIdle ? (
-                <View style={[styles.pipelineCard, styles.pipelineCardIdle]}>
-                  <View style={styles.pipelineIdleInner}>
-                    <Text style={styles.pipelineIdleTitle}>What's on Your Mind Right Now?</Text>
-                    <Text style={styles.pipelineIdleSubtext}>Tap the mic to instruct me.</Text>
+                <>
+                  <View style={[styles.pipelineCard, styles.pipelineCardIdle]}>
+                    <View style={styles.pipelineIdleInner}>
+                      <Text style={styles.pipelineIdleTitle}>What's on Your Mind Right Now?</Text>
+                      <Text style={styles.pipelineIdleSubtext}>Tap the mic to instruct me.</Text>
+                    </View>
                   </View>
-                </View>
+                  {waNotPaired && (
+                    <View style={{ marginTop: 10, backgroundColor: 'rgba(37,211,102,0.08)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(37,211,102,0.25)', width: '100%' }}>
+                      <Text style={{ color: '#25D366', fontSize: 12, fontWeight: '700', marginBottom: 3 }}>
+                        {'\u{1F4AC}'}{'  '}Connect WhatsApp for full capability
+                      </Text>
+                      <Text style={{ color: '#555568', fontSize: 12, lineHeight: 17 }}>
+                        Pair at obegee.co.uk{'\u2192'}Integrations to enable your OpenClaw WhatsApp channel and enrich your Digital Self.
+                      </Text>
+                    </View>
+                  )}
+                </>
               ) : (
                 <View style={styles.activityFeed}>
                   {/* Completed stages — stacked above, each with ✓ */}
