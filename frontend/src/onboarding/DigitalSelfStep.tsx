@@ -8,9 +8,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Animated, Platform, Switch, ScrollView, Alert,
+  Animated, Platform, Switch, ScrollView,
 } from 'react-native';
-import { parseWhatsAppExport } from '../digital-self/whatsapp-parser';
+// WhatsApp chat analysis runs automatically after pairing (async, via loading.tsx background poll)
 
 // Build stages — WhatsApp is first (richest relationship signal)
 const STAGES = [
@@ -268,24 +268,8 @@ export default function DigitalSelfStep({ onComplete }: Props) {
         }
 
         if (!waDone) {
-          // Fallback: .txt export
-          const waExportText = await getItem('whatsapp_export_text');
-          if (waExportText) {
-            setCurrentStageLabel('Analysing WhatsApp export\u2026');
-            const { parseWhatsAppExport } = require('../digital-self/whatsapp-parser');
-            const parsed = parseWhatsAppExport(waExportText);
-            const { registerPerson } = require('../digital-self/pkg');
-            for (const c of parsed.contacts.filter((x: any) => x.importance !== 'low').slice(0, 100)) {
-              await registerPerson(userId2, {
-                name: c.name, phone: '', company: '', role: '',
-                relationship: 'personal', importance: c.importance,
-                preferred_channel: 'whatsapp', score: c.score, import_source: 'whatsapp_export',
-              });
-            }
-            advance('whatsapp', parsed.contacts.length > 0 ? 'done' : 'empty');
-          } else {
-            advance('whatsapp', 'skipped');
-          }
+          // WhatsApp not paired — skip gracefully, async sync will run when paired
+          advance('whatsapp', 'skipped');
         }
       } catch (err) {
         console.log('[DS] WhatsApp step failed (non-fatal):', err);
@@ -536,44 +520,18 @@ export default function DigitalSelfStep({ onComplete }: Props) {
           All processing runs locally using on-device heuristics and ONNX scoring.
         </Text>
 
-        {/* WhatsApp — Step 1, richest signal */}
-        <Text style={[dss.sectionLabel, { marginTop: 20 }]}>STEP 1 — WHATSAPP CHAT ANALYSIS</Text>
+        {/* WhatsApp — Step 1, richest signal — auto-extracted after pairing */}
+        <Text style={[dss.sectionLabel, { marginTop: 20 }]}>STEP 1 — WHATSAPP</Text>
         <View style={[dss.sourceRow, { borderColor: '#25D366', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 4 }]}>
           <Text style={dss.sourceIcon}>💬</Text>
           <View style={dss.sourceText}>
-            <Text style={dss.sourceTitle}>WhatsApp Chat Export</Text>
-            <Text style={dss.sourceSub}>Message frequency shows your TRUE inner circle</Text>
+            <Text style={dss.sourceTitle}>WhatsApp Chats</Text>
+            <Text style={dss.sourceSub}>Auto-extracted if paired · your true inner circle</Text>
           </View>
-          <TouchableOpacity
-            style={{ backgroundColor: '#25D366', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
-            onPress={async () => {
-              try {
-                const DocumentPicker = require('expo-document-picker');
-                const FileSystem = require('expo-file-system/legacy');
-                const { setItem } = require('../../src/utils/storage');
-                const res = await DocumentPicker.getDocumentAsync({
-                  type: ['text/plain', '*/*'],
-                  copyToCacheDirectory: true,
-                });
-                if (res.canceled || !res.assets?.[0]) return;
-                const fileUri = res.assets[0].uri;
-                const text = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' });
-                if (text.length < 100) {
-                  Alert.alert('Invalid file', 'Select a WhatsApp chat export .txt file.');
-                  return;
-                }
-                await setItem('whatsapp_export_text', text);
-                Alert.alert('Loaded', 'WhatsApp export ready — will be analysed during build.');
-              } catch (err: any) {
-                console.log('[DS] WhatsApp import error:', err);
-              }
-            }}
-          >
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Import</Text>
-          </TouchableOpacity>
+          <Text style={{ color: '#25D366', fontWeight: '700', fontSize: 13 }}>Auto</Text>
         </View>
         <Text style={{ color: '#555568', fontSize: 12, marginBottom: 8, marginLeft: 4 }}>
-          In WhatsApp: select any chat → ⋮ → More → Export Chat → Without Media. Import the .txt file here.
+          Pair WhatsApp from obegee.co.uk → Integrations. Chats are extracted automatically — no manual steps.
         </Text>
 
         <Text style={dss.sectionLabel}>OTHER SOURCES</Text>
