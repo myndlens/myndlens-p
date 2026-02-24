@@ -227,10 +227,12 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
     try {
       // Stage: WhatsApp — richest relationship signal
-      // Priority 1: paired Baileys session → all contacts + message history via OpenClaw CLI
-      // Priority 2: .txt export fallback → on-device parse
+      // Extraction is ASYNC (can take minutes for large histories).
+      // We fire-and-forget: start the job, advance immediately.
+      // PKG gets enriched in the background as messages are processed.
       activate('whatsapp');
-      await delay(300);
+      setCurrentStageLabel('Processing WhatsApp Messages to Build Digital Self\u2026');
+      await delay(400);
       try {
         const { getItem, setItem } = require('../../src/utils/storage');
         const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
@@ -246,28 +248,21 @@ export default function DigitalSelfStep({ onComplete }: Props) {
           if (statusRes?.ok) {
             const statusData = await statusRes.json();
             if (statusData.status === 'connected') {
-              setCurrentStageLabel('Extracting WhatsApp chats...');
-              const syncRes = await fetch(`${obegeeUrl}/api/whatsapp/sync-contacts/${tenantId}`, {
+              // Fire-and-forget — do NOT await
+              fetch(`${obegeeUrl}/api/whatsapp/sync-contacts/${tenantId}`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-              }).catch(() => null);
-              if (syncRes?.ok) {
-                const syncData = await syncRes.json();
-                const waContacts = (syncData.contacts || []).filter((c: any) => c.importance !== 'low');
-                if (waContacts.length > 0) {
-                  const { registerPerson } = require('../digital-self/pkg');
-                  for (const c of waContacts.slice(0, 100)) {
-                    await registerPerson(userId2, {
-                      name: c.name, phone: c.phone || '', company: '', role: '',
-                      relationship: 'personal', importance: c.importance,
-                      preferred_channel: 'whatsapp', score: c.score, import_source: 'whatsapp_live',
-                    });
-                  }
+              }).then(async (r) => {
+                if (r?.ok) {
+                  const d = await r.json();
+                  await setItem('whatsapp_sync_job_id', d.job_id || '');
                   await setItem('whatsapp_paired', 'true');
-                  advance('whatsapp', 'done');
-                  waDone = true;
+                  console.log('[DS] WhatsApp async job started:', d.job_id);
                 }
-              }
+              }).catch(e => console.log('[DS] WA sync start (non-fatal):', e));
+
+              advance('whatsapp', 'done');
+              waDone = true;
             }
           }
         }
@@ -276,7 +271,8 @@ export default function DigitalSelfStep({ onComplete }: Props) {
           // Fallback: .txt export
           const waExportText = await getItem('whatsapp_export_text');
           if (waExportText) {
-            setCurrentStageLabel('Analysing WhatsApp export...');
+            setCurrentStageLabel('Analysing WhatsApp export\u2026');
+            const { parseWhatsAppExport } = require('../digital-self/whatsapp-parser');
             const parsed = parseWhatsAppExport(waExportText);
             const { registerPerson } = require('../digital-self/pkg');
             for (const c of parsed.contacts.filter((x: any) => x.importance !== 'low').slice(0, 100)) {

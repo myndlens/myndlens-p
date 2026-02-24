@@ -86,6 +86,64 @@ export default function LoadingScreen() {
         }
       } catch { /* context sync is best-effort — never blocks auth */ }
 
+      // Resume any in-progress WhatsApp DS sync job (started during setup, may still be running)
+      // Runs in background — does NOT block loading or navigation.
+      try {
+        const { getItem, setItem } = require('../src/utils/storage');
+        const jobId   = await getItem('whatsapp_sync_job_id');
+        const alreadyDone = await getItem('whatsapp_ds_imported');
+        if (jobId && !alreadyDone) {
+          const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+          const token    = await getItem('myndlens_auth_token');
+          const tenantId = await getItem('myndlens_tenant_id');
+          const userId2  = wsClient.userId ?? '';
+
+          if (token && tenantId && userId2) {
+            // Poll every 30s until done, max 2 hours
+            const maxTries = 240;
+            let   tries    = 0;
+
+            const pollWA = async () => {
+              tries++;
+              if (tries > maxTries) return;
+              try {
+                const r = await fetch(`${obegeeUrl}/api/whatsapp/sync-progress/${tenantId}`, {
+                  headers: { 'Authorization': `Bearer ${token}` },
+                });
+                if (!r.ok) return;
+                const d = await r.json();
+
+                if (d.status === 'done' && d.contacts?.length > 0) {
+                  // Import completed contacts into PKG
+                  const { registerPerson } = require('../src/digital-self/pkg');
+                  for (const c of d.contacts.filter((x: any) => x.importance !== 'low').slice(0, 200)) {
+                    await registerPerson(userId2, {
+                      name: c.name, phone: c.phone || '', company: '', role: '',
+                      relationship: 'personal', importance: c.importance,
+                      preferred_channel: 'whatsapp', score: c.score, import_source: 'whatsapp_live',
+                    });
+                  }
+                  await setItem('whatsapp_ds_imported', 'true');
+                  // Re-sync DS capsule to backend now that it's enriched
+                  const { buildContextCapsule } = require('../src/digital-self');
+                  const capsule2 = await buildContextCapsule(userId2, '');
+                  if (capsule2.summary) {
+                    wsClient.send('context_sync' as any, { summary: capsule2.summary });
+                  }
+                  console.log(`[WA-BG] Imported ${d.contacts.length} WhatsApp contacts into PKG`);
+                } else if (d.status === 'running') {
+                  // Still running — poll again in 30s
+                  setTimeout(pollWA, 30_000);
+                }
+              } catch { /* non-critical */ }
+            };
+
+            // Start polling after 10s (give setup wizard time to complete)
+            setTimeout(pollWA, 10_000);
+          }
+        }
+      } catch { /* non-critical — never block the main flow */ }
+
       const { getItem } = require('../src/utils/storage');
       const setupDone = await getItem('setup_wizard_complete');
       const dsStatus = await getItem('myndlens_ds_setup_done');
