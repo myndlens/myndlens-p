@@ -89,46 +89,51 @@ export function scoreAndFilterContacts(
     const email = c.emails?.[0]?.email || '';
     const phone = c.phoneNumbers?.[0]?.number || '';
 
+    // ── HARD GATE: must have actual interaction signal ─────────────────────
+    // A contact in your phone book with zero interaction is NOT in your circle.
+    // Eliminates all saved-once business cards and brief one-off contacts.
+    const normalised = phone ? normalizePhone(phone) : '';
+    const callData = (callLogMap && normalised) ? callLogMap.get(normalised) : undefined;
+    const hasInteraction = c.starred || (callData !== undefined);
+    if (!hasInteraction) continue;
+
     let score = 0;
 
-    // ── Richness signals ─────────────────────────────────────────────────────
+    // ── Richness signals (context only — NOT relationship strength) ────────
     if (email && phone) score += 2;
     if (c.emails && c.emails.length > 1) score += 1;
     if (c.phoneNumbers && c.phoneNumbers.length > 1) score += 1;
-    if (c.starred) score += 3;
-    if (c.company) score += 1;
-    if (c.jobTitle) score += 1;
+    if (c.starred) score += 4;                // explicit favourite — strong signal
 
     // ── Photo signal (+2) ─────────────────────────────────────────────────
     if (c.imageAvailable) score += 2;
 
-    // ── Personal relationship signal (+1) ─────────────────────────────────
-    // Has a birthday or anniversary → this is someone you know personally
-    if (c.dates && c.dates.length > 0) score += 1;
+    // ── Personal relationship signal (+2) ─────────────────────────────────
+    // Has a birthday or anniversary → genuine personal relationship
+    if (c.dates && c.dates.length > 0) score += 2;
 
     // ── Call log signals (up to +8) ───────────────────────────────────────
-    if (callLogMap && phone) {
-      const normalised = normalizePhone(phone);
-      const callData = callLogMap.get(normalised);
+    if (callData) {
+      // Frequency (calls in last 90 days)
+      const count = callData.count;
+      if (count >= 11) score += 4;
+      else if (count >= 6) score += 3;
+      else if (count >= 3) score += 2;
+      else if (count >= 1) score += 1;
 
-      if (callData) {
-        // Frequency (calls in last 90 days)
-        const count = callData.count;
-        if (count >= 11) score += 4;
-        else if (count >= 6) score += 3;
-        else if (count >= 3) score += 2;
-        else if (count >= 1) score += 1;
-
-        // Recency (days since last call)
-        const daysSince = (now - callData.lastDate.getTime()) / 86_400_000;
-        if (daysSince < 14) score += 4;
-        else if (daysSince < 30) score += 3;
-        else if (daysSince < 90) score += 1;
-      }
+      // Recency (days since last call)
+      const daysSince = (now - callData.lastDate.getTime()) / 86_400_000;
+      if (daysSince < 14) score += 4;
+      else if (daysSince < 30) score += 3;
+      else if (daysSince < 90) score += 1;
     }
 
     const relationship = inferRelationship(c);
-    const importance = score >= 8 ? 'high' : score >= 3 ? 'medium' : 'low';
+    // Raised thresholds — brief contacts must NOT appear as high importance
+    // high (Inner Circle): must have accumulated strong multi-signal score
+    // medium: meaningful but not core circle
+    // low:  peripheral — rarely shown in UI
+    const importance = score >= 12 ? 'high' : score >= 6 ? 'medium' : 'low';
     const preferred_channel = email && phone ? 'whatsapp' : phone ? 'call' : 'email';
 
     const aliases: string[] = [];

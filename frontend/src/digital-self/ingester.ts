@@ -115,7 +115,7 @@ export async function ingestContacts(userId: string): Promise<{ count: number; e
     const callLogMap = await loadCallLogMap();
     console.log(`[Ingester] Scoring ${data.length} contacts with ${callLogMap.size} call-log entries`);
 
-    const scored = scoreAndFilterContacts(data, 200, callLogMap);
+    const scored = scoreAndFilterContacts(data, 50, callLogMap);  // top 50 with real interaction signals
     console.log(`[Ingester] After scoring+ranking: ${scored.length} contacts selected`);
 
     let count = 0;

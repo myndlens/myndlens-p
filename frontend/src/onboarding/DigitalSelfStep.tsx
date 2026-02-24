@@ -11,14 +11,15 @@ import {
   Animated, Platform, Switch, ScrollView,
 } from 'react-native';
 
-// Build stages — each maps to a real ingestion step
+// Build stages — WhatsApp is first (richest relationship signal)
 const STAGES = [
-  { id: 'contacts',   label: 'Scanning contacts',          icon: '👤', onnx: false },
-  { id: 'calendar',   label: 'Extracting calendar patterns', icon: '📅', onnx: false },
-  { id: 'email',      label: 'Syncing email patterns',       icon: '✉️',  onnx: false, optional: true },
-  { id: 'graph',      label: 'Building knowledge graph',     icon: '🕸️',  onnx: false },
-  { id: 'embeddings', label: 'Generating ONNX embeddings',   icon: '🧠', onnx: true  },
-  { id: 'encrypt',    label: 'Encrypting on this device',    icon: '🔐', onnx: false },
+  { id: 'whatsapp',   label: 'Connect WhatsApp',              icon: '💬', onnx: false, optional: true },
+  { id: 'contacts',   label: 'Scanning contacts',             icon: '👤', onnx: false },
+  { id: 'calendar',   label: 'Extracting calendar patterns',  icon: '📅', onnx: false },
+  { id: 'email',      label: 'Syncing email patterns',        icon: '✉️',  onnx: false, optional: true },
+  { id: 'graph',      label: 'Building knowledge graph',      icon: '🕸️',  onnx: false },
+  { id: 'embeddings', label: 'Generating ONNX embeddings',    icon: '🧠', onnx: true  },
+  { id: 'encrypt',    label: 'Encrypting on this device',     icon: '🔐', onnx: false },
 ];
 
 type StageStatus = 'pending' | 'active' | 'done' | 'skipped' | 'empty';
@@ -224,6 +225,20 @@ export default function DigitalSelfStep({ onComplete }: Props) {
     };
 
     try {
+      // Stage: WhatsApp — first and richest relationship signal
+      // WhatsApp message frequency/recency shows TRUE inner circle, not just phone book
+      activate('whatsapp');
+      await delay(300);
+      // WhatsApp pairing is done separately (QR code flow in ObeGee).
+      // Here we check if it was already paired and skip gracefully if not.
+      try {
+        const { getItem } = require('../../src/utils/storage');
+        const waPaired = await getItem('whatsapp_paired');
+        advance('whatsapp', waPaired === 'true' ? 'done' : 'skipped');
+      } catch {
+        advance('whatsapp', 'skipped');
+      }
+
       // Stage: contacts
       activate('contacts');
       await delay(300);
@@ -468,13 +483,40 @@ export default function DigitalSelfStep({ onComplete }: Props) {
           All processing runs locally using on-device heuristics and ONNX scoring.
         </Text>
 
-        <Text style={dss.sectionLabel}>DATA SOURCES</Text>
+        {/* WhatsApp — Step 1, richest signal */}
+        <Text style={[dss.sectionLabel, { marginTop: 20 }]}>STEP 1 — CONNECT WHATSAPP</Text>
+        <View style={[dss.sourceRow, { borderColor: '#25D366', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 8 }]}>
+          <Text style={dss.sourceIcon}>💬</Text>
+          <View style={dss.sourceText}>
+            <Text style={dss.sourceTitle}>WhatsApp Chats</Text>
+            <Text style={dss.sourceSub}>Your true inner circle · message frequency shows who matters</Text>
+          </View>
+          <TouchableOpacity
+            style={{ backgroundColor: '#25D366', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
+            onPress={async () => {
+              try {
+                const { Linking } = require('react-native');
+                const { getItem } = require('../../src/utils/storage');
+                const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+                const token = await getItem('myndlens_auth_token');
+                await Linking.openURL(`${obegeeUrl}/whatsapp/connect?token=${token}`);
+              } catch { /* non-critical */ }
+            }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Pair</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={{ color: '#555568', fontSize: 12, marginBottom: 16, marginLeft: 4 }}>
+          Pairing WhatsApp gives MyndLens context about who you actually talk to — not just who is in your phone book.
+        </Text>
+
+        <Text style={dss.sectionLabel}>OTHER SOURCES</Text>
 
         <View style={dss.sourceRow}>
           <Text style={dss.sourceIcon}>👤</Text>
           <View style={dss.sourceText}>
-            <Text style={dss.sourceTitle}>Contacts</Text>
-            <Text style={dss.sourceSub}>People graph · relationship inference</Text>
+            <Text style={dss.sourceTitle}>Contacts + Call Log</Text>
+            <Text style={dss.sourceSub}>People graph · call frequency signals</Text>
           </View>
           <Text style={dss.sourceOn}>On</Text>
         </View>
