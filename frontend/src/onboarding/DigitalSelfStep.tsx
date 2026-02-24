@@ -229,13 +229,67 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       // WhatsApp message frequency/recency shows TRUE inner circle, not just phone book
       activate('whatsapp');
       await delay(300);
-      // WhatsApp pairing is done separately (QR code flow in ObeGee).
-      // Here we check if it was already paired and skip gracefully if not.
       try {
-        const { getItem } = require('../../src/utils/storage');
-        const waPaired = await getItem('whatsapp_paired');
-        advance('whatsapp', waPaired === 'true' ? 'done' : 'skipped');
-      } catch {
+        const { getItem, setItem } = require('../../src/utils/storage');
+        const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+        const token = await getItem('myndlens_auth_token');
+        const userId = (await getItem('myndlens_user_id')) ?? 'local';
+        const tenantId = await getItem('myndlens_tenant_id');
+
+        if (token && tenantId) {
+          // Check if WhatsApp is paired in ObeGee
+          const statusRes = await fetch(`${obegeeUrl}/api/whatsapp/status/${tenantId}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.status === 'connected') {
+              // Extract WhatsApp contacts for Digital Self
+              setCurrentStageLabel('Extracting WhatsApp contacts...');
+              const syncRes = await fetch(`${obegeeUrl}/api/whatsapp/sync-contacts/${tenantId}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+              });
+              if (syncRes.ok) {
+                const syncData = await syncRes.json();
+                const waContacts = syncData.contacts || [];
+                if (waContacts.length > 0) {
+                  // Import WhatsApp contacts into PKG with high-trust signals
+                  const { registerPerson } = require('../digital-self/pkg');
+                  for (const c of waContacts.slice(0, 100)) {
+                    if (c.name || c.phone) {
+                      await registerPerson(userId, {
+                        name: c.name || c.phone || 'Unknown',
+                        phone: c.phone || '',
+                        company: '',
+                        role: '',
+                        relationship: 'personal',
+                        importance: 'high',  // WhatsApp contact = high importance by default
+                        preferred_channel: 'whatsapp',
+                        score: 15,           // Strong signal: they're in your WhatsApp
+                        import_source: 'whatsapp',
+                      });
+                    }
+                  }
+                  console.log(`[DS] Imported ${waContacts.length} WhatsApp contacts`);
+                }
+                await setItem('whatsapp_paired', 'true');
+                advance('whatsapp', 'done');
+              } else {
+                advance('whatsapp', 'skipped');
+              }
+            } else {
+              // Not yet paired — skip but don't block
+              advance('whatsapp', 'skipped');
+            }
+          } else {
+            advance('whatsapp', 'skipped');
+          }
+        } else {
+          advance('whatsapp', 'skipped');
+        }
+      } catch (err) {
+        console.log('[DS] WhatsApp sync failed (non-fatal):', err);
         advance('whatsapp', 'skipped');
       }
 
