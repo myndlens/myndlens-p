@@ -23,7 +23,7 @@ export async function initONNX(): Promise<boolean> {
   try {
     // Dynamically import — graceful if onnxruntime-react-native not installed
     const { InferenceSession } = require('onnxruntime-react-native');
-    const { FileSystem } = require('expo-file-system');
+    const FileSystem = require('expo-file-system/legacy');
 
     const modelPath = `${FileSystem.documentDirectory}${MODEL_CACHE_KEY}.onnx`;
     const info = await FileSystem.getInfoAsync(modelPath);

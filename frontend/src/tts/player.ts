@@ -7,7 +7,7 @@
  */
 import { Audio } from 'expo-av';
 // expo-file-system used via require to avoid TypeScript declaration mismatches
-const FileSystem = require('expo-file-system') as any;
+const FileSystem = require('expo-file-system/legacy') as any;
 
 let _isSpeaking = false;
 let _currentSound: any = null; // expo-av Sound instance (native only)

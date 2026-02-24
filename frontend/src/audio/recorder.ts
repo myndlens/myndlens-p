@@ -161,7 +161,7 @@ export async function stopAndGetAudio(): Promise<string | null> {
         return null;
       }
 
-      const FileSystem = require('expo-file-system');
+      const FileSystem = require('expo-file-system/legacy');
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
       });
