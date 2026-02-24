@@ -702,8 +702,12 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
 
         # ── Intent clarification (default) ────────────────────────────────────
         combined = f"{clarify['original_transcript']}. Clarification: {text}"
-        _clarification_state.pop(session_id, None)
-        logger.info("[CLARIFICATION:INTENT] session=%s combined='%s'", session_id, combined[:80])
+        carried_questions = clarify.get("questions_asked", [])
+        _clarification_state[session_id] = {
+            "questions_asked": carried_questions,  # carry forward — don't re-ask
+        }
+        logger.info("[CLARIFICATION:INTENT] session=%s combined='%s' asked_so_far=%d",
+                    session_id, combined[:80], len(carried_questions))
         await _send_mock_tts_response(ws, session_id, combined, user_id=user_id,
                                       context_capsule=clarify.get("context_capsule"))
         return
@@ -859,9 +863,9 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         from intent.micro_questions import should_ask_micro_questions, generate_micro_questions
 
         if should_ask_micro_questions(top_check.confidence, top_check.dimension_suggestions):
-            # Only attempt clarification once per mandate (no infinite loops)
             clarify_state = _clarification_state.get(session_id, {})
             attempt = clarify_state.get("attempts", 0)
+            questions_asked: list = clarify_state.get("questions_asked", [])
 
             if attempt == 0:
                 logger.info("[MANDATE:1.5:MICRO_Q] session=%s generating micro-questions (conf=%.2f)",
@@ -875,18 +879,18 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
                     hypothesis=top_check.hypothesis,
                     confidence=top_check.confidence,
                     dimensions=top_check.dimension_suggestions,
+                    already_asked=questions_asked,
                 )
 
                 if mq_result.questions:
-                    # Pick the best question (first one)
                     question = mq_result.questions[0]
 
-                    # Store clarification state so response handler knows to re-run
                     _clarification_state[session_id] = {
                         "pending": True,
                         "original_transcript": transcript,
                         "enriched_transcript": enriched_transcript,
                         "question_asked": question.question,
+                        "questions_asked": questions_asked + [question.question],
                         "context_capsule": context_capsule,
                         "attempts": 1,
                     }

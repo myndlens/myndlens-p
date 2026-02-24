@@ -54,6 +54,7 @@ async def generate_micro_questions(
     confidence: float,
     dimensions: Dict[str, Any],
     memory_snippets: Optional[List[Dict]] = None,
+    already_asked: Optional[List[str]] = None,
 ) -> MicroQuestionResult:
     """Generate personalized micro-questions from Digital Self + intent gaps.
 
@@ -85,15 +86,24 @@ async def generate_micro_questions(
         from memory.retriever import recall
         memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=5)
 
-    # Build task description with full context
     task = (
         f"User said: \"{transcript}\"\n"
         f"Extracted intent: {hypothesis}\n"
         f"Confidence: {confidence}\n"
         f"Current dimensions: {json.dumps(dimensions)}\n"
         f"Missing dimensions: {', '.join(missing) if missing else 'none'}\n"
-        f"Trigger: {trigger}\n\n"
-        "RULES FOR MICRO-QUESTIONS:\n"
+        f"Trigger: {trigger}\n"
+    )
+
+    # Inject internal checklist — already answered vs still pending
+    if already_asked:
+        task += "\nINTERNAL CHECKLIST (do NOT re-ask these — already answered):\n"
+        for q in already_asked:
+            task += f"  ✓  {q}\n"
+        task += "\nOnly generate questions for what is STILL unanswered.\n"
+
+    task += (
+        "\nRULES FOR MICRO-QUESTIONS:\n"
         "1. NEVER ask generic questions like 'Could you tell me more?' or 'What do you need?'\n"
         "2. EVERY question MUST reference a SPECIFIC person, place, preference, or pattern from the Digital Self memories\n"
         "3. If a memory mentions a person (colleague, spouse, CMO), ask if they are involved\n"
