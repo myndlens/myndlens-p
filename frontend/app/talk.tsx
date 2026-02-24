@@ -103,7 +103,14 @@ export default function TalkScreen() {
   const [pipelineStageIndex, setPipelineStageIndex] = React.useState<number>(-1);
   const [pipelineSubStatus, setPipelineSubStatus] = React.useState<string>('');
   const [pipelineProgress, setPipelineProgress] = React.useState<number>(0);
-  const [completedStages, setCompletedStages] = React.useState<string[]>([]);  // labels of done stages
+  const [completedStages, setCompletedStages] = React.useState<string[]>([]);
+  const completedStagesRef = useRef<string[]>([]);
+  const pipelineStageIndexRef = useRef<number>(-1);
+  const pendingDraftIdRef = useRef<string | null>(null);
+  // Keep refs in sync with state for AppState closure access
+  useEffect(() => { completedStagesRef.current = completedStages; }, [completedStages]);
+  useEffect(() => { pipelineStageIndexRef.current = pipelineStageIndex; }, [pipelineStageIndex]);
+  useEffect(() => { pendingDraftIdRef.current = pendingDraftId; }, [pendingDraftId]);
   const [liveEnergy, setLiveEnergy] = useState(0);
   const [userNickname, setUserNickname] = useState('');
   const [waNotPaired, setWaNotPaired]   = useState(false);  // nudge for users who haven't paired WA
@@ -244,6 +251,18 @@ export default function TalkScreen() {
         if (state === 'RESPONDING') {
           await TTS.stop().catch(() => {});
         }
+        // Save pipeline visual state so it survives phone calls / foreground switches
+        if (state === 'THINKING' || state === 'RESPONDING' || state === 'COMMITTING') {
+          try {
+            const { setItem } = require('../src/utils/storage');
+            const saved = JSON.stringify({
+              completedStages: completedStagesRef.current,
+              pipelineStageIndex: pipelineStageIndexRef.current,
+              pendingDraftId: pendingDraftIdRef.current,
+            });
+            await setItem('pipeline_resume_state', saved);
+          } catch { /* non-critical */ }
+        }
       } else if (nextState === 'active') {
         // ── Returning to foreground ──────────────────────────────────────────
         appInBackground.current = false;
@@ -311,6 +330,22 @@ export default function TalkScreen() {
       wsClient.on('auth_ok', async () => {
         // Set session ID in store — used by VAD callback to send audio
         setSessionId(wsClient.currentSessionId);
+
+        // Restore pipeline visual state if we went to background mid-execution
+        try {
+          const { getItem, setItem } = require('../src/utils/storage');
+          const saved = await getItem('pipeline_resume_state');
+          if (saved) {
+            const { completedStages: cs, pipelineStageIndex: pi, pendingDraftId: pd } = JSON.parse(saved);
+            if (cs?.length > 0) {
+              setCompletedStages(cs);
+              setPipelineStageIndex(pi ?? -1);
+              if (pd) setPendingDraftId(pd);
+              // Clear the saved state — it's been restored
+              await setItem('pipeline_resume_state', '');
+            }
+          }
+        } catch { /* non-critical */ }
         try {
           const { getItem } = require('../src/utils/storage');
           const stored = await getItem('myndlens_user_name');
@@ -704,8 +739,8 @@ export default function TalkScreen() {
                 </>
               ) : (
                 <View style={styles.activityFeed}>
-                  {/* Completed stages — stacked above, each with ✓ */}
-                  {completedStages.map((label, i) => (
+                  {/* Completed stages — last 4 only (sliding window keeps layout stable) */}
+                  {completedStages.slice(-4).map((label, i) => (
                     <View key={i} style={styles.activityDone}>
                       <Text style={styles.activityDoneTick}>{'\u2713'}</Text>
                       <Text style={styles.activityDoneLabel}>{label}</Text>
@@ -789,9 +824,10 @@ export default function TalkScreen() {
               onPress={handleApprove}
               disabled={!pendingAction}
               activeOpacity={0.8}
+              data-testid="approve-btn"
             >
               <Text style={styles.smallBtnIcon}>{'\u2714'}</Text>
-              <Text style={styles.smallBtnText}>{pendingAction || 'Approve'}</Text>
+              <Text style={styles.smallBtnText}>Approve</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -970,7 +1006,7 @@ const styles = StyleSheet.create({
   pipelineSpinner: { marginBottom: 12 },
 
   // Sequential live activity feed
-  activityFeed: { width: '100%', paddingVertical: 4 },
+  activityFeed: { width: '100%', paddingVertical: 4, maxHeight: 120 },
   activityDone: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5 },
   activityDoneTick: { color: '#4CAF50', fontSize: 13, marginRight: 10, fontWeight: '700' },
   activityDoneLabel: { color: '#555568', fontSize: 13, fontWeight: '500' },
