@@ -50,6 +50,7 @@ from tts.orchestrator import get_tts_provider
 from l1.scout import run_l1_scout
 from transcript.assembler import transcript_assembler
 from transcript.storage import save_transcript
+from tenants.obegee_reader import get_user_display_name
 
 from intent.gap_filler import SessionContext, parse_capsule_summary, enrich_transcript
 
@@ -77,6 +78,19 @@ def _make_envelope(msg_type: WSMessageType, payload: dict) -> str:
     """Create a JSON string envelope for sending."""
     envelope = WSEnvelope(type=msg_type, payload=payload)
     return envelope.model_dump_json()
+
+
+def _get_time_greeting() -> str:
+    """Return time-appropriate greeting word."""
+    hour = datetime.now(timezone.utc).hour
+    if 5 <= hour < 12:
+        return "Good morning"
+    elif 12 <= hour < 17:
+        return "Good afternoon"
+    elif 17 <= hour < 21:
+        return "Good evening"
+    else:
+        return "Hey"
 
 
 async def _send(ws: WebSocket, msg_type: WSMessageType, payload_model) -> None:
@@ -232,6 +246,13 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
         session_id = session.session_id
         active_connections[session_id] = websocket
 
+        # Fetch user display name for greeting (non-blocking, best-effort)
+        try:
+            _greeting_display_name = await get_user_display_name(user_id_resolved)
+        except Exception:
+            _greeting_display_name = None
+        _greeting_sent = False  # Send once on first heartbeat
+
         # Send AUTH_OK
         await _send(websocket, WSMessageType.AUTH_OK, AuthOkPayload(
             session_id=session_id,
@@ -268,6 +289,23 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
 
             if msg_type == WSMessageType.HEARTBEAT.value:
                 await _handle_heartbeat(websocket, session_id, payload)
+                # Send greeting TTS on first heartbeat (talk.tsx is now mounted)
+                if not _greeting_sent:
+                    _greeting_sent = True
+                    try:
+                        greeting_word = _get_time_greeting()
+                        if _greeting_display_name:
+                            greeting_text = f"{greeting_word}, {_greeting_display_name}. Ready when you are."
+                        else:
+                            greeting_text = f"{greeting_word}. Ready when you are."
+                        await _send(websocket, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                            text=greeting_text,
+                            session_id=session_id,
+                            format="text",
+                        ))
+                        logger.debug("Sent greeting: session=%s name=%s", session_id, _greeting_display_name)
+                    except Exception as _ge:
+                        logger.warning("Greeting TTS failed (non-fatal): %s", str(_ge))
 
             elif msg_type == WSMessageType.AUDIO_CHUNK.value:
                 await _handle_audio_chunk(websocket, session_id, payload, user_id=user_id_resolved or "")

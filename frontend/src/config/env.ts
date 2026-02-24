@@ -3,7 +3,7 @@
  * Reads from EXPO_PUBLIC_BACKEND_URL in .env.
  */
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://app.myndlens.com';
 
 export const ENV = {
   BACKEND_URL,

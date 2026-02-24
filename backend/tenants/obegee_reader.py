@@ -73,3 +73,29 @@ async def get_subscription_status(obegee_user_id: str) -> Optional[str]:
         logger.error("[ObeGeeDB] Subscription lookup failed: %s", str(e))
 
     return None
+
+
+async def get_user_display_name(obegee_user_id: str) -> Optional[str]:
+    """Read user's display name from ObeGee's users collection.
+    
+    Returns first_name if set, falls back to full name, then None.
+    Non-blocking — caller should handle None gracefully.
+    """
+    db = get_obegee_db()
+    if db is None:
+        return None
+
+    try:
+        doc = await db.users.find_one(
+            {"user_id": obegee_user_id},
+            {"name": 1, "_id": 0},
+        )
+        if doc:
+            full_name: str = doc.get("name", "")
+            if full_name:
+                # Use first word of the name as first name
+                return full_name.split()[0]
+    except Exception as e:
+        logger.error("[ObeGeeDB] User name lookup failed: %s", str(e))
+
+    return None

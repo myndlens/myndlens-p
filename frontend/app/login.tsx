@@ -16,7 +16,6 @@ import { useRouter } from 'expo-router';
 import { getOrCreateDeviceId } from '../src/ws/auth';
 import { setItem } from '../src/utils/storage';
 import { useSessionStore } from '../src/state/session-store';
-import { ENV } from '../src/config/env';
 
 /**
  * Login — ObeGee 6-digit pairing code.
