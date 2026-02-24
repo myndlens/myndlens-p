@@ -39,3 +39,10 @@ yarn-error.*
 app-example
 
 # Native build output (managed by EAS/Prebuild)
+
+# CNG / Prebuild — expo doctor recommendation
+android/
+ios/
+
+# Remove npm lock (project uses yarn)
+package-lock.json

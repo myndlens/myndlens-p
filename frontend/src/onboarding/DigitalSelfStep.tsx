@@ -8,7 +8,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Animated, Platform, Switch, ScrollView,
+  Animated, Platform, Switch, ScrollView, Alert,
 } from 'react-native';
 import { parseWhatsAppExport } from '../digital-self/whatsapp-parser';
 
@@ -559,11 +559,11 @@ export default function DigitalSelfStep({ onComplete }: Props) {
                 const fileUri = res.assets[0].uri;
                 const text = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' });
                 if (text.length < 100) {
-                  require('sonner')?.toast?.error('File too small — select a WhatsApp chat export .txt file');
+                  Alert.alert('Invalid file', 'Select a WhatsApp chat export .txt file.');
                   return;
                 }
                 await setItem('whatsapp_export_text', text);
-                require('sonner')?.toast?.success('WhatsApp export loaded — will be analysed during build');
+                Alert.alert('Loaded', 'WhatsApp export ready — will be analysed during build.');
               } catch (err: any) {
                 console.log('[DS] WhatsApp import error:', err);
               }
