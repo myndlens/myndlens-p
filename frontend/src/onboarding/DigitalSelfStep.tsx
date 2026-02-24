@@ -2,7 +2,7 @@
  * DigitalSelfStep — Step 9 of the Setup Wizard.
  *
  * Animated, stage-by-stage on-device ONNX build of the Digital Self.
- * Sources: Contacts · Calendar · SMS (Android) · Email (if credentials saved).
+ * Sources: WhatsApp export · Contacts · Calendar · Email
  * All processing happens on this device — no raw data leaves.
  */
 import React, { useState, useRef, useEffect } from 'react';
@@ -10,6 +10,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   Animated, Platform, Switch, ScrollView,
 } from 'react-native';
+import { parseWhatsAppExport } from '../digital-self/whatsapp-parser';
 
 // Build stages — WhatsApp is first (richest relationship signal)
 const STAGES = [
@@ -225,71 +226,45 @@ export default function DigitalSelfStep({ onComplete }: Props) {
     };
 
     try {
-      // Stage: WhatsApp — first and richest relationship signal
-      // WhatsApp message frequency/recency shows TRUE inner circle, not just phone book
+      // Stage: WhatsApp — richest relationship signal via chat export
+      // User exports chat backup from WhatsApp → we parse it on-device
       activate('whatsapp');
       await delay(300);
       try {
         const { getItem, setItem } = require('../../src/utils/storage');
-        const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
-        const token = await getItem('myndlens_auth_token');
         const userId = (await getItem('myndlens_user_id')) ?? 'local';
-        const tenantId = await getItem('myndlens_tenant_id');
+        const waExportText = await getItem('whatsapp_export_text');  // set by file import step
 
-        if (token && tenantId) {
-          // Check if WhatsApp is paired in ObeGee
-          const statusRes = await fetch(`${obegeeUrl}/api/whatsapp/status/${tenantId}`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          if (statusRes.ok) {
-            const statusData = await statusRes.json();
-            if (statusData.status === 'connected') {
-              // Extract WhatsApp contacts for Digital Self
-              setCurrentStageLabel('Extracting WhatsApp contacts...');
-              const syncRes = await fetch(`${obegeeUrl}/api/whatsapp/sync-contacts/${tenantId}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        if (waExportText) {
+          setCurrentStageLabel('Analysing WhatsApp chats...');
+          const parsed = parseWhatsAppExport(waExportText);
+          if (parsed.contacts.length > 0) {
+            const { registerPerson } = require('../digital-self/pkg');
+            for (const c of parsed.contacts.filter(x => x.importance !== 'low').slice(0, 100)) {
+              await registerPerson(userId, {
+                name:              c.name,
+                phone:             '',
+                company:           '',
+                role:              '',
+                relationship:      'personal',
+                importance:        c.importance,
+                preferred_channel: 'whatsapp',
+                score:             c.score,
+                import_source:     'whatsapp_export',
               });
-              if (syncRes.ok) {
-                const syncData = await syncRes.json();
-                const waContacts = syncData.contacts || [];
-                if (waContacts.length > 0) {
-                  // Import WhatsApp contacts into PKG with high-trust signals
-                  const { registerPerson } = require('../digital-self/pkg');
-                  for (const c of waContacts.slice(0, 100)) {
-                    if (c.name || c.phone) {
-                      await registerPerson(userId, {
-                        name: c.name || c.phone || 'Unknown',
-                        phone: c.phone || '',
-                        company: '',
-                        role: '',
-                        relationship: 'personal',
-                        importance: 'high',  // WhatsApp contact = high importance by default
-                        preferred_channel: 'whatsapp',
-                        score: 15,           // Strong signal: they're in your WhatsApp
-                        import_source: 'whatsapp',
-                      });
-                    }
-                  }
-                  console.log(`[DS] Imported ${waContacts.length} WhatsApp contacts`);
-                }
-                await setItem('whatsapp_paired', 'true');
-                advance('whatsapp', 'done');
-              } else {
-                advance('whatsapp', 'skipped');
-              }
-            } else {
-              // Not yet paired — skip but don't block
-              advance('whatsapp', 'skipped');
             }
+            console.log(`[DS] Imported ${parsed.contacts.length} WhatsApp contacts (${parsed.totalMessages} messages)`);
+            await setItem('whatsapp_export_imported', 'true');
+            advance('whatsapp', 'done');
           } else {
-            advance('whatsapp', 'skipped');
+            advance('whatsapp', 'empty');
           }
         } else {
+          // No export provided yet — skip gracefully, user can do this later
           advance('whatsapp', 'skipped');
         }
       } catch (err) {
-        console.log('[DS] WhatsApp sync failed (non-fatal):', err);
+        console.log('[DS] WhatsApp export parse failed (non-fatal):', err);
         advance('whatsapp', 'skipped');
       }
 
@@ -538,30 +513,43 @@ export default function DigitalSelfStep({ onComplete }: Props) {
         </Text>
 
         {/* WhatsApp — Step 1, richest signal */}
-        <Text style={[dss.sectionLabel, { marginTop: 20 }]}>STEP 1 — CONNECT WHATSAPP</Text>
-        <View style={[dss.sourceRow, { borderColor: '#25D366', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 8 }]}>
+        <Text style={[dss.sectionLabel, { marginTop: 20 }]}>STEP 1 — WHATSAPP CHAT ANALYSIS</Text>
+        <View style={[dss.sourceRow, { borderColor: '#25D366', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 4 }]}>
           <Text style={dss.sourceIcon}>💬</Text>
           <View style={dss.sourceText}>
-            <Text style={dss.sourceTitle}>WhatsApp Chats</Text>
-            <Text style={dss.sourceSub}>Your true inner circle · message frequency shows who matters</Text>
+            <Text style={dss.sourceTitle}>WhatsApp Chat Export</Text>
+            <Text style={dss.sourceSub}>Message frequency shows your TRUE inner circle</Text>
           </View>
           <TouchableOpacity
             style={{ backgroundColor: '#25D366', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
             onPress={async () => {
               try {
-                const { Linking } = require('react-native');
-                const { getItem } = require('../../src/utils/storage');
-                const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
-                const token = await getItem('myndlens_auth_token');
-                await Linking.openURL(`${obegeeUrl}/whatsapp/connect?token=${token}`);
-              } catch { /* non-critical */ }
+                const DocumentPicker = require('expo-document-picker');
+                const FileSystem = require('expo-file-system/legacy');
+                const { setItem } = require('../../src/utils/storage');
+                const res = await DocumentPicker.getDocumentAsync({
+                  type: ['text/plain', '*/*'],
+                  copyToCacheDirectory: true,
+                });
+                if (res.canceled || !res.assets?.[0]) return;
+                const fileUri = res.assets[0].uri;
+                const text = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' });
+                if (text.length < 100) {
+                  require('sonner')?.toast?.error('File too small — select a WhatsApp chat export .txt file');
+                  return;
+                }
+                await setItem('whatsapp_export_text', text);
+                require('sonner')?.toast?.success('WhatsApp export loaded — will be analysed during build');
+              } catch (err: any) {
+                console.log('[DS] WhatsApp import error:', err);
+              }
             }}
           >
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Pair</Text>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Import</Text>
           </TouchableOpacity>
         </View>
-        <Text style={{ color: '#555568', fontSize: 12, marginBottom: 16, marginLeft: 4 }}>
-          Pairing WhatsApp gives MyndLens context about who you actually talk to — not just who is in your phone book.
+        <Text style={{ color: '#555568', fontSize: 12, marginBottom: 8, marginLeft: 4 }}>
+          In WhatsApp: select any chat → ⋮ → More → Export Chat → Without Media. Import the .txt file here.
         </Text>
 
         <Text style={dss.sectionLabel}>OTHER SOURCES</Text>
