@@ -26,7 +26,7 @@ export interface VADConfig {
 
 export const DEFAULT_VAD_CONFIG: VADConfig = {
   energyThreshold: 0.015,
-  silenceDurationMs: 2000,
+  silenceDurationMs: 3500,  // 3.5s — avoids firing on natural thinking pauses mid-thought
   minSpeechDurationMs: 300,
 };
 

@@ -169,6 +169,15 @@ export async function stopAndGetAudio(): Promise<string | null> {
       // Clean up the temp file
       FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
 
+      // Switch audio mode back to playback so TTS can play immediately after
+      try {
+        const { Audio } = require('expo-av');
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+        });
+      } catch { /* non-critical */ }
+
       console.log(`[Recorder] Audio read: ${Math.round(base64.length * 0.75 / 1024)}KB`);
       _stopping = false;
       return base64;
