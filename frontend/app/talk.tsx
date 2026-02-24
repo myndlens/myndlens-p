@@ -180,7 +180,7 @@ export default function TalkScreen() {
           setShowDsModal(true);
         }
         // Check if WhatsApp is paired — show nudge if not
-        const waPaired = await getItem('whatsapp_paired');
+        const waPaired = await getItem('whatsapp_channel_connected');
         setWaNotPaired(!waPaired);
       } catch { /* non-critical */ }
     })();

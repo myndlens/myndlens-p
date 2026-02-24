@@ -256,7 +256,8 @@ export default function DigitalSelfStep({ onComplete }: Props) {
                 if (r?.ok) {
                   const d = await r.json();
                   await setItem('whatsapp_sync_job_id', d.job_id || '');
-                  await setItem('whatsapp_paired', 'true');
+                  // whatsapp_channel_connected marks actual connection — drives nudge visibility
+                  await setItem('whatsapp_channel_connected', 'true');
                   console.log('[DS] WhatsApp async job started:', d.job_id);
                 }
               }).catch(e => console.log('[DS] WA sync start (non-fatal):', e));
