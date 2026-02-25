@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSessionStore } from '../src/state/session-store';
 import { ENV } from '../src/config/env';
+import { getStoredToken } from '../src/ws/auth';
 
-const STEPS = ['Name', 'Style', 'Contacts', 'Routines', 'Confirm'];
+const OBEGEE_URL = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+
+const STEPS = ['Profile', 'Name', 'Style', 'Contacts', 'Routines', 'Confirm'];
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -24,37 +28,92 @@ export default function OnboardingScreen() {
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  // Step 0 — ObeGee profile fields
+  const [profileName, setProfileName]         = useState('');
+  const [phoneNumber, setPhoneNumber]         = useState('');
+  const [whatsappNumber, setWhatsappNumber]   = useState('');
+  const [sameAsPhone, setSameAsPhone]         = useState(true);
+  const [picture, setPicture]                 = useState('');
+
+  // Step 1 — MyndLens nickname / timezone
   const [displayName, setDisplayName] = useState('');
-  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+  const [timezone, setTimezone]       = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+
+  // Step 2 — Communication style
   const [commStyle, setCommStyle] = useState('');
+
+  // Step 3 — Key contacts
   const [contacts, setContacts] = useState([{ name: '', relationship: '' }]);
+
+  // Step 4 — Daily routines
   const [routines, setRoutines] = useState(['']);
+
+  // Pre-load existing ObeGee profile on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await getStoredToken();
+        if (!token) return;
+        const res = await fetch(`${OBEGEE_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const u = await res.json();
+          if (u.name)             setProfileName(u.name);
+          if (u.name)             setDisplayName(u.name);
+          if (u.phone_number)     setPhoneNumber(u.phone_number);
+          if (u.whatsapp_number)  { setWhatsappNumber(u.whatsapp_number); setSameAsPhone(u.whatsapp_number === u.phone_number); }
+          if (u.picture)          setPicture(u.picture);
+        }
+      } catch {}
+      setLoadingProfile(false);
+    })();
+  }, []);
+
+  async function saveObeGeeProfile() {
+    try {
+      const token = await getStoredToken();
+      if (!token) return;
+      const body: any = {};
+      if (profileName.trim())  body.name           = profileName.trim();
+      if (phoneNumber.trim())  body.phone_number   = phoneNumber.trim();
+      body.whatsapp_number = sameAsPhone ? (phoneNumber.trim() || null) : (whatsappNumber.trim() || null);
+      if (picture.trim())      body.picture        = picture.trim();
+      if (Object.keys(body).length === 0) return;
+      await fetch(`${OBEGEE_URL}/api/auth/me/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+    } catch {}
+  }
 
   async function handleSubmit() {
     setLoading(true);
     try {
+      // Save ObeGee profile fields
+      await saveObeGeeProfile();
+
+      // Save MyndLens onboarding profile (memory/context)
       const body = {
         user_id: userId || 'anon',
-        display_name: displayName.trim() || 'User',
+        display_name: displayName.trim() || profileName.trim() || 'User',
         timezone,
         communication_style: commStyle,
         contacts: contacts.filter((c) => c.name.trim()),
         routines: routines.filter((r) => r.trim()),
         preferences: {},
       };
-      const res = await fetch(`${ENV.API_URL}/onboarding/profile`, {
+      await fetch(`${ENV.API_URL}/onboarding/profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (res.ok) {
-        router.replace('/talk');
-      }
-    } catch {
-      router.replace('/talk');
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
+    setLoading(false);
+    router.replace('/talk');
   }
 
   async function handleSkip() {
@@ -64,21 +123,13 @@ export default function OnboardingScreen() {
     router.replace('/talk');
   }
 
-  function addContact() {
-    setContacts([...contacts, { name: '', relationship: '' }]);
-  }
+  function addContact() { setContacts([...contacts, { name: '', relationship: '' }]); }
   function updateContact(i: number, field: string, val: string) {
-    const c = [...contacts];
-    (c[i] as any)[field] = val;
-    setContacts(c);
+    const c = [...contacts]; (c[i] as any)[field] = val; setContacts(c);
   }
-  function addRoutine() {
-    setRoutines([...routines, '']);
-  }
+  function addRoutine() { setRoutines([...routines, '']); }
   function updateRoutine(i: number, val: string) {
-    const r = [...routines];
-    r[i] = val;
-    setRoutines(r);
+    const r = [...routines]; r[i] = val; setRoutines(r);
   }
 
   const renderStep = () => {
@@ -86,27 +137,89 @@ export default function OnboardingScreen() {
       case 0:
         return (
           <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Your Profile</Text>
+            <Text style={styles.stepDesc}>Basic details used across ObeGee and MyndLens.</Text>
+
+            <Text style={styles.fieldLabel}>Display Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Your full name"
+              placeholderTextColor="#555"
+              value={profileName}
+              onChangeText={setProfileName}
+              autoFocus
+            />
+
+            <Text style={styles.fieldLabel}>Phone Number</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="+919898089931"
+              placeholderTextColor="#555"
+              value={phoneNumber}
+              onChangeText={v => { setPhoneNumber(v); if (sameAsPhone) setWhatsappNumber(v); }}
+              keyboardType="phone-pad"
+            />
+            <Text style={styles.hint}>Include country code e.g. +91 India, +44 UK</Text>
+
+            <TouchableOpacity style={styles.checkRow} onPress={() => setSameAsPhone(!sameAsPhone)}>
+              <View style={[styles.checkbox, sameAsPhone && styles.checkboxOn]}>
+                {sameAsPhone && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.checkLabel}>WhatsApp is same number</Text>
+            </TouchableOpacity>
+
+            {!sameAsPhone && (
+              <>
+                <Text style={styles.fieldLabel}>WhatsApp Number</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="+919898089931"
+                  placeholderTextColor="#555"
+                  value={whatsappNumber}
+                  onChangeText={setWhatsappNumber}
+                  keyboardType="phone-pad"
+                />
+              </>
+            )}
+
+            <Text style={styles.fieldLabel}>Profile Photo URL <Text style={styles.optional}>(optional)</Text></Text>
+            <TextInput
+              style={styles.input}
+              placeholder="https://..."
+              placeholderTextColor="#555"
+              value={picture}
+              onChangeText={setPicture}
+              autoCapitalize="none"
+              keyboardType="url"
+            />
+          </View>
+        );
+
+      case 1:
+        return (
+          <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>What should I call you?</Text>
             <Text style={styles.stepDesc}>This helps me personalize our conversations.</Text>
             <TextInput
               style={styles.input}
-              placeholder="Your name"
+              placeholder="Your name or nickname"
               placeholderTextColor="#555"
-              value={displayName}
+              value={displayName || profileName}
               onChangeText={setDisplayName}
               autoFocus
             />
-            <Text style={styles.stepDesc}>Your timezone</Text>
+            <Text style={styles.fieldLabel}>Your timezone</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. America/New_York"
+              placeholder="e.g. Asia/Kolkata"
               placeholderTextColor="#555"
               value={timezone}
               onChangeText={setTimezone}
             />
           </View>
         );
-      case 1:
+
+      case 2:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>How do you like to communicate?</Text>
@@ -122,7 +235,8 @@ export default function OnboardingScreen() {
             ))}
           </View>
         );
-      case 2:
+
+      case 3:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Key people in your life</Text>
@@ -150,7 +264,8 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
           </View>
         );
-      case 3:
+
+      case 4:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Daily routines</Text>
@@ -170,118 +285,123 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
           </View>
         );
-      case 4:
+
+      case 5:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>All set!</Text>
             <Text style={styles.stepDesc}>
-              I'll use this information to personalize your experience. You can always update these later.
+              I'll use this to personalize your experience. You can update these any time via Edit Profile.
             </Text>
             <View style={styles.summaryBox}>
-              <Text style={styles.summaryItem}>Name: {displayName || 'Not set'}</Text>
-              <Text style={styles.summaryItem}>Style: {commStyle || 'Not set'}</Text>
-              <Text style={styles.summaryItem}>Contacts: {contacts.filter((c) => c.name).length}</Text>
-              <Text style={styles.summaryItem}>Routines: {routines.filter((r) => r.trim()).length}</Text>
+              {profileName  ? <Text style={styles.summaryItem}>👤 {profileName}</Text> : null}
+              {phoneNumber  ? <Text style={styles.summaryItem}>📱 {phoneNumber}</Text> : null}
+              {commStyle    ? <Text style={styles.summaryItem}>💬 {commStyle}</Text> : null}
+              {contacts.filter(c => c.name).map((c, i) => (
+                <Text key={i} style={styles.summaryItem}>🤝 {c.name} ({c.relationship || 'contact'})</Text>
+              ))}
+              {routines.filter(r => r).map((r, i) => (
+                <Text key={i} style={styles.summaryItem}>🕐 {r}</Text>
+              ))}
             </View>
           </View>
         );
+
       default:
         return null;
     }
   };
 
+  const isLastStep = step === STEPS.length - 1;
+
+  if (loadingProfile) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color="#6C5CE7" size="large" />
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top + 20 }]}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Text style={styles.header}>Welcome to MyndLens</Text>
-        <Text style={styles.subheader}>Let's get to know you</Text>
-
+      <ScrollView
+        style={[styles.container, { paddingTop: insets.top }]}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Progress */}
         <View style={styles.progressRow}>
-          {STEPS.map((s, i) => (
-            <View key={s} style={[styles.progressDot, i <= step && styles.progressDotActive]} />
+          {STEPS.map((_, i) => (
+            <View key={i} style={[styles.dot, i <= step && styles.dotActive]} />
           ))}
         </View>
-        <Text style={styles.progressLabel}>Step {step + 1} of {STEPS.length} - {STEPS[step]}</Text>
+        <Text style={styles.stepCount}>{step + 1} of {STEPS.length}</Text>
 
         {renderStep()}
 
+        {/* Navigation */}
         <View style={styles.navRow}>
           {step > 0 && (
             <TouchableOpacity style={styles.backBtn} onPress={() => setStep(step - 1)}>
-              <Text style={styles.backBtnText}>Back</Text>
+              <Text style={styles.backText}>← Back</Text>
             </TouchableOpacity>
           )}
-          <View style={{ flex: 1 }} />
-          {step < STEPS.length - 1 ? (
-            <TouchableOpacity style={styles.nextBtn} onPress={() => setStep(step + 1)}>
-              <Text style={styles.nextBtnText}>Next</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.nextBtn} onPress={handleSubmit} disabled={loading}>
-              {loading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.nextBtnText}>Finish</Text>
-              )}
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[styles.nextBtn, loading && { opacity: 0.6 }]}
+            onPress={isLastStep ? handleSubmit : () => setStep(step + 1)}
+            disabled={loading}
+          >
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.nextText}>{isLastStep ? 'Save & Done' : 'Next →'}</Text>}
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity onPress={handleSkip} style={styles.skipBtn}>
-          <Text style={styles.skipText}>Skip for now</Text>
-        </TouchableOpacity>
+        {step === 0 && (
+          <TouchableOpacity onPress={handleSkip} style={styles.skipBtn}>
+            <Text style={styles.skipText}>Skip for now</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0F' },
-  scroll: { paddingHorizontal: 24, paddingBottom: 40 },
-  header: { fontSize: 28, fontWeight: '700', color: '#F0F0F5', textAlign: 'center', marginBottom: 4 },
-  subheader: { fontSize: 15, color: '#888', textAlign: 'center', marginBottom: 24 },
-  progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 8 },
-  progressDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#222' },
-  progressDotActive: { backgroundColor: '#6C63FF' },
-  progressLabel: { fontSize: 13, color: '#666', textAlign: 'center', marginBottom: 24 },
-  stepContainer: { marginBottom: 24 },
-  stepTitle: { fontSize: 20, fontWeight: '600', color: '#E0E0E8', marginBottom: 8 },
-  stepDesc: { fontSize: 14, color: '#777', marginBottom: 16 },
-  input: {
-    backgroundColor: '#14141E',
-    borderWidth: 1,
-    borderColor: '#2A2A3A',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#F0F0F5',
-    marginBottom: 12,
-  },
-  optionBtn: {
-    backgroundColor: '#14141E',
-    borderWidth: 1,
-    borderColor: '#2A2A3A',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 10,
-  },
-  optionBtnActive: { borderColor: '#6C63FF', backgroundColor: '#1A1A2E' },
-  optionText: { fontSize: 15, color: '#999' },
-  optionTextActive: { color: '#F0F0F5' },
-  contactRow: { flexDirection: 'row', marginBottom: 4 },
-  addBtn: { paddingVertical: 8 },
-  addBtnText: { color: '#6C63FF', fontSize: 14 },
-  summaryBox: { backgroundColor: '#14141E', borderRadius: 12, padding: 16, marginTop: 8 },
-  summaryItem: { fontSize: 15, color: '#CCC', marginBottom: 8 },
-  navRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
-  backBtn: { paddingVertical: 14, paddingHorizontal: 24, borderRadius: 12, backgroundColor: '#1A1A2A' },
-  backBtnText: { color: '#999', fontSize: 16 },
-  nextBtn: { paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12, backgroundColor: '#6C63FF' },
-  nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  skipBtn: { marginTop: 20, alignSelf: 'center', paddingVertical: 10 },
-  skipText: { color: '#555', fontSize: 14 },
+  container:       { flex: 1, backgroundColor: '#0A0A14', paddingHorizontal: 20 },
+  progressRow:     { flexDirection: 'row', gap: 6, marginTop: 16, marginBottom: 4 },
+  dot:             { flex: 1, height: 3, borderRadius: 2, backgroundColor: '#2A2A3E' },
+  dotActive:       { backgroundColor: '#6C5CE7' },
+  stepCount:       { color: '#666', fontSize: 12, marginBottom: 24, textAlign: 'right' },
+  stepContainer:   { gap: 4 },
+  stepTitle:       { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 4 },
+  stepDesc:        { fontSize: 14, color: '#888', marginBottom: 16 },
+  fieldLabel:      { fontSize: 13, color: '#aaa', marginTop: 12, marginBottom: 4 },
+  optional:        { color: '#555', fontStyle: 'italic' },
+  hint:            { fontSize: 11, color: '#555', marginTop: -8, marginBottom: 8 },
+  input:           { backgroundColor: '#111', borderWidth: 1, borderColor: '#2A2A3E', borderRadius: 10, color: '#fff', paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
+  checkRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, marginBottom: 4 },
+  checkbox:        { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: '#444', alignItems: 'center', justifyContent: 'center' },
+  checkboxOn:      { backgroundColor: '#6C5CE7', borderColor: '#6C5CE7' },
+  checkmark:       { color: '#fff', fontSize: 12 },
+  checkLabel:      { color: '#ccc', fontSize: 14 },
+  optionBtn:       { borderWidth: 1, borderColor: '#2A2A3E', borderRadius: 10, padding: 14, marginBottom: 8 },
+  optionBtnActive: { borderColor: '#6C5CE7', backgroundColor: '#1A0F3A' },
+  optionText:      { color: '#888', fontSize: 15, textAlign: 'center' },
+  optionTextActive:{ color: '#fff' },
+  contactRow:      { flexDirection: 'row', marginBottom: 8 },
+  addBtn:          { marginTop: 8, alignSelf: 'flex-start' },
+  addBtnText:      { color: '#6C5CE7', fontSize: 14 },
+  summaryBox:      { backgroundColor: '#111', borderRadius: 12, padding: 16, gap: 8, marginTop: 8 },
+  summaryItem:     { color: '#ccc', fontSize: 14 },
+  navRow:          { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 32 },
+  backBtn:         { paddingVertical: 14, paddingHorizontal: 20 },
+  backText:        { color: '#888', fontSize: 15 },
+  nextBtn:         { backgroundColor: '#6C5CE7', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 28 },
+  nextText:        { color: '#fff', fontSize: 15, fontWeight: '600' },
+  skipBtn:         { alignSelf: 'center', marginTop: 16 },
+  skipText:        { color: '#555', fontSize: 13 },
 });
