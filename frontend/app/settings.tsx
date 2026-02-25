@@ -680,7 +680,8 @@ export default function SettingsScreen() {
               {syncResult ? <Text style={s.syncResult}>{syncResult}</Text> : null}
             </View>
           )}
-          <CheckRow label="Instagram / X (interest signals only)"
+          <CheckRow label="Instagram / X (coming soon)"
+            sub="Interest signals from your social activity — not yet available"
             value={prefs.data_sources.social_other}
             onChange={v => update({ data_sources: { ...prefs.data_sources, social_other: v } })} />
 
