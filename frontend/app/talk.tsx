@@ -107,6 +107,7 @@ export default function TalkScreen() {
   const completedStagesRef = useRef<string[]>([]);
   const pipelineStageIndexRef = useRef<number>(-1);
   const pendingDraftIdRef = useRef<string | null>(null);
+  const recordingStartedAt = useRef<number>(0);  // track when recording began
   // Keep refs in sync with state for AppState closure access
   useEffect(() => { completedStagesRef.current = completedStages; }, [completedStages]);
   useEffect(() => { pipelineStageIndexRef.current = pipelineStageIndex; }, [pipelineStageIndex]);
@@ -405,6 +406,7 @@ export default function TalkScreen() {
               if (!sid) return;
               transition('LISTENING');
               transition('CAPTURING');
+              recordingStartedAt.current = Date.now();
               // Start recording WITHOUT greeting — user is answering a direct question
               await startRecording(
                 async () => {
@@ -526,6 +528,7 @@ export default function TalkScreen() {
         : "What's on your mind?";
       await TTS.speak(greeting);
       await new Promise(r => setTimeout(r, 400));
+      recordingStartedAt.current = Date.now();
 
       await startRecording(
         async () => {
@@ -549,7 +552,16 @@ export default function TalkScreen() {
         (rms: number) => setLiveEnergy(rms),
       );
     } else if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
-      // Manual stop
+      // If user taps again within 1.5s of recording start → they're cancelling,
+      // not submitting. Treat as cancel to avoid sending garbage audio to backend.
+      const recordingAge = Date.now() - recordingStartedAt.current;
+      if (recordingAge < 1500) {
+        console.log('[Talk] Recording cancelled (< 1.5s) — resetting to IDLE');
+        await stopRecording().catch(() => {});
+        transition('IDLE');
+        return;
+      }
+      // Manual stop after 1.5s → user finished speaking, submit
       const audioBase64 = await stopAndGetAudio();
       const sid = wsClient.currentSessionId;  // read live, not from stale closure
       if (audioBase64 && sid) {
@@ -969,14 +981,16 @@ export default function TalkScreen() {
 }
 
 function _actionLabel(actionClass: string, hypothesis: string): string {
+  // Never show raw hypothesis text — it's too long and confusing.
+  // The full intent is shown in the chat bubble / ttsText.
   switch (actionClass) {
-    case 'COMM_SEND': return 'Send message';
+    case 'COMM_SEND':    return 'Send message';
     case 'SCHED_MODIFY': return 'Schedule';
-    case 'INFO_RETRIEVE': return 'Look up';
-    case 'DOC_EDIT': return 'Edit doc';
-    case 'FIN_TRANS': return 'Transact';
-    case 'SYS_CONFIG': return 'Settings';
-    default: return hypothesis.slice(0, 20) || 'Proceed';
+    case 'INFO_RETRIEVE':return 'Look up';
+    case 'DOC_EDIT':     return 'Edit doc';
+    case 'FIN_TRANS':    return 'Transact';
+    case 'SYS_CONFIG':   return 'Settings';
+    default:             return 'Approve';  // ← never hypothesis.slice()
   }
 }
 
