@@ -126,10 +126,6 @@ export default function TalkScreen() {
     Animated.timing(chatSlideAnim, { toValue: 0, duration: 280, useNativeDriver: true }).start(() => setChatOpen(false));
   };
   const [showDsModal, setShowDsModal] = useState(false);
-  const [clarificationQuestion, setClarificationQuestion] = useState<{
-    question: string;
-    options: string[];
-  } | null>(null);
 
   // Track whether THIS screen is focused — prevents talk.tsx WS handlers
   // from navigating to /loading while the user is in Settings or another screen.
@@ -374,7 +370,6 @@ export default function TalkScreen() {
       wsClient.on('transcript_final', (env: WSEnvelope) => {
         setTranscript(env.payload.text || '');
         setPartialTranscript('');
-        setClarificationQuestion(null); // clear any pending clarification
         transition('THINKING');
       }),
       wsClient.on('draft_update', (env: WSEnvelope) => {
@@ -437,11 +432,10 @@ export default function TalkScreen() {
         }
       }),
       wsClient.on('clarification_question' as WSMessageType, (env: WSEnvelope) => {
-        // Server paused the pipeline and is asking for more info — show options to user
-        const question = env.payload.question || '';
-        const options: string[] = env.payload.options || [];
-        setClarificationQuestion({ question, options });
-        console.log('[Talk] Clarification question received:', question);
+        // Voice-first: the question is spoken via tts_audio with auto_record:true.
+        // No visual Yes/No box — user speaks their answer.
+        // Just log for debugging.
+        console.log('[Talk] Clarification question (voice only):', env.payload.question);
       }),
       wsClient.on('execute_blocked', (env: WSEnvelope) => {
         if (env.payload.code === 'SUBSCRIPTION_INACTIVE' || env.payload.code === 'PRESENCE_STALE') {
@@ -718,31 +712,7 @@ export default function TalkScreen() {
         <View style={styles.middleZone}>
 
         {/* Clarification Question Card — shown when server needs more context */}
-        {clarificationQuestion && (
-          <View style={styles.clarifyCard}>
-            <Text style={styles.clarifyTitle}>{clarificationQuestion.question}</Text>
-            {clarificationQuestion.options.length > 0 && (
-              <View style={styles.clarifyOptions}>
-                {clarificationQuestion.options.map((opt, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    style={styles.clarifyOption}
-                    onPress={() => {
-                      setClarificationQuestion(null);
-                      wsClient.send('text_input', { session_id: sessionId, text: opt });
-                      setTranscript(opt);
-                      transition('THINKING');
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.clarifyOptionText}>{opt}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            <Text style={styles.clarifyHint}>Or tap the mic to answer by voice</Text>
-          </View>
-        )}
+        {/* Clarification questions are voice-only — no visual box */}
 
         {/* ── Activity Window — Sequential live pipeline feed ── */}
         {(() => {
@@ -1210,18 +1180,5 @@ const styles = StyleSheet.create({
   sendIcon: { fontSize: 16, color: '#FFFFFF', fontWeight: '700' },
 
   // Clarification question card
-  clarifyCard: {
-    backgroundColor: 'rgba(108, 92, 231, 0.12)',
-    borderRadius: 16, borderWidth: 1, borderColor: '#6C5CE744',
-    paddingVertical: 16, paddingHorizontal: 18,
-    marginHorizontal: 16, marginBottom: 14, width: '100%',
-  },
-  clarifyTitle: { color: '#E0D8FF', fontSize: 15, fontWeight: '600', lineHeight: 22, marginBottom: 10 },
-  clarifyOptions: { gap: 8 },
-  clarifyOption: {
-    backgroundColor: '#1E1A3A', borderRadius: 10, borderWidth: 1,
-    borderColor: '#6C5CE766', paddingVertical: 10, paddingHorizontal: 14,
-  },
-  clarifyOptionText: { color: '#C8C0F8', fontSize: 14, fontWeight: '500' },
-  clarifyHint: { color: '#44445A', fontSize: 12, marginTop: 10, textAlign: 'center' },
 });
+
