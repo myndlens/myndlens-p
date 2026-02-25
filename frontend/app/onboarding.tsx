@@ -1,19 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Alert,
-  Keyboard,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSessionStore } from '../src/state/session-store';
 import { ENV } from '../src/config/env';
 import { getStoredToken } from '../src/ws/auth';
@@ -52,25 +43,42 @@ export default function OnboardingScreen() {
   const [routines, setRoutines] = useState(['']);
 
   // Pre-load existing ObeGee profile on mount
+  // IMPORTANT: guard all setState calls with isMounted — if the user presses
+  // back before the fetch completes, calling setState on an unmounted component
+  // crashes React Native.
   useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
     (async () => {
       try {
         const token = await getStoredToken();
-        if (!token) return;
+        if (!token || !isMounted) return;
         const res = await fetch(`${OBEGEE_URL}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
         });
-        if (res.ok) {
-          const u = await res.json();
-          if (u.name)             setProfileName(u.name);
-          if (u.name)             setDisplayName(u.name);
-          if (u.phone_number)     setPhoneNumber(u.phone_number);
-          if (u.whatsapp_number)  { setWhatsappNumber(u.whatsapp_number); setSameAsPhone(u.whatsapp_number === u.phone_number); }
-          if (u.picture)          setPicture(u.picture);
+        if (!res.ok || !isMounted) return;
+        const u = await res.json();
+        if (!isMounted) return;
+        if (u.name)             setProfileName(u.name);
+        if (u.name)             setDisplayName(u.name);
+        if (u.phone_number)     setPhoneNumber(u.phone_number);
+        if (u.whatsapp_number)  {
+          setWhatsappNumber(u.whatsapp_number);
+          setSameAsPhone(u.whatsapp_number === u.phone_number);
         }
-      } catch {}
-      setLoadingProfile(false);
+        if (u.picture)          setPicture(u.picture);
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return; // cancelled on unmount — expected
+      }
+      if (isMounted) setLoadingProfile(false);
     })();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
   }, []);
 
   async function saveObeGeeProfile() {
