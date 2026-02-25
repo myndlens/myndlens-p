@@ -162,11 +162,27 @@ async def generate_micro_questions(
     )
 
 
-def should_ask_micro_questions(confidence: float, dimensions: Dict[str, Any]) -> bool:
-    """Decide if micro-questions are needed based on L1 Scout output."""
+def should_ask_micro_questions(confidence: float, dimensions: Dict[str, Any], hypothesis: str = "") -> bool:
+    """Decide if micro-questions are needed based on L1 Scout output.
+
+    CONSERVATIVE thresholds — only ask when genuinely ambiguous.
+    For execution-class intents (build/run/code/write), the agent should
+    just proceed with sensible defaults. Don't ask "Python version?" for
+    "build a Hello World app" — that's friction, not help.
+    """
+    # Skip entirely for execution/dev tasks — just run it
+    execution_keywords = [
+        "build", "run", "execute", "code", "write", "create", "make",
+        "script", "app", "program", "deploy", "install", "test",
+    ]
+    if any(kw in hypothesis.lower() for kw in execution_keywords):
+        return False
+
     ambiguity = dimensions.get("ambiguity", 0.5)
-    missing_key = not dimensions.get("who") or not dimensions.get("what")
-    return confidence < 0.8 or ambiguity > 0.3 or missing_key
+
+    # Only ask if confidence is genuinely low AND intent is ambiguous
+    # Removed: missing `who` — execution tasks have implicit actor (the agent)
+    return confidence < 0.5 and ambiguity > 0.6
 
 
 def _parse_questions(response: str) -> List[MicroQuestion]:

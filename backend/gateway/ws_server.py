@@ -862,7 +862,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         top_check = l1_draft.hypotheses[0]
         from intent.micro_questions import should_ask_micro_questions, generate_micro_questions
 
-        if should_ask_micro_questions(top_check.confidence, top_check.dimension_suggestions):
+        if should_ask_micro_questions(top_check.confidence, top_check.dimension_suggestions, top_check.hypothesis):
             clarify_state = _clarification_state.get(session_id, {})
             attempt = clarify_state.get("attempts", 0)
             questions_asked: list = clarify_state.get("questions_asked", [])
@@ -923,10 +923,13 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
                         }
                         await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, tts_payload))
                     else:
-                        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                            text=question.question, session_id=session_id,
-                            format="text", is_mock=True,
-                        ))
+                        # Mock TTS — still need auto_record so mic opens after question
+                        mock_payload = {
+                            "text": question.question, "session_id": session_id,
+                            "format": "text", "is_mock": True,
+                            "is_clarification": True, "auto_record": True,
+                        }
+                        await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, mock_payload))
 
                     logger.info(
                         "[MANDATE:1.5:MICRO_Q] session=%s ASKED: '%s' — waiting for response",
