@@ -313,11 +313,6 @@ export default function OnboardingScreen() {
     }
   };
 
-  // Dismiss keyboard when navigating away (back button → Talk screen)
-  useFocusEffect(useCallback(() => {
-    return () => { Keyboard.dismiss(); };
-  }, []));
-
   if (loadingProfile) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
