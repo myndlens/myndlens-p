@@ -63,9 +63,9 @@ execution_sessions: Dict[str, str] = {}
 _session_contexts: Dict[str, SessionContext] = {}
 # Per-session clarification state (tracks pending micro-question loops)
 _clarification_state: Dict[str, dict] = {}
-# session_id -> { "pending": True, "original_transcript": str,
-#                  "enriched_transcript": str, "questions": [...],
-#                  "l1_draft": ..., "context_capsule": ..., "attempts": int }
+# Per-session auth context — stored at WS auth to allow execute_request from
+# within audio_chunk handler (permission grant path needs subscription/tenant/token)
+_session_auth: Dict[str, dict] = {}
 
 # Per-session DS resolve events — pipeline holds here waiting for device to
 # return readable text for vector-matched node IDs (ds_resolve / ds_context flow)
@@ -232,6 +232,15 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
         session_id = session.session_id
         active_connections[session_id] = websocket
 
+        # Store per-session auth context for use in audio_chunk handler
+        # (needed by permission grant → execute_request path)
+        _session_auth[session_id] = {
+            "subscription_status": subscription_status,
+            "tenant_id":           sso_claims.myndlens_tenant_id if sso_claims else "",
+            "auth_token":          auth_payload.token,
+            "user_id":             user_id_resolved or "",
+        }
+
         # Send AUTH_OK
         await _send(websocket, WSMessageType.AUTH_OK, AuthOkPayload(
             session_id=session_id,
@@ -324,6 +333,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
         if session_id:
             active_connections.pop(session_id, None)
             _session_contexts.pop(session_id, None)
+            _session_auth.pop(session_id, None)
             _clarification_state.pop(session_id, None)
             # Clean up execution_sessions entries for this session (prevents memory leak)
             stale_keys = [k for k, v in execution_sessions.items() if v == session_id]
@@ -663,10 +673,31 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
             is_affirmative = any(a in norm for a in affirmatives) or norm in affirmatives
 
             if is_affirmative:
-                logger.info("[CLARIFICATION:PERMISSION] session=%s GRANTED", session_id)
-                _clarification_state[session_id] = {"permission_granted": True, "dim_attempts": 0}
-                await _send_mock_tts_response(ws, session_id, clarify["original_transcript"],
-                                              user_id=user_id, context_capsule=clarify.get("context_capsule"))
+                logger.info("[CLARIFICATION:PERMISSION] session=%s GRANTED → executing draft",
+                            session_id)
+                _clarification_state.pop(session_id, None)
+
+                # Execute the draft directly — do NOT re-run the pipeline.
+                # Re-running _send_mock_tts_response would re-process the original
+                # transcript, rebuild the mandate, and ask for approval again → infinite loop.
+                draft_id = clarify.get("draft_id")
+                auth_ctx = _session_auth.get(session_id, {})
+                if draft_id:
+                    await _handle_execute_request(
+                        ws, session_id,
+                        {"draft_id": draft_id},
+                        subscription_status=auth_ctx.get("subscription_status", "ACTIVE"),
+                        user_id=auth_ctx.get("user_id", user_id),
+                        tenant_id=auth_ctx.get("tenant_id", ""),
+                        auth_token=auth_ctx.get("auth_token", ""),
+                    )
+                else:
+                    # Fallback: no draft_id stored — re-run pipeline (old path)
+                    logger.warning("[CLARIFICATION:PERMISSION] session=%s no draft_id stored — fallback re-run",
+                                   session_id)
+                    _clarification_state[session_id] = {"permission_granted": True, "dim_attempts": 0}
+                    await _send_mock_tts_response(ws, session_id, clarify["original_transcript"],
+                                                  user_id=user_id, context_capsule=clarify.get("context_capsule"))
             else:
                 neg_prompt = "What would you like to change?"
                 _clarification_state[session_id] = {
@@ -1086,6 +1117,22 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     # needs_approval: mandate summary requires user to say Yes/No
     # auto_record ensures mic starts automatically after TTS — no tap needed
     needs_approval = "shall i proceed" in response_text.lower() or "i understand" in response_text.lower()
+
+    # CRITICAL: if this TTS is asking for approval, set clarification state to
+    # "permission" BEFORE sending the audio. This ensures the next voice input
+    # from the user ("Yes"/"No") is handled as an approval response and NOT
+    # processed as a brand new intent (which would cause an infinite loop).
+    if needs_approval:
+        _clarification_state[session_id] = {
+            "pending":             True,
+            "type":                "permission",
+            "original_transcript": transcript,
+            "question_asked":      response_text,
+            "context_capsule":     context_capsule,
+            "draft_id":            l1_draft.draft_id,
+        }
+        logger.info("[MANDATE:5:APPROVAL_GATE] session=%s draft_id=%s — awaiting Yes/No",
+                    session_id, l1_draft.draft_id)
 
     if result.audio_bytes and not result.is_mock:
         audio_b64 = base64.b64encode(result.audio_bytes).decode("ascii")
