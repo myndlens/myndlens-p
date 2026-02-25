@@ -133,6 +133,14 @@ export default function TalkScreen() {
   const appInBackground = useRef(false);
   useFocusEffect(useCallback(() => {
     isScreenFocused.current = true;
+    // Reset the floating chat bubble to its default position every time
+    // the talk screen gains focus. Navigating away (e.g. Edit Profile) and
+    // back can accumulate pan offsets via extractOffset(), causing the FAB
+    // to drift onto other elements (e.g. overlapping the Approve button).
+    chatPanX.setOffset(0);
+    chatPanX.setValue(0);
+    chatPanY.setOffset(0);
+    chatPanY.setValue(0);
     return () => { isScreenFocused.current = false; };
   }, []));
   const chatBubbleAnim = useRef(new Animated.Value(1)).current;
