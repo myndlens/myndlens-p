@@ -66,6 +66,10 @@ _clarification_state: Dict[str, dict] = {}
 # Per-session auth context — stored at WS auth to allow execute_request from
 # within audio_chunk handler (permission grant path needs subscription/tenant/token)
 _session_auth: Dict[str, dict] = {}
+# Full enriched mandate — stored after extract_mandate_dimensions() in Phase 1.
+# Keyed by draft_id so _handle_execute_request() can retrieve real dimensions.
+# Without this, determine_skills() and OC only see the hypothesis summary string.
+_pending_mandates: Dict[str, dict] = {}
 
 # Per-session DS resolve events — pipeline holds here waiting for device to
 # return readable text for vector-matched node IDs (ds_resolve / ds_context flow)
@@ -339,6 +343,11 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             active_connections.pop(session_id, None)
             _session_contexts.pop(session_id, None)
             _session_auth.pop(session_id, None)
+            # Clean up pending mandates for this session to prevent memory leak
+            stale_drafts = [k for k, v in _pending_mandates.items()
+                            if isinstance(v, dict) and v.get("_session_id") == session_id]
+            for k in stale_drafts:
+                _pending_mandates.pop(k, None)
             _clarification_state.pop(session_id, None)
             # Clean up execution_sessions entries for this session (prevents memory leak)
             stale_keys = [k for k, v in execution_sessions.items() if v == session_id]
@@ -455,9 +464,14 @@ async def _handle_execute_request(
         # Stage 6: Skill Determination — LLM decides
         await broadcast_stage(session_id, 6, "active", "Determining skills...")
         from skills.determine import determine_skills
+        # ── Retrieve the full enriched mandate stored during Phase 1 ──────────
+        # Phase 1 (voice → approval) extracted real dimensions: where, when, who, budget etc.
+        # Without this, determine_skills and OC only see the hypothesis summary string.
+        full_mandate = _pending_mandates.pop(req.draft_id, None)
+
         skill_plan = await determine_skills(
             session_id=session_id, user_id=user_id,
-            mandate={
+            mandate=full_mandate if full_mandate else {
                 "intent": top.intent,
                 "mandate_summary": top.hypothesis,
                 "actions": [{"action": top.hypothesis, "priority": "high", "dimensions": {}}],
@@ -495,23 +509,43 @@ async def _handle_execute_request(
         await broadcast_stage(session_id, 7, "done")
 
         # ── Dispatch ───────────────────────────────────────────────────────────
-        # Detect "display in chat" intent — user wants result shown in the app chat panel
-        DISPLAY_IN_CHAT_SIGNALS = {
-            "display", "show", "chat", "screen", "text", "write",
-            "print", "output", "display in chat", "show in chat",
+        # Detect "display in chat" — only explicit phrases, not single common words.
+        # Single-word matching ("show","write","text","print") causes false positives
+        # on nearly every mandate ("Show me flights", "Write an email", etc.)
+        DISPLAY_IN_CHAT_PHRASES = {
+            "display in chat", "show in chat", "show me in chat",
+            "put it in chat", "put in chat", "show on screen", "display on screen",
         }
         transcript_lower = (draft.transcript or "").lower()
-        display_in_chat = any(sig in transcript_lower for sig in DISPLAY_IN_CHAT_SIGNALS)
+        display_in_chat = any(phrase in transcript_lower for phrase in DISPLAY_IN_CHAT_PHRASES)
         delivery_channels = ["in_app", "chat_display"] if display_in_chat else ["in_app"]
+
+        # Build a rich task description from dimensions — OC needs more than the summary
+        if full_mandate and full_mandate.get("actions"):
+            dim_lines = []
+            for action in full_mandate["actions"][:5]:
+                dims = {
+                    k: v.get("value", v) if isinstance(v, dict) else v
+                    for k, v in action.get("dimensions", {}).items()
+                    if (v.get("value") if isinstance(v, dict) else v) not in (None, "", "missing", "unknown")
+                }
+                if dims:
+                    dim_lines.append(f"  {action.get('action','')}: {dims}")
+            task = (
+                f"{full_mandate.get('mandate_summary', top.hypothesis)}"
+                + (f"\nActions:\n" + "\n".join(dim_lines) if dim_lines else "")
+            )
+        else:
+            task = top.hypothesis
 
         mandate = {
             "mandate_id": req.draft_id,
             "tenant_id": tenant_id,
-            "task": top.hypothesis,
+            "task": task,
             "intent": top.intent,
             "intent_raw": draft.transcript,
             "skill_plan": skill_plan.get("skill_plan", []),
-            "execution_strategy": execution_strategy,
+            "execution_strategy": skill_plan.get("execution_strategy", "sequential"),
             "approved_at": datetime.now(timezone.utc).isoformat(),
             "approved_by": user_id,
             "delivery_channels": delivery_channels,
@@ -1003,6 +1037,10 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             intent=top.intent, sub_intents=top.sub_intents,
             l1_dimensions=top.dimension_suggestions,
         )
+        # Store full enriched mandate so _handle_execute_request can retrieve it.
+        # This is the ONLY place where real dimensions exist — if not stored here,
+        # determine_skills() and OC will only see the hypothesis summary string.
+        _pending_mandates[l1_draft.draft_id] = mandate
         from intent.mandate_questions import get_all_missing
         missing = get_all_missing(mandate)
         logger.info(
