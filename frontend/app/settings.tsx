@@ -141,7 +141,7 @@ export default function SettingsScreen() {
   // Category B credential state
   const [imapCreds, setImapCreds] = useState<IMAPCredentials>({ host: '', port: 993, email: '', password: '' });
   const [imapSaved, setImapSaved] = useState(false);
-  const [gmailToken, setGmailToken] = useState('');
+  const [gmailConnected, setGmailConnected] = useState(false);
   const [linkedinToken, setLinkedinToken] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
@@ -160,7 +160,13 @@ export default function SettingsScreen() {
   useEffect(() => {
     loadSettings().then(setPrefs);
     loadIMAPCredentials().then(c => c && setImapCreds(c));
-    loadGmailToken().then(t => t && setGmailToken(t));
+    // Check if Gmail is already connected
+    getStoredToken().then(token => {
+      if (!token) return;
+      fetch(`${ENV.API_URL}/api/oauth/gmail/status`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(r => r.json()).then(d => setGmailConnected(d.connected)).catch(() => {});
+    });
     loadLinkedInCredentials().then(c => c && setLinkedinToken(c?.access_token ?? ''));
     loadVoiceStatus();
     if (userId) {
@@ -343,10 +349,53 @@ export default function SettingsScreen() {
     setSyncing(false);
   }
 
-  async function handleSaveGmail() {
-    if (!gmailToken.trim()) return;
-    await saveGmailToken(gmailToken.trim());
-    Alert.alert('Saved', 'Gmail token saved securely.');
+  async function handleConnectGmail() {
+    const token = await getStoredToken();
+    if (!token) return;
+    // Get OAuth URL from backend
+    const res = await fetch(`${ENV.API_URL}/api/oauth/gmail/start`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const { auth_url } = await res.json();
+    // Open in browser — user authorises → redirects to obegee.co.uk success page
+    const { WebBrowser } = require('expo-web-browser');
+    await WebBrowser.openBrowserAsync(auth_url);
+    // After browser closes, check status
+    const s = await fetch(`${ENV.API_URL}/api/oauth/gmail/status`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const status = await s.json();
+    setGmailConnected(status.connected);
+    if (status.connected) Alert.alert('Gmail Connected', 'Gmail is now connected. Tap Sync to import contacts.');
+  }
+
+  async function handleGmailSync() {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const token = await getStoredToken();
+      const uid   = await getStoredUserId() ?? 'local';
+      const res = await fetch(`${ENV.API_URL}/api/digital-self/gmail/sync`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      const diff = await res.json();
+      if (!res.ok) throw new Error(diff.detail || `HTTP ${res.status}`);
+      const merged = await mergePKGDiff(uid, diff);
+      const persons = diff.stats?.persons ?? merged.nodesAdded;
+      const interests = diff.stats?.interests ?? 0;
+      setSyncResult(`✅ +${merged.nodesAdded} nodes (${persons} contacts · ${interests} topics) · +${merged.edgesAdded} edges`);
+    } catch (e: any) {
+      setSyncResult(`❌ ${e.message}`);
+    }
+    setSyncing(false);
+  }
+
+  async function handleDisconnectGmail() {
+    const token = await getStoredToken();
+    if (!token) return;
+    await fetch(`${ENV.API_URL}/api/oauth/gmail/disconnect`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    setGmailConnected(false);
   }
 
   async function handleSaveLinkedIn() {
@@ -495,26 +544,24 @@ export default function SettingsScreen() {
               <Text style={s.subHeading}>Email Provider</Text>
 
               <CheckRow
-                label="Gmail (App Password)"
-                sub="Generate at myaccount.google.com/apppasswords"
+                label="Gmail"
+                sub="Sign in with Google — no App Password needed"
                 value={prefs.data_sources.email_gmail}
                 onChange={v => update({ data_sources: { ...prefs.data_sources, email_gmail: v, email_imap: false, email_outlook: false } })}
               />
               {prefs.data_sources.email_gmail && (
                 <View style={s.credForm}>
-                  <TextInput style={s.credInput} placeholder="Gmail address" placeholderTextColor="#555"
-                    value={imapCreds.email} onChangeText={v => setImapCreds(c => ({ ...c, email: v, host: 'imap.gmail.com', port: 993 }))}
-                    autoCapitalize="none" keyboardType="email-address" />
-                  <TextInput style={s.credInput} placeholder="App Password (16 chars — myaccount.google.com/apppasswords)" placeholderTextColor="#555"
-                    secureTextEntry value={gmailToken} onChangeText={v => { setGmailToken(v); setImapCreds(c => ({ ...c, password: v })); }}
-                    autoCapitalize="none" />
-                  <View style={s.credBtns}>
-                    <ActionBtn label="Save" onPress={handleSaveGmail} />
-                    <ActionBtn label={syncing ? 'Syncing…' : 'Sync Now'} onPress={() => {
-                      setImapCreds(c => ({ ...c, host: 'imap.gmail.com', port: 993, password: gmailToken }));
-                      handleSyncEmail();
-                    }} />
-                  </View>
+                  {gmailConnected ? (
+                    <>
+                      <Text style={{ color: '#22c55e', marginBottom: 8 }}>✅ Gmail connected</Text>
+                      <View style={s.credBtns}>
+                        <ActionBtn label={syncing ? 'Syncing…' : 'Sync Now'} onPress={handleGmailSync} />
+                        <ActionBtn label="Disconnect" onPress={handleDisconnectGmail} />
+                      </View>
+                    </>
+                  ) : (
+                    <ActionBtn label="Connect Gmail" onPress={handleConnectGmail} />
+                  )}
                   {syncResult ? <Text style={s.syncResult}>{syncResult}</Text> : null}
                 </View>
               )}
