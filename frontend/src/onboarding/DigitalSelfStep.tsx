@@ -30,7 +30,7 @@ interface Props {
 }
 
 export default function DigitalSelfStep({ onComplete }: Props) {
-  const [phase, setPhase] = useState<'permissions' | 'source' | 'building' | 'done'>('permissions');
+  const [phase, setPhase] = useState<'permissions' | 'whatsapp' | 'source' | 'building' | 'done'>('permissions');
   const [includeEmail, setIncludeEmail] = useState(false);
   const [stageStatuses, setStageStatuses] = useState<Record<string, StageStatus>>(
     Object.fromEntries(STAGES.map(s => [s.id, 'pending'])),
@@ -106,7 +106,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       console.log('[DigitalSelfStep] All required permissions granted:', allGranted);
       
       if (allGranted) {
-        setPhase('source');
+        setPhase('whatsapp');
       }
     } catch (err) {
       console.log('[DigitalSelfStep] Permission check failed:', err);
@@ -490,7 +490,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
         <TouchableOpacity
           style={[dss.primaryBtn, { marginTop: 32, opacity: allGranted ? 1 : 0.5 }]}
-          onPress={() => setPhase('source')}
+          onPress={() => setPhase('whatsapp')}
           disabled={!allGranted}
         >
           <Text style={dss.primaryBtnText}>
@@ -503,6 +503,80 @@ export default function DigitalSelfStep({ onComplete }: Props) {
             Contacts, Calendar, and Photos are required to build your Digital Self
           </Text>
         )}
+      </ScrollView>
+    );
+  }
+
+  // ── WhatsApp phase (concise, Gen Z) ────────────────────────────────
+  if (phase === 'whatsapp') {
+    return (
+      <ScrollView style={dss.root} contentContainerStyle={[dss.scroll, { justifyContent: 'center' }]} showsVerticalScrollIndicator={false}>
+        <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+          <Text style={{ fontSize: 40 }}>💬</Text>
+          <Text style={[dss.title, { textAlign: 'center', marginTop: 12 }]}>Connect WhatsApp</Text>
+          <Text style={{ color: '#A0A0B8', fontSize: 15, textAlign: 'center', lineHeight: 24, marginTop: 8, paddingHorizontal: 10 }}>
+            {'Your real inner circle is on WhatsApp.\nPair it — takes 2 minutes.'}
+          </Text>
+        </View>
+
+        <View style={{ backgroundColor: 'rgba(37,211,102,0.08)', borderRadius: 14, padding: 18, marginVertical: 20 }}>
+          <Text style={{ color: '#D0D0E0', fontSize: 14, fontWeight: '600', marginBottom: 10 }}>How to pair:</Text>
+          <Text style={{ color: '#A0A0B8', fontSize: 14, lineHeight: 22 }}>
+            {'1. Open obegee.co.uk on your laptop/tablet\n'}
+            {'2. Go to Integrations → WhatsApp\n'}
+            {'3. Enter your phone number → get an 8-digit code\n'}
+            {'4. WhatsApp → Settings → Linked Devices → Link with phone number\n'}
+            {'5. Done ✓'}
+          </Text>
+        </View>
+
+        {/* Pair button */}
+        <TouchableOpacity
+          style={{ backgroundColor: '#25D366', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 12 }}
+          onPress={async () => {
+            try {
+              const { Linking } = require('react-native');
+              const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+              await Linking.openURL(`${obegeeUrl}/integrations`);
+            } catch { /* non-critical */ }
+          }}
+        >
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Pair WhatsApp</Text>
+        </TouchableOpacity>
+
+        {/* Already paired — verify and continue */}
+        <TouchableOpacity
+          style={[dss.primaryBtn, { marginBottom: 8 }]}
+          onPress={async () => {
+            try {
+              const { getItem, setItem } = require('../../src/utils/storage');
+              const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+              const token    = await getItem('myndlens_auth_token');
+              const tenantId = await getItem('myndlens_tenant_id');
+              if (token && tenantId) {
+                const r = await fetch(`${obegeeUrl}/api/whatsapp/status/${tenantId}`, {
+                  headers: { 'Authorization': `Bearer ${token}` },
+                }).catch(() => null);
+                if (r?.ok) {
+                  const d = await r.json();
+                  if (d.status === 'connected') {
+                    await setItem('whatsapp_channel_connected', 'true');
+                    setPhase('source');
+                    return;
+                  }
+                }
+              }
+            } catch { /* non-critical */ }
+            // Not connected — proceed anyway
+            setPhase('source');
+          }}
+        >
+          <Text style={dss.primaryBtnText}>Already paired — Continue</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => setPhase('source')} style={{ alignItems: 'center', paddingVertical: 12 }}>
+          <Text style={{ color: '#555568', fontSize: 14 }}>Skip for now</Text>
+        </TouchableOpacity>
       </ScrollView>
     );
   }
@@ -521,53 +595,17 @@ export default function DigitalSelfStep({ onComplete }: Props) {
           All processing runs locally using on-device heuristics and ONNX scoring.
         </Text>
 
-        {/* WhatsApp — Step 1 */}
-        <Text style={[dss.sectionLabel, { marginTop: 20 }]}>STEP 1 — CONNECT WHATSAPP</Text>
-        <View style={[dss.sourceRow, { borderColor: '#25D366', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 4 }]}>
+        {/* WhatsApp status on source screen — brief, not instructions */}
+        <View style={[dss.sourceRow, { borderColor: '#25D366', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 12 }]}>
           <Text style={dss.sourceIcon}>💬</Text>
           <View style={dss.sourceText}>
             <Text style={dss.sourceTitle}>WhatsApp</Text>
-            <Text style={dss.sourceSub}>OpenClaw channel + Digital Self</Text>
+            <Text style={dss.sourceSub}>Connected · chats will sync in background</Text>
           </View>
-          <Text style={{ color: '#25D366', fontWeight: '700', fontSize: 13 }}>Required</Text>
+          <Text style={{ color: '#25D366', fontWeight: '700', fontSize: 13 }}>✓</Text>
         </View>
 
-        {/* Clear explanation of both purposes */}
-        <View style={{ backgroundColor: 'rgba(37,211,102,0.08)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
-          <Text style={{ color: '#D0D0E0', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>
-            Why connect WhatsApp?
-          </Text>
-          <Text style={{ color: '#A0A0B8', fontSize: 13, lineHeight: 20, marginBottom: 8 }}>
-            {'1.  OpenClaw Channel — Once connected, you can send voice mandates via WhatsApp. OpenClaw receives your instructions and executes them on your behalf.\n\n2.  Digital Self — Your WhatsApp chats reveal who you truly communicate with. MyndLens analyses this to build a precise picture of your relationships, priorities and working style.'}
-          </Text>
-          <Text style={{ color: '#555568', fontSize: 12, fontStyle: 'italic' }}>
-            All analysis runs on your private OpenClaw workspace. Nothing is shared externally.
-          </Text>
-        </View>
-
-        {/* Step-by-step pairing instructions */}
-        <View style={{ backgroundColor: 'rgba(20,20,34,0.6)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
-          <Text style={{ color: '#D0D0E0', fontSize: 13, fontWeight: '700', marginBottom: 8 }}>
-            How to pair WhatsApp:
-          </Text>
-          {[
-            'Open obegee.co.uk on your computer or tablet',
-            'Log in → go to Integrations → WhatsApp',
-            'Enter your WhatsApp phone number (include country code)',
-            'Click "Connect with Phone Number"',
-            'An 8-character code will appear on screen',
-            'On your phone: WhatsApp → Settings → Linked Devices → Link a Device → Link with phone number instead',
-            'Enter the code shown on your screen',
-            'Done — return to MyndLens. Digital Self will update automatically.',
-          ].map((step, i) => (
-            <View key={i} style={{ flexDirection: 'row', marginBottom: 6 }}>
-              <Text style={{ color: '#6C63FF', fontSize: 13, fontWeight: '700', width: 22 }}>{i + 1}.</Text>
-              <Text style={{ color: '#A0A0B8', fontSize: 13, flex: 1, lineHeight: 19 }}>{step}</Text>
-            </View>
-          ))}
-        </View>
-
-        <Text style={dss.sectionLabel}>OTHER SOURCES</Text>
+        <Text style={[dss.sectionLabel, { marginTop: 4 }]}>OTHER SOURCES</Text>
 
         <View style={dss.sourceRow}>
           <Text style={dss.sourceIcon}>👤</Text>
