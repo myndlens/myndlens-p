@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,10 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSessionStore } from '../src/state/session-store';
 import { ENV } from '../src/config/env';
 import { getStoredToken } from '../src/ws/auth';
@@ -312,7 +313,10 @@ export default function OnboardingScreen() {
     }
   };
 
-  const isLastStep = step === STEPS.length - 1;
+  // Dismiss keyboard when navigating away (back button → Talk screen)
+  useFocusEffect(useCallback(() => {
+    return () => { Keyboard.dismiss(); };
+  }, []));
 
   if (loadingProfile) {
     return (

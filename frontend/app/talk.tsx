@@ -133,10 +133,13 @@ export default function TalkScreen() {
   const appInBackground = useRef(false);
   useFocusEffect(useCallback(() => {
     isScreenFocused.current = true;
-    // Reset the floating chat bubble to its default position every time
-    // the talk screen gains focus. Navigating away (e.g. Edit Profile) and
-    // back can accumulate pan offsets via extractOffset(), causing the FAB
-    // to drift onto other elements (e.g. overlapping the Approve button).
+    // Dismiss any keyboard left open by previous screen (e.g. Edit Profile TextInputs).
+    // On Android, KeyboardAvoidingView behavior='height' compresses the layout when
+    // keyboard is open — if not dismissed before Talk renders, the screen appears broken.
+    Keyboard.dismiss();
+    // Reset the floating chat bubble to its default position (bottom:120, right:20).
+    // Navigating to Edit Profile and back accumulates pan offsets via extractOffset(),
+    // causing the FAB to drift onto other UI elements.
     chatPanX.setOffset(0);
     chatPanX.setValue(0);
     chatPanY.setOffset(0);
@@ -637,7 +640,7 @@ export default function TalkScreen() {
     : '#6C5CE7';
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 8 }]}>
 
         {/* ── Digital Self Setup Modal ─────────────────────────────────── */}
