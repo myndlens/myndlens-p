@@ -142,7 +142,7 @@ export default function SettingsScreen() {
   const [imapCreds, setImapCreds] = useState<IMAPCredentials>({ host: '', port: 993, email: '', password: '' });
   const [imapSaved, setImapSaved] = useState(false);
   const [gmailConnected, setGmailConnected] = useState(false);
-  const [linkedinToken, setLinkedinToken] = useState('');
+  const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
@@ -167,7 +167,12 @@ export default function SettingsScreen() {
         headers: { Authorization: `Bearer ${token}` }
       }).then(r => r.json()).then(d => setGmailConnected(d.connected)).catch(() => {});
     });
-    loadLinkedInCredentials().then(c => c && setLinkedinToken(c?.access_token ?? ''));
+    loadLinkedInCredentials().then(c => c && setLinkedinConnected(!!c?.access_token));
+    getStoredToken().then(token => {
+      if (!token) return;
+      fetch(`${ENV.API_URL}/api/oauth/linkedin/status`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json()).then(d => setLinkedinConnected(d.connected)).catch(() => {});
+    });
     loadVoiceStatus();
     if (userId) {
       fetch(`${ENV.API_URL}/nickname/${userId}`)
@@ -398,10 +403,40 @@ export default function SettingsScreen() {
     setGmailConnected(false);
   }
 
-  async function handleSaveLinkedIn() {
-    if (!linkedinToken.trim()) return;
-    await saveLinkedInCredentials({ access_token: linkedinToken.trim() });
-    Alert.alert('Saved', 'LinkedIn token saved securely.');
+  async function handleConnectLinkedIn() {
+    const token = await getStoredToken();
+    if (!token) return;
+    const res = await fetch(`${ENV.API_URL}/api/oauth/linkedin/start`, { headers: { Authorization: `Bearer ${token}` } });
+    const { auth_url } = await res.json();
+    const { WebBrowser } = require('expo-web-browser');
+    await WebBrowser.openBrowserAsync(auth_url);
+    const s = await fetch(`${ENV.API_URL}/api/oauth/linkedin/status`, { headers: { Authorization: `Bearer ${token}` } });
+    const status = await s.json();
+    setLinkedinConnected(status.connected);
+    if (status.connected) Alert.alert('LinkedIn Connected', `Connected as ${status.name || 'your LinkedIn account'}.`);
+  }
+
+  async function handleLinkedInSync() {
+    setSyncing(true); setSyncResult(null);
+    try {
+      const token = await getStoredToken();
+      const uid   = await getStoredUserId() ?? 'local';
+      const res = await fetch(`${ENV.API_URL}/api/digital-self/linkedin/sync`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      const diff = await res.json();
+      if (!res.ok) throw new Error(diff.detail || `HTTP ${res.status}`);
+      const merged = await mergePKGDiff(uid, diff);
+      setSyncResult(`✅ LinkedIn profile synced — ${diff.stats?.profile_synced ? '1 profile node' : 'no new data'}`);
+    } catch (e: any) { setSyncResult(`❌ ${e.message}`); }
+    setSyncing(false);
+  }
+
+  async function handleDisconnectLinkedIn() {
+    const token = await getStoredToken();
+    if (!token) return;
+    await fetch(`${ENV.API_URL}/api/oauth/linkedin/disconnect`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    setLinkedinConnected(false);
   }
 
   async function handleRevokeAll() {
@@ -626,15 +661,23 @@ export default function SettingsScreen() {
           <Text style={s.disclosure}>Messages scanned locally for travel artifacts only. No content stored.</Text>
 
           <Text style={s.subHeading}>Social & Professional</Text>
-          <CheckRow label="LinkedIn" sub="Role · Company · Business vs personal"
+          <CheckRow label="LinkedIn" sub="Sign in with LinkedIn — professional profile"
             value={prefs.data_sources.social_linkedin}
             onChange={v => update({ data_sources: { ...prefs.data_sources, social_linkedin: v } })} />
           {prefs.data_sources.social_linkedin && (
             <View style={s.credForm}>
-              <TextInput style={s.credInput} placeholder="LinkedIn Access Token (OAuth2)"
-                placeholderTextColor="#555" secureTextEntry
-                value={linkedinToken} onChangeText={setLinkedinToken} autoCapitalize="none" />
-              <ActionBtn label="Save Token" onPress={handleSaveLinkedIn} />
+              {linkedinConnected ? (
+                <>
+                  <Text style={{ color: '#22c55e', marginBottom: 8 }}>✅ LinkedIn connected</Text>
+                  <View style={s.credBtns}>
+                    <ActionBtn label={syncing ? 'Syncing…' : 'Sync Now'} onPress={handleLinkedInSync} />
+                    <ActionBtn label="Disconnect" onPress={handleDisconnectLinkedIn} />
+                  </View>
+                </>
+              ) : (
+                <ActionBtn label="Connect LinkedIn" onPress={handleConnectLinkedIn} />
+              )}
+              {syncResult ? <Text style={s.syncResult}>{syncResult}</Text> : null}
             </View>
           )}
           <CheckRow label="Instagram / X (interest signals only)"
