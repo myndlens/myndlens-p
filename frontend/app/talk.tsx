@@ -474,12 +474,16 @@ export default function TalkScreen() {
       }),
       wsClient.on('pipeline_stage' as WSMessageType, (env: WSEnvelope) => {
         const idx = env.payload.stage_index ?? -1;
-        const sub = env.payload.sub_status || '';
+        const sub = env.payload.sub_status || env.payload.summary || '';
         const prog = env.payload.progress || 0;
         const status = env.payload.status || 'active';
         if (status === 'done' && idx >= 0 && idx < PIPELINE_STAGES.length) {
           const label = PIPELINE_STAGES[idx].label;
           setCompletedStages(prev => prev.includes(label) ? prev : [...prev, label]);
+          // Show result summary as sub-status text when results are delivered (stage 9)
+          if (idx >= 9 && sub) {
+            setPipelineSubStatus(sub.substring(0, 200));
+          }
         } else if (status === 'active') {
           setPipelineStageIndex(idx);
           setPipelineSubStatus(sub);

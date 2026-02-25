@@ -129,7 +129,7 @@ async def broadcast_to_session(
 ) -> bool:
     """Broadcast a message to the WS client associated with an execution.
 
-    Called by the delivery webhook to push pipeline_stage updates to the mobile app.
+    Called by the delivery webhook to push pipeline_stage/tts_audio updates to the mobile app.
     Returns False if no matching session is found — never broadcasts to unrelated sessions.
     """
     session_id = execution_sessions.get(execution_id)
@@ -142,7 +142,12 @@ async def broadcast_to_session(
         return False
 
     try:
-        data = _make_envelope(WSMessageType.PIPELINE_STAGE, payload)
+        msg_type = WSMessageType[message_type.upper()] if message_type != "pipeline_stage" else WSMessageType.PIPELINE_STAGE
+    except KeyError:
+        msg_type = WSMessageType.PIPELINE_STAGE
+
+    try:
+        data = _make_envelope(msg_type, payload)
         await ws.send_text(data)
         return True
     except Exception:

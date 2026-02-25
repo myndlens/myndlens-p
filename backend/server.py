@@ -323,9 +323,45 @@ async def delivery_webhook(
             "total_stages": 10,
             "status": "done" if payload.status == "COMPLETED" else "active",
             "summary": payload.summary,
+            "sub_status": payload.summary[:120] if payload.summary else "",
             "delivered_to": payload.delivered_to,
         },
     )
+
+    # Speak the result — voice-first: result is delivered via TTS not text
+    if payload.status == "COMPLETED" and payload.summary:
+        try:
+            from tts.orchestrator import get_tts_provider
+            import base64 as _b64
+            tts = get_tts_provider()
+            # Trim to a speakable length — avoid reading massive code outputs verbatim
+            speakable = payload.summary.strip()[:400]
+            result = await tts.synthesize(speakable)
+            if result.audio_bytes and not result.is_mock:
+                tts_payload = {
+                    "text":             speakable,
+                    "session_id":       payload.execution_id,
+                    "format":           "mp3",
+                    "is_mock":          False,
+                    "audio":            _b64.b64encode(result.audio_bytes).decode("ascii"),
+                    "audio_size_bytes": len(result.audio_bytes),
+                    "auto_record":      False,
+                }
+            else:
+                tts_payload = {
+                    "text":      speakable,
+                    "session_id": payload.execution_id,
+                    "format":    "text",
+                    "is_mock":   True,
+                    "auto_record": False,
+                }
+            await broadcast_to_session(
+                execution_id=payload.execution_id,
+                message_type="tts_audio",
+                payload=tts_payload,
+            )
+        except Exception as e:
+            logger.warning("TTS result broadcast failed for exec=%s: %s", payload.execution_id, str(e))
 
     # Trigger Skills Reinforcement Learning — update skill scores from execution outcome
     if payload.status in ("COMPLETED", "FAILED", "PARTIAL"):
