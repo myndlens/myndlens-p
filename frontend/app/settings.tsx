@@ -503,18 +503,25 @@ export default function SettingsScreen() {
               {prefs.data_sources.email_gmail && (
                 <View style={s.credForm}>
                   <TextInput style={s.credInput} placeholder="Gmail address" placeholderTextColor="#555"
-                    value={imapCreds.email} onChangeText={v => setImapCreds(c => ({ ...c, email: v }))}
+                    value={imapCreds.email} onChangeText={v => setImapCreds(c => ({ ...c, email: v, host: 'imap.gmail.com', port: 993 }))}
                     autoCapitalize="none" keyboardType="email-address" />
-                  <TextInput style={s.credInput} placeholder="App Password (16 chars)" placeholderTextColor="#555"
-                    secureTextEntry value={gmailToken} onChangeText={setGmailToken}
+                  <TextInput style={s.credInput} placeholder="App Password (16 chars — myaccount.google.com/apppasswords)" placeholderTextColor="#555"
+                    secureTextEntry value={gmailToken} onChangeText={v => { setGmailToken(v); setImapCreds(c => ({ ...c, password: v })); }}
                     autoCapitalize="none" />
-                  <ActionBtn label="Save" onPress={handleSaveGmail} />
+                  <View style={s.credBtns}>
+                    <ActionBtn label="Save" onPress={handleSaveGmail} />
+                    <ActionBtn label={syncing ? 'Syncing…' : 'Sync Now'} onPress={() => {
+                      setImapCreds(c => ({ ...c, host: 'imap.gmail.com', port: 993, password: gmailToken }));
+                      handleSyncEmail();
+                    }} />
+                  </View>
+                  {syncResult ? <Text style={s.syncResult}>{syncResult}</Text> : null}
                 </View>
               )}
 
               <CheckRow
                 label="Outlook / Microsoft 365"
-                sub="Use an App Password from account.microsoft.com/security"
+                sub="App Password from account.microsoft.com/security → Advanced Security → App Passwords"
                 value={prefs.data_sources.email_outlook}
                 onChange={v => update({ data_sources: { ...prefs.data_sources, email_outlook: v, email_gmail: false, email_imap: false } })}
               />
