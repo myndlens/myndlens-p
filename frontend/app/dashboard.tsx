@@ -106,8 +106,8 @@ export default function DashboardScreen() {
       {/* Agent status pill */}
       <View style={[s.pill, { backgroundColor: isRunning ? '#00D68F18' : '#FF444418', borderColor: isRunning ? '#00D68F' : '#FF4444' }]}>
         <View style={[s.pillDot, { backgroundColor: isRunning ? '#00D68F' : '#FF4444' }]} />
-        <Text style={[s.pillText, { color: isRunning ? '#00D68F' : '#FF4444' }]}>
-          OpenClaw Agent {isRunning ? 'Running' : (runtime?.status || 'Offline')}
+        <Text style={s.pillText, { color: isRunning ? '#00D68F' : '#FF4444' }]}>
+          OpenClaw Tenant {isRunning ? 'Running' : (runtime?.status || 'Offline')}
           {runtime?.node_version ? `  ·  Node ${runtime.node_version}` : ''}
         </Text>
       </View>
