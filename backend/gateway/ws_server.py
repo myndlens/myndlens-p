@@ -495,6 +495,15 @@ async def _handle_execute_request(
         await broadcast_stage(session_id, 7, "done")
 
         # ── Dispatch ───────────────────────────────────────────────────────────
+        # Detect "display in chat" intent — user wants result shown in the app chat panel
+        DISPLAY_IN_CHAT_SIGNALS = {
+            "display", "show", "chat", "screen", "text", "write",
+            "print", "output", "display in chat", "show in chat",
+        }
+        transcript_lower = (draft.transcript or "").lower()
+        display_in_chat = any(sig in transcript_lower for sig in DISPLAY_IN_CHAT_SIGNALS)
+        delivery_channels = ["in_app", "chat_display"] if display_in_chat else ["in_app"]
+
         mandate = {
             "mandate_id": req.draft_id,
             "tenant_id": tenant_id,
@@ -505,6 +514,7 @@ async def _handle_execute_request(
             "execution_strategy": execution_strategy,
             "approved_at": datetime.now(timezone.utc).isoformat(),
             "approved_by": user_id,
+            "delivery_channels": delivery_channels,
         }
         result = await dispatch_mandate(session_id, mandate, api_token=auth_token)
 

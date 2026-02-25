@@ -116,6 +116,8 @@ export default function TalkScreen() {
   const [userNickname, setUserNickname] = useState('');
   const [waNotPaired, setWaNotPaired]   = useState(false);  // nudge for users who haven't paired WA
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = React.useState<Array<{role:'user'|'assistant'|'result', text:string, ts:number}>>([]);
+  const chatScrollRef = React.useRef<any>(null);
   const openChat = () => {
     setChatOpen(true);
     Animated.spring(chatSlideAnim, { toValue: 1, useNativeDriver: true, friction: 7 }).start();
@@ -375,9 +377,12 @@ export default function TalkScreen() {
       }),
       wsClient.on('transcript_partial', (env: WSEnvelope) => setPartialTranscript(env.payload.text || '')),
       wsClient.on('transcript_final', (env: WSEnvelope) => {
-        setTranscript(env.payload.text || '');
+        const text = env.payload.text || '';
+        setTranscript(text);
         setPartialTranscript('');
         transition('THINKING');
+        // Add user voice input to chat history
+        if (text) setChatMessages(prev => [...prev, { role: 'user', text, ts: Date.now() }]);
       }),
       wsClient.on('draft_update', (env: WSEnvelope) => {
         const actionClass = env.payload.action_class || '';
@@ -397,6 +402,11 @@ export default function TalkScreen() {
         setTtsText(text);
         transition('RESPONDING');
         setIsSpeaking(true);
+        // Add MyndLens response to chat history
+        if (text) {
+          setChatMessages(prev => [...prev, { role: 'assistant', text, ts: Date.now() }]);
+          setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+        }
         const onComplete = () => {
           setIsSpeaking(false);
           transition('IDLE');
@@ -477,12 +487,19 @@ export default function TalkScreen() {
         const sub = env.payload.sub_status || env.payload.summary || '';
         const prog = env.payload.progress || 0;
         const status = env.payload.status || 'active';
+        const deliveredTo: string[] = env.payload.delivered_to || [];
+        const displayInChat = deliveredTo.includes('chat_display') || deliveredTo.includes('chat');
+
         if (status === 'done' && idx >= 0 && idx < PIPELINE_STAGES.length) {
           const label = PIPELINE_STAGES[idx].label;
           setCompletedStages(prev => prev.includes(label) ? prev : [...prev, label]);
-          // Show result summary as sub-status text when results are delivered (stage 9)
+          // Stage 9 = results delivered — add to chat history
           if (idx >= 9 && sub) {
             setPipelineSubStatus(sub.substring(0, 200));
+            setChatMessages(prev => [...prev, { role: 'result', text: sub, ts: Date.now() }]);
+            setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+            // Auto-open chat if user asked to "display in chat"
+            if (displayInChat) { setChatOpen(true); }
           }
         } else if (status === 'active') {
           setPipelineStageIndex(idx);
@@ -921,27 +938,32 @@ export default function TalkScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Conversation content */}
+              {/* Conversation history */}
               <ScrollView
+                ref={chatScrollRef}
                 style={styles.chatScrollView}
                 contentContainerStyle={styles.chatScrollContent}
                 showsVerticalScrollIndicator={false}
               >
-                {ttsText ? (
-                  <View style={styles.assistantBubble}>
-                    <Text style={styles.assistantLabel}>MyndLens</Text>
-                    <Text style={styles.assistantText}>{ttsText}</Text>
-                  </View>
-                ) : null}
-                {(transcript || partialTranscript) ? (
-                  <View style={styles.userBubble}>
-                    <Text style={styles.userLabel}>You</Text>
-                    <Text style={styles.userText}>{partialTranscript || transcript}</Text>
-                  </View>
-                ) : null}
+                {chatMessages.length === 0 ? (
+                  <Text style={{ color: '#444', textAlign: 'center', marginTop: 40, fontSize: 14 }}>
+                    Your conversation will appear here.
+                  </Text>
+                ) : (
+                  chatMessages.map((msg, i) => (
+                    <View key={i} style={msg.role === 'user' ? styles.userBubble : msg.role === 'result' ? styles.resultBubble : styles.assistantBubble}>
+                      <Text style={msg.role === 'user' ? styles.userLabel : msg.role === 'result' ? styles.resultLabel : styles.assistantLabel}>
+                        {msg.role === 'user' ? 'You' : msg.role === 'result' ? 'Result' : 'MyndLens'}
+                      </Text>
+                      <Text style={msg.role === 'user' ? styles.userText : msg.role === 'result' ? styles.resultText : styles.assistantText}>
+                        {msg.text}
+                      </Text>
+                    </View>
+                  ))
+                )}
                 {audioState === 'THINKING' && (
                   <View style={styles.thinkingRow}>
-                    <Text style={styles.thinkingText}>{'\u2026'}</Text>
+                    <Text style={styles.thinkingText}>{'…'}</Text>
                   </View>
                 )}
               </ScrollView>
@@ -1122,6 +1144,9 @@ const styles = StyleSheet.create({
 
   thinkingRow: { paddingLeft: 4 },
   thinkingText: { color: '#6C5CE7', fontSize: 28, letterSpacing: 4 },
+  resultBubble: { backgroundColor: '#0D2B1A', borderRadius: 12, padding: 12, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#00D68F' },
+  resultLabel:  { color: '#00D68F', fontSize: 11, fontWeight: '700', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  resultText:   { color: '#C0E0D0', fontSize: 14, lineHeight: 20 },
 
   chatMinimiseBtn: {
     alignItems: 'center', paddingVertical: 14,
