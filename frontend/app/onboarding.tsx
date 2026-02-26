@@ -143,6 +143,8 @@ export default function OnboardingScreen() {
     const r = [...routines]; r[i] = val; setRoutines(r);
   }
 
+  const isLastStep = step === STEPS.length - 1;
+
   const renderStep = () => {
     switch (step) {
       case 0:
