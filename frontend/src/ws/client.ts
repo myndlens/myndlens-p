@@ -89,7 +89,7 @@ export class MyndLensWSClient {
         console.log('[WS] Connecting to', wsUrl);
         this.ws = new WebSocket(wsUrl);
 
-        this.ws.onopen = () => {
+        this.ws.onopen = async () => {
           console.log('[WS] Connected, sending AUTH');
           this._isConnected = true;
 
