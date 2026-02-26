@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Keyboard,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -53,12 +53,13 @@ export default function OnboardingScreen() {
     (async () => {
       try {
         const token = await getStoredToken();
-        if (!token || !isMounted) return;
+        if (!token || !isMounted) { if (isMounted) setLoadingProfile(false); return; }
         const res = await fetch(`${OBEGEE_URL}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
           signal: controller.signal,
         });
-        if (!res.ok || !isMounted) return;
+        if (!isMounted) { setLoadingProfile(false); return; }
+        if (!res.ok) { setLoadingProfile(false); return; }
         const u = await res.json();
         if (!isMounted) return;
         if (u.name)             setProfileName(u.name);
@@ -70,7 +71,8 @@ export default function OnboardingScreen() {
         }
         if (u.picture)          setPicture(u.picture);
       } catch (e: any) {
-        if (e?.name === 'AbortError') return; // cancelled on unmount — expected
+        if (e?.name === 'AbortError') return;
+        // Any other error (network, parse, etc.) — fall through to setLoadingProfile(false)
       }
       if (isMounted) setLoadingProfile(false);
     })();
