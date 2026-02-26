@@ -31,6 +31,8 @@ interface Props {
 
 export default function DigitalSelfStep({ onComplete }: Props) {
   const [phase, setPhase] = useState<'permissions' | 'whatsapp' | 'source' | 'building' | 'done'>('permissions');
+  const phaseRef = useRef(phase);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
   const [includeEmail, setIncludeEmail] = useState(false);
   const [stageStatuses, setStageStatuses] = useState<Record<string, StageStatus>>(
     Object.fromEntries(STAGES.map(s => [s.id, 'pending'])),
@@ -107,13 +109,14 @@ export default function DigitalSelfStep({ onComplete }: Props) {
         await requestCallLogPermission();
       } catch { /* non-fatal */ }
 
-      // Auto-advance if all required granted
+      // Auto-advance ONLY if still on permissions phase.
+      // Do NOT reset phase if already past permissions (source/building/done).
       const allGranted = contactsPerm.status === 'granted' && 
                         calendarPerm.status === 'granted' && 
                         mediaPerm.status === 'granted';
       console.log('[DigitalSelfStep] All required permissions granted:', allGranted);
       
-      if (allGranted) {
+      if (allGranted && phaseRef.current === 'permissions') {
         setPhase('whatsapp');
       }
     } catch (err) {
