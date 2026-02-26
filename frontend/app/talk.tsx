@@ -608,6 +608,7 @@ export default function TalkScreen() {
           setCompletedStages(prev => prev.includes(label) ? prev : [...prev, label]);
           if (idx >= 9 && sub) {
             setPipelineSubStatus(sub.substring(0, 200));
+            setPendingAction(null);  // D6: results delivered — no pending approval/kill
             setChatMessages(prev => [...prev, {
               role: 'result',
               text: sub,
@@ -639,10 +640,12 @@ export default function TalkScreen() {
       // Note: audioState is stale (still 'RESPONDING') — use isBargeIn flag below
     }
     if (audioState === 'IDLE' || isBargeIn) {
-      // Fresh session — clear completed stages so live feed starts clean
+      // Fresh session — clear pipeline state so it starts clean for the new command
       setCompletedStages([]);
       setPipelineStageIndex(-1);
       setPipelineSubStatus('');
+      setPipelineProgress(0);
+      setPendingAction(null);  // D6: clear stale approve/kill state from previous mandate
       // Gate: if DS setup was never completed, surface the setup modal every tap
       try {
         const { getItem } = require('../src/utils/storage');
@@ -988,24 +991,8 @@ export default function TalkScreen() {
           </View>
         </View>
 
-        {/* Text fallback */}
-        <View style={styles.textRow}>
-          <TextInput
-            style={styles.textInput}
-            value={textInput}
-            onChangeText={setTextInput}
-            placeholder="Type instead..."
-            placeholderTextColor="#444455"
-            returnKeyType="send"
-            onSubmitEditing={handleSendText}
-            editable={connectionStatus === 'authenticated'}
-          />
-          {textInput.trim() ? (
-            <TouchableOpacity style={styles.sendBtn} onPress={handleSendText}>
-              <Text style={styles.sendIcon}>{'\u2191'}</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        {/* Text fallback row removed — text input lives inside the Chat panel.
+            Tapping 💬 opens chat where users can type AND see conversation history. */}
 
         {/* ── Floating Chat Bubble — draggable, glows when content present ── */}
         <Animated.View
@@ -1092,6 +1079,45 @@ export default function TalkScreen() {
                   </View>
                 )}
               </ScrollView>
+
+              {/* ── Text input bar — only visible inside the chat panel ─────── */}
+              <View style={styles.chatInputRow}>
+                <TextInput
+                  style={styles.chatTextInput}
+                  value={textInput}
+                  onChangeText={setTextInput}
+                  placeholder="Type a command..."
+                  placeholderTextColor="#444455"
+                  returnKeyType="send"
+                  onSubmitEditing={() => {
+                    if (textInput.trim()) {
+                      // Add to chat history immediately for visual feedback
+                      setChatMessages(prev => [...prev, {
+                        role: 'user', text: textInput.trim(), ts: Date.now()
+                      }]);
+                      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+                      handleSendText();
+                    }
+                  }}
+                  editable={connectionStatus === 'authenticated'}
+                  multiline={false}
+                />
+                <TouchableOpacity
+                  style={[styles.chatSendBtn, !textInput.trim() && { opacity: 0.35 }]}
+                  onPress={() => {
+                    if (textInput.trim()) {
+                      setChatMessages(prev => [...prev, {
+                        role: 'user', text: textInput.trim(), ts: Date.now()
+                      }]);
+                      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+                      handleSendText();
+                    }
+                  }}
+                  disabled={!textInput.trim()}
+                >
+                  <Text style={styles.chatSendIcon}>↑</Text>
+                </TouchableOpacity>
+              </View>
 
               {/* Minimise tap area */}
               <TouchableOpacity
@@ -1267,7 +1293,10 @@ const styles = StyleSheet.create({
   userLabel: { color: '#6C5CE7', fontSize: 11, fontWeight: '700', marginBottom: 4, textAlign: 'right', opacity: 0.7 },
   userText: { color: '#E8E8F8', fontSize: 15, lineHeight: 22 },
 
-  thinkingRow: { paddingLeft: 4 },
+  chatInputRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#1E1E2E', backgroundColor: '#0C0C1A' },
+  chatTextInput:  { flex: 1, backgroundColor: '#111', borderWidth: 1, borderColor: '#2A2A3E', borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, color: '#E0E0E8', fontSize: 15 },
+  chatSendBtn:    { width: 40, height: 40, borderRadius: 20, backgroundColor: '#6C5CE7', alignItems: 'center', justifyContent: 'center' },
+  chatSendIcon:   { color: '#fff', fontSize: 18, fontWeight: '700' },
   thinkingText: { color: '#6C5CE7', fontSize: 28, letterSpacing: 4 },
   resultBubble: { backgroundColor: '#0D2B1A', borderRadius: 12, padding: 12, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#00D68F' },
   resultLabel:  { color: '#00D68F', fontSize: 11, fontWeight: '700', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -1326,19 +1355,6 @@ const styles = StyleSheet.create({
   approveDisabled: { opacity: 0.5 },
   smallBtnIcon: { fontSize: 14, color: '#FFFFFF' },
   smallBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-
-  // Text fallback
-  textRow: { flexDirection: 'row', gap: 8, marginTop: 10, marginBottom: 12, paddingHorizontal: 0 },
-  textInput: {
-    flex: 1, backgroundColor: '#14141E', borderRadius: 24,
-    paddingHorizontal: 16, paddingVertical: 10, fontSize: 14,
-    color: '#FFFFFF', borderWidth: 1, borderColor: '#1E1E2E',
-  },
-  sendBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#6C5CE7', alignItems: 'center', justifyContent: 'center',
-  },
-  sendIcon: { fontSize: 16, color: '#FFFFFF', fontWeight: '700' },
 
   // Clarification question card
 });
