@@ -1212,9 +1212,16 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         missing_count = len(missing)
 
         if missing_count > 0:
+            # Skip dimension questions for execution/code tasks — just use defaults.
+            # "Build a hello world app" doesn't need "where to save?" or "dependencies?"
+            execution_keywords = [
+                "build", "run", "execute", "code", "write", "create", "make",
+                "script", "app", "program", "deploy", "install", "test", "hello world",
+            ]
+            skip_dims = any(kw in transcript.lower() for kw in execution_keywords)
             dim_clarify = _clarification_state.get(session_id, {})
             dim_attempt = dim_clarify.get("dim_attempts", 0)
-            if dim_attempt < get_settings().MANDATE_MAX_CLARIFICATION_ROUNDS:
+            if not skip_dims and dim_attempt < get_settings().MANDATE_MAX_CLARIFICATION_ROUNDS:
                 from intent.mandate_questions import generate_mandate_questions
                 mq_batch = await generate_mandate_questions(
                     session_id=session_id, user_id=user_id,

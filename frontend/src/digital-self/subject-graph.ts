@@ -111,8 +111,21 @@ export async function buildContextCapsule(
   // Build natural-language summary for the LLM
   const parts: string[] = [];
 
-  const userNode = nodes.find(n => n.type === 'User');
-  if (userNode) parts.push(`User: ${userNode.label}`);
+  // Use the authoritative user name from ObeGee (stored during pairing/auth),
+  // NOT the PKG User node which may be empty or contain a contact's name.
+  try {
+    const { getItem } = require('../utils/storage');
+    const storedName = await getItem('myndlens_user_name');
+    if (storedName) {
+      parts.push(`User: ${storedName}`);
+    } else {
+      const userNode = nodes.find(n => n.type === 'User');
+      if (userNode) parts.push(`User: ${userNode.label}`);
+    }
+  } catch {
+    const userNode = nodes.find(n => n.type === 'User');
+    if (userNode) parts.push(`User: ${userNode.label}`);
+  }
 
   const people = nodes.filter(n => n.type === 'Person').slice(0, 10);
   if (people.length > 0) {
