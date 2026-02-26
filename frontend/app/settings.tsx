@@ -163,14 +163,14 @@ export default function SettingsScreen() {
     // Check if Gmail is already connected
     getStoredToken().then(token => {
       if (!token) return;
-      fetch(`${ENV.API_URL}/api/oauth/gmail/status`, {
+      fetch(`${OBEGEE_BASE}/api/oauth/gmail/status`, {
         headers: { Authorization: `Bearer ${token}` }
       }).then(r => r.json()).then(d => setGmailConnected(d.connected)).catch(() => {});
     });
     loadLinkedInCredentials().then(c => c && setLinkedinConnected(!!c?.access_token));
     getStoredToken().then(token => {
       if (!token) return;
-      fetch(`${ENV.API_URL}/api/oauth/linkedin/status`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(`${OBEGEE_BASE}/api/oauth/linkedin/status`, { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json()).then(d => setLinkedinConnected(d.connected)).catch(() => {});
     });
     loadVoiceStatus();
@@ -334,14 +334,13 @@ export default function SettingsScreen() {
     try {
       const token = await getStoredToken();
       const uid = await getStoredUserId() ?? 'local';
-      const res = await fetch(`${ENV.API_URL}/api/digital-self/email/sync`, {
+      const res = await fetch(`${OBEGEE_BASE}/api/digital-self/email/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(imapCreds),
       });
       const diff = await res.json();
       if (!res.ok) throw new Error(diff.detail || `HTTP ${res.status}`);
-      // Merge returned PKGDiff (nodes + edges with ONNX vectors) into local encrypted PKG
       const merged = await mergePKGDiff(uid, diff);
       const persons = diff.stats?.persons ?? merged.nodesAdded;
       const interests = diff.stats?.interests ?? 0;
@@ -357,16 +356,13 @@ export default function SettingsScreen() {
   async function handleConnectGmail() {
     const token = await getStoredToken();
     if (!token) return;
-    // Get OAuth URL from backend
-    const res = await fetch(`${ENV.API_URL}/api/oauth/gmail/start`, {
+    const res = await fetch(`${OBEGEE_BASE}/api/oauth/gmail/start`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     const { auth_url } = await res.json();
-    // Open in browser — user authorises → redirects to obegee.co.uk success page
     const { WebBrowser } = require('expo-web-browser');
     await WebBrowser.openBrowserAsync(auth_url);
-    // After browser closes, check status
-    const s = await fetch(`${ENV.API_URL}/api/oauth/gmail/status`, {
+    const s = await fetch(`${OBEGEE_BASE}/api/oauth/gmail/status`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     const status = await s.json();
@@ -380,7 +376,7 @@ export default function SettingsScreen() {
     try {
       const token = await getStoredToken();
       const uid   = await getStoredUserId() ?? 'local';
-      const res = await fetch(`${ENV.API_URL}/api/digital-self/gmail/sync`, {
+      const res = await fetch(`${OBEGEE_BASE}/api/digital-self/gmail/sync`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
@@ -399,18 +395,18 @@ export default function SettingsScreen() {
   async function handleDisconnectGmail() {
     const token = await getStoredToken();
     if (!token) return;
-    await fetch(`${ENV.API_URL}/api/oauth/gmail/disconnect`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await fetch(`${OBEGEE_BASE}/api/oauth/gmail/disconnect`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     setGmailConnected(false);
   }
 
   async function handleConnectLinkedIn() {
     const token = await getStoredToken();
     if (!token) return;
-    const res = await fetch(`${ENV.API_URL}/api/oauth/linkedin/start`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(`${OBEGEE_BASE}/api/oauth/linkedin/start`, { headers: { Authorization: `Bearer ${token}` } });
     const { auth_url } = await res.json();
     const { WebBrowser } = require('expo-web-browser');
     await WebBrowser.openBrowserAsync(auth_url);
-    const s = await fetch(`${ENV.API_URL}/api/oauth/linkedin/status`, { headers: { Authorization: `Bearer ${token}` } });
+    const s = await fetch(`${OBEGEE_BASE}/api/oauth/linkedin/status`, { headers: { Authorization: `Bearer ${token}` } });
     const status = await s.json();
     setLinkedinConnected(status.connected);
     if (status.connected) Alert.alert('LinkedIn Connected', `Connected as ${status.name || 'your LinkedIn account'}.`);
@@ -421,7 +417,7 @@ export default function SettingsScreen() {
     try {
       const token = await getStoredToken();
       const uid   = await getStoredUserId() ?? 'local';
-      const res = await fetch(`${ENV.API_URL}/api/digital-self/linkedin/sync`, {
+      const res = await fetch(`${OBEGEE_BASE}/api/digital-self/linkedin/sync`, {
         method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       const diff = await res.json();
@@ -435,7 +431,7 @@ export default function SettingsScreen() {
   async function handleDisconnectLinkedIn() {
     const token = await getStoredToken();
     if (!token) return;
-    await fetch(`${ENV.API_URL}/api/oauth/linkedin/disconnect`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await fetch(`${OBEGEE_BASE}/api/oauth/linkedin/disconnect`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     setLinkedinConnected(false);
   }
 
@@ -602,25 +598,11 @@ export default function SettingsScreen() {
               )}
 
               <CheckRow
-                label="Outlook / Microsoft 365"
-                sub="App Password from account.microsoft.com/security → Advanced Security → App Passwords"
-                value={prefs.data_sources.email_outlook}
-                onChange={v => update({ data_sources: { ...prefs.data_sources, email_outlook: v, email_gmail: false, email_imap: false } })}
+                label="Outlook / Microsoft 365 (coming soon)"
+                sub="Microsoft OAuth integration — planned for a future release"
+                value={false}
+                onChange={() => {}}
               />
-              {prefs.data_sources.email_outlook && (
-                <View style={s.credForm}>
-                  <TextInput style={s.credInput} placeholder="Outlook / Hotmail address" placeholderTextColor="#555"
-                    value={imapCreds.email} onChangeText={v => setImapCreds(c => ({ ...c, email: v, host: 'outlook.office365.com', port: 993 }))}
-                    autoCapitalize="none" keyboardType="email-address" />
-                  <TextInput style={s.credInput} placeholder="App Password" placeholderTextColor="#555"
-                    secureTextEntry value={imapCreds.password} onChangeText={v => setImapCreds(c => ({ ...c, password: v }))} />
-                  <View style={s.credBtns}>
-                    <ActionBtn label={imapSaved ? '✓ Saved' : 'Save Credentials'} onPress={handleSaveIMAP} />
-                    <ActionBtn label={syncing ? 'Syncing…' : 'Sync Now'} onPress={handleSyncEmail} />
-                  </View>
-                  {syncResult ? <Text style={s.syncResult}>{syncResult}</Text> : null}
-                </View>
-              )}
 
               <CheckRow
                 label="Other (IMAP)"
@@ -652,12 +634,13 @@ export default function SettingsScreen() {
           )}
 
           <Text style={s.subHeading}>Messaging</Text>
-          <CheckRow label="WhatsApp" value={prefs.data_sources.messaging_whatsapp}
+          <CheckRow label="WhatsApp (via ObeGee integration)" value={prefs.data_sources.messaging_whatsapp}
+            sub="Connect WhatsApp in the Integrations tab to enable this"
             onChange={v => update({ data_sources: { ...prefs.data_sources, messaging_whatsapp: v } })} />
-          <CheckRow label="iMessage" value={prefs.data_sources.messaging_imessage}
-            onChange={v => update({ data_sources: { ...prefs.data_sources, messaging_imessage: v } })} />
-          <CheckRow label="Telegram" value={prefs.data_sources.messaging_telegram}
-            onChange={v => update({ data_sources: { ...prefs.data_sources, messaging_telegram: v } })} />
+          <CheckRow label="iMessage (coming soon)" value={false} onChange={() => {}}
+            sub="Apple Messages integration — planned for a future release" />
+          <CheckRow label="Telegram (coming soon)" value={false} onChange={() => {}}
+            sub="Telegram integration — planned for a future release" />
           <Text style={s.disclosure}>Messages scanned locally for travel artifacts only. No content stored.</Text>
 
           <Text style={s.subHeading}>Social & Professional</Text>
@@ -686,10 +669,10 @@ export default function SettingsScreen() {
             onChange={v => update({ data_sources: { ...prefs.data_sources, social_other: v } })} />
 
           <Text style={s.subHeading}>Financial Signals (Sensitive)</Text>
-          <CheckRow label="Payment methods (tokenized)" value={prefs.data_sources.financial_payment}
-            onChange={v => update({ data_sources: { ...prefs.data_sources, financial_payment: v } })} />
-          <CheckRow label="Corporate card flag" value={prefs.data_sources.financial_corporate}
-            onChange={v => update({ data_sources: { ...prefs.data_sources, financial_corporate: v } })} />
+          <CheckRow label="Payment methods (coming soon)" value={false} onChange={() => {}}
+            sub="Tokenized payment signals — planned for a future release" />
+          <CheckRow label="Corporate card (coming soon)" value={false} onChange={() => {}}
+            sub="Corporate spend signals — planned for a future release" />
         </Section>
 
         {/* ─── 3. AUTOMATION & CONSENT ────────────────────────────────────── */}
