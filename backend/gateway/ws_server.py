@@ -765,6 +765,11 @@ async def _handle_stream_end(ws: WebSocket, session_id: str, user_id: str = "") 
 
     Called from both VAD auto-stop (cancel message) and explicit stream end.
     user_id enables Digital Self server-side recall for voice mandates.
+
+    CRITICAL: Route through _handle_text_input so that pending clarification
+    state (e.g. "Shall I proceed?" → user says "Yes") is checked BEFORE the
+    full pipeline runs. Previously this called _send_mock_tts_response directly,
+    bypassing the clarification check and causing an infinite approval loop.
     """
     try:
         stt = get_stt_provider()
@@ -781,9 +786,13 @@ async def _handle_stream_end(ws: WebSocket, session_id: str, user_id: str = "") 
                 confidence=final_fragment.confidence,
                 span_ids=[s.span_id for s in state.get_spans()],
             ))
-            # Save and respond with TTS — now with user_id for Digital Self recall
+            # Save transcript
             await save_transcript(state)
-            await _send_mock_tts_response(ws, session_id, state.get_current_text(), user_id=user_id)
+
+            # Route through _handle_text_input which checks _clarification_state
+            # for pending approval/clarification before running the full pipeline.
+            final_text = state.get_current_text()
+            await _handle_text_input(ws, session_id, {"text": final_text}, user_id=user_id)
 
         # Cleanup transcript state
         transcript_assembler.cleanup(session_id)

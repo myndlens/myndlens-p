@@ -442,7 +442,22 @@ export default function TalkScreen() {
           }
         } catch { /* non-critical */ }
         try {
-          const { getItem } = require('../src/utils/storage');
+          const { getItem, setItem } = require('../src/utils/storage');
+
+          // Refresh user name from ObeGee to fix stale nicknames
+          const token = await getItem('myndlens_auth_token');
+          if (token) {
+            try {
+              const res = await fetch('https://obegee.co.uk/api/auth/me', {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              if (res.ok) {
+                const me = await res.json();
+                if (me.name) await setItem('myndlens_user_name', me.name);
+              }
+            } catch { /* non-critical — use stored name */ }
+          }
+
           const stored = await getItem('myndlens_user_name');
           const firstName = stored ? stored.split(' ')[0] : '';
           if (firstName) setUserNickname(firstName);
