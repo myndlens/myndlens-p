@@ -99,7 +99,8 @@ export async function ingestContacts(userId: string): Promise<{ count: number; e
         Contacts.Fields.PhoneNumbers,
         Contacts.Fields.Company,
         Contacts.Fields.JobTitle,
-        Contacts.Fields.Image,
+        // Fields.Image removed — requires READ_MEDIA_IMAGES on Android 13+ and
+        // causes getContactsAsync to return [] on some devices when not granted.
         Contacts.Fields.Dates,     // birthday / anniversary
         Contacts.Fields.Note,      // any notes saved
       ],

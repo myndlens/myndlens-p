@@ -178,12 +178,15 @@ export default function LoadingScreen() {
 
       const { getItem } = require('../src/utils/storage');
       const setupDone = await getItem('setup_wizard_complete');
-      const dsStatus = await getItem('myndlens_ds_setup_done');
 
-      if (setupDone === 'true' && dsStatus !== 'empty') {
+      if (setupDone === 'true') {
+        // Wizard was completed — always go to talk.
+        // The talk screen shows a DS modal if the user still needs to run setup.
+        // Checking dsStatus here causes a permanent loop when the scan returns 0:
+        //   scan fails → dsStatus='empty' → loading→setup→scan fails→dsStatus='empty'→...
         router.replace('/talk');
       } else {
-        // First launch OR DS was empty last run — go to setup (lands on Step 9)
+        // First launch — go to setup wizard.
         router.replace('/setup');
       }
     } catch (err: any) {

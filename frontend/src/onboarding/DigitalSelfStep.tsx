@@ -99,6 +99,14 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       console.log('[DigitalSelfStep] Media permission:', mediaPerm.status);
       setPermMedia(mediaPerm.status === 'granted' ? 'granted' : 'denied');
 
+      // Pre-request READ_CALL_LOG here (permissions phase) so it doesn't interrupt
+      // the build animation later. On Android 11+ this may return 'never_ask_again'
+      // immediately — that's fine, we handle 0 call logs gracefully.
+      try {
+        const { requestCallLogPermission } = require('../digital-self/ingester');
+        await requestCallLogPermission();
+      } catch { /* non-fatal */ }
+
       // Auto-advance if all required granted
       const allGranted = contactsPerm.status === 'granted' && 
                         calendarPerm.status === 'granted' && 
@@ -280,16 +288,18 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       // Stage: contacts
       activate('contacts');
       await delay(300);
-      const { runTier1Ingestion, requestCallLogPermission } = require('../digital-self/ingester');
+      const { runTier1Ingestion } = require('../digital-self/ingester');
       const { getItem } = require('../../src/utils/storage');
-      await requestCallLogPermission();  // READ_CALL_LOG only (no SMS)
+      // requestCallLogPermission removed from here — it showed a native dialog
+      // mid-build interrupting the animation. READ_CALL_LOG is requested in the
+      // permissions phase instead (see checkAllPermissions).
       const userId = (await getItem('myndlens_user_id')) ?? 'local';
       const importResult = await runTier1Ingestion(userId);
       advance('contacts', importResult.contacts > 0 ? 'done' : 'empty');
 
-      // Stage: calendar
+      // Stage: calendar — importResult.calendar comes from runTier1Ingestion above
       activate('calendar');
-      await delay(400);
+      await delay(300);
       advance('calendar', importResult.calendar > 0 ? 'done' : 'empty');
 
       // Stage: SMS removed — READ_SMS is a restricted Android permission
@@ -332,7 +342,10 @@ export default function DigitalSelfStep({ onComplete }: Props) {
         const { setItem: saveFlag } = require('../../src/utils/storage');
         await saveFlag(
           'myndlens_ds_setup_done',
-          importResult.contacts > 0 || importResult.calendar > 0 ? 'true' : 'empty',
+          // 'true' = has real data, 'done' = wizard completed but scan found nothing.
+          // NEVER write 'empty' here — 'empty' means "wizard never ran" and causes
+          // loading.tsx to route back to /setup on every reconnect (infinite loop).
+          importResult.contacts > 0 || importResult.calendar > 0 ? 'true' : 'done',
         );
 
         // Sync data_sources prefs to reflect what was actually enabled in the wizard.
