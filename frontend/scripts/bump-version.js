@@ -55,7 +55,7 @@ fs.writeFileSync(APP_JSON, JSON.stringify(appJson, null, 2) + '\n');
 
 // ── Step 4: Commit immediately ───────────────────────────────────────────────
 try {
-  execSync(`git add frontend/android/app/build.gradle frontend/app.json`, { cwd: REPO_ROOT, stdio: 'inherit' });
+  execSync(`git add -f frontend/android/app/build.gradle frontend/app.json`, { cwd: REPO_ROOT, stdio: 'inherit' });
   execSync(`git commit -m "chore: bump versionCode ${oldCode} → ${newCode}"`, { cwd: REPO_ROOT, stdio: 'inherit' });
 } catch (e) {
   console.error('❌ git commit failed:', e.message);

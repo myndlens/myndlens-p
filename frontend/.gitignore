@@ -42,7 +42,6 @@ app-example
 
 # CNG / Prebuild — expo doctor recommendation
 android/
-!android/app/build.gradle
 ios/
 
 # Remove npm lock (project uses yarn)
