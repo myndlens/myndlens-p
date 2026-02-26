@@ -1289,6 +1289,7 @@ const styles = StyleSheet.create({
   chatSendBtn:    { width: 40, height: 40, borderRadius: 20, backgroundColor: '#6C5CE7', alignItems: 'center', justifyContent: 'center' },
   chatSendIcon:   { color: '#fff', fontSize: 18, fontWeight: '700' },
   thinkingText: { color: '#6C5CE7', fontSize: 28, letterSpacing: 4 },
+  thinkingRow: { alignItems: 'center' as const, paddingVertical: 8 },
   resultBubble: { backgroundColor: '#0D2B1A', borderRadius: 12, padding: 12, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#00D68F' },
   resultLabel:  { color: '#00D68F', fontSize: 11, fontWeight: '700', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
   resultText:   { color: '#C0E0D0', fontSize: 14, lineHeight: 20 },

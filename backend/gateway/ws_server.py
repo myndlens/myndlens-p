@@ -614,7 +614,7 @@ async def _handle_execute_request(
                     dim_lines.append(f"  {action.get('action','')}: {dims}")
             task = (
                 f"{full_mandate.get('mandate_summary', top.hypothesis)}"
-                + (f"\nActions:\n" + "\n".join(dim_lines) if dim_lines else "")
+                + ("\nActions:\n" + "\n".join(dim_lines) if dim_lines else "")
             )
         else:
             task = top.hypothesis
