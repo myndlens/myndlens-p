@@ -212,25 +212,24 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
   async function runBuild() {
     console.log('[DS:runBuild] START');
+    // Load user preferences (delegation_mode, ds_paused, data_residency)
+    let prefs: any = {};
     try {
-      // Load user preferences (delegation_mode, ds_paused, data_residency)
-      let prefs: any = {};
-      try {
-        const { loadSettings } = require('../state/settings-prefs');
-        prefs = await loadSettings();
-        console.log('[DS:runBuild] prefs loaded, ds_paused=', prefs?.ds_paused);
-      } catch (e: any) {
-        console.log('[DS:runBuild] loadSettings failed (non-fatal):', e?.message);
-      }
+      const { loadSettings } = require('../state/settings-prefs');
+      prefs = await loadSettings();
+      console.log('[DS:runBuild] prefs loaded, ds_paused=', prefs?.ds_paused);
+    } catch (e: any) {
+      console.log('[DS:runBuild] loadSettings failed (non-fatal):', e?.message);
+    }
 
-      // Respect the Pause DS preference — if the user paused DS, skip all stages
-      if (prefs.ds_paused) {
-        console.log('[DS:runBuild] DS paused — skipping all stages');
-        setResult({ contacts: 0, calendar: 0, callLogs: 0 });
-        setPhase('done');
-        return;
-      }
-      setPhase('building');
+    // Respect the Pause DS preference — if the user paused DS, skip all stages
+    if (prefs.ds_paused) {
+      console.log('[DS:runBuild] DS paused — skipping all stages');
+      setResult({ contacts: 0, calendar: 0, callLogs: 0 });
+      setPhase('done');
+      return;
+    }
+    setPhase('building');
     const totalStages = STAGES.filter(s => {
 
       if (s.optional && !includeEmail) return false;
