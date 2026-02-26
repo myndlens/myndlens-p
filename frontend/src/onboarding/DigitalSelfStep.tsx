@@ -211,27 +211,26 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   }, [phase]);
 
   async function runBuild() {
-    // Load user preferences (delegation_mode, ds_paused, data_residency)
-    let prefs: any = {};
+    console.log('[DS:runBuild] START');
     try {
-      const { loadSettings } = require('../state/settings-prefs');
-      prefs = await loadSettings();
-    } catch { /* defaults to empty — ds_paused=false, data_residency=on_device */ }
+      // Load user preferences (delegation_mode, ds_paused, data_residency)
+      let prefs: any = {};
+      try {
+        const { loadSettings } = require('../state/settings-prefs');
+        prefs = await loadSettings();
+        console.log('[DS:runBuild] prefs loaded, ds_paused=', prefs?.ds_paused);
+      } catch (e: any) {
+        console.log('[DS:runBuild] loadSettings failed (non-fatal):', e?.message);
+      }
 
-    // Respect the Pause DS preference — if the user paused DS, do not ingest
-    if (prefs.ds_paused) {
-      advance('contacts', 'skipped');
-      advance('calendar', 'skipped');
-      advance('sms', 'skipped');
-      advance('email', 'skipped');
-      advance('graph', 'skipped');
-      advance('embeddings', 'skipped');
-      advance('encrypt', 'skipped');
-      setResult({ contacts: 0, calendar: 0, callLogs: 0 });
-      setPhase('done');
-      return;
-    }
-    setPhase('building');
+      // Respect the Pause DS preference — if the user paused DS, skip all stages
+      if (prefs.ds_paused) {
+        console.log('[DS:runBuild] DS paused — skipping all stages');
+        setResult({ contacts: 0, calendar: 0, callLogs: 0 });
+        setPhase('done');
+        return;
+      }
+      setPhase('building');
     const totalStages = STAGES.filter(s => {
 
       if (s.optional && !includeEmail) return false;
@@ -425,8 +424,9 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       } catch (err) {
         console.log('[DS] Initial sync failed (non-fatal):', err);
       }
-    } catch (err) {
+    } catch (err: any) {
       // Non-fatal — show partial result
+      console.error('[DS:runBuild] FATAL ERROR:', err?.message, err?.stack);
       setResult({ contacts: 0, calendar: 0, callLogs: 0 });
       setPhase('done');
     }
