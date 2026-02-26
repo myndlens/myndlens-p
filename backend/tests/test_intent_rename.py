@@ -20,7 +20,7 @@ from pathlib import Path
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://android-build-dev.preview.emergentagent.com"
+    BASE_URL = "https://openclaw-tenant.preview.emergentagent.com"
 
 
 @pytest.fixture(scope="module")

@@ -898,6 +898,7 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
                 else:
                     await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
                         text=neg_prompt, session_id=session_id, format="text", is_mock=True,
+                        is_clarification=True, auto_record=True,
                     ))
                 logger.info("[CLARIFICATION:PERMISSION] session=%s DECLINED", session_id)
             return
@@ -1237,11 +1238,13 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
                             "audio": base64.b64encode(tts_result.audio_bytes).decode("ascii"),
                             "audio_size_bytes": len(tts_result.audio_bytes),
                             "is_clarification": True,
+                            "auto_record": True,    # mic MUST open after question
                         }
                         await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, tts_payload))
                     else:
                         await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                            text=q.question, session_id=session_id, format="text", is_mock=True,
+                            text=q.question, session_id=session_id, format="text",
+                            is_mock=True, is_clarification=True, auto_record=True,
                         ))
                     logger.info("[MANDATE:2.5:DIM_Q] session=%s ASKED: '%s' (attempt %d, missing=%d)",
                                 session_id, q.question, dim_attempt + 1, mq_batch.total_missing)

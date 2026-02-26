@@ -212,6 +212,7 @@ export default function TalkScreen() {
   const pipelineStageIndexRef = useRef<number>(-1);
   const pendingDraftIdRef = useRef<string | null>(null);
   const recordingStartedAt = useRef<number>(0);  // track when recording began
+  const micBusy = useRef(false);  // prevent re-entry into handleMic during TTS greeting
   // Keep refs in sync with state for AppState closure access
   useEffect(() => { completedStagesRef.current = completedStages; }, [completedStages]);
   useEffect(() => { pipelineStageIndexRef.current = pipelineStageIndex; }, [pipelineStageIndex]);
@@ -513,12 +514,18 @@ export default function TalkScreen() {
               recordingStartedAt.current = Date.now();
               await startRecording(
                 async () => {
+                  // Duration guard: ignore VAD triggers < 1s (noise/echo)
+                  const dur = Date.now() - recordingStartedAt.current;
+                  if (dur < 1000) {
+                    console.log('[Talk] Auto-record VAD noise ignored (< 1s), continuing');
+                    return;
+                  }
                   const audioBase64r = await stopAndGetAudio();
                   const sid2 = wsClient.currentSessionId;
                   if (audioBase64r && sid2) {
                     wsClient.send('audio_chunk', {
                       session_id: sid2, audio: audioBase64r,
-                      seq: 1, timestamp: Date.now(), duration_ms: 0,
+                      seq: 1, timestamp: Date.now(), duration_ms: dur,
                     });
                     wsClient.send('cancel', { session_id: sid2, reason: 'vad_end_of_utterance' });
                     transition('COMMITTING');
@@ -611,6 +618,12 @@ export default function TalkScreen() {
 
   // ---- MIC: Start/Stop voice conversation ----
   async function handleMic() {
+    // Guard: prevent double-tap from entering this function twice while
+    // the TTS greeting is playing (which causes empty intent processing).
+    if (micBusy.current && audioStateRef.current !== 'CAPTURING' && audioStateRef.current !== 'LISTENING') {
+      console.log('[Talk] handleMic blocked — mic is busy (greeting/setup in progress)');
+      return;
+    }
     const isBargeIn = audioState === 'RESPONDING';
     if (isBargeIn) {
       // Barge-in: user tapped while TTS was playing — stop it and start recording
@@ -638,6 +651,7 @@ export default function TalkScreen() {
       setPipelineStageIndex(-1);
       setPipelineSubStatus('');
       setPipelineProgress(0);
+      micBusy.current = true;  // lock: prevent double-tap during greeting
       transition('LISTENING');
       transition('CAPTURING');
 
@@ -650,18 +664,28 @@ export default function TalkScreen() {
         : "What's on your mind?";
       await TTS.speak(greeting);
       await new Promise(r => setTimeout(r, 400));
+      micBusy.current = false;  // unlock: greeting done, recording about to start
       recordingStartedAt.current = Date.now();
 
       await startRecording(
         async () => {
           // VAD auto-stop: user finished speaking
-          console.log('[Talk] VAD triggered auto-stop');
+          const duration = Date.now() - recordingStartedAt.current;
+          if (duration < 1000) {
+            // Too short — likely background noise or TTS echo triggering VAD.
+            // Do NOT submit. Silently discard and stay in CAPTURING so the
+            // real speech can be captured. If the user genuinely spoke < 1s,
+            // they can tap the mic button to submit manually.
+            console.log('[Talk] VAD noise trigger ignored (< 1s), continuing to record');
+            return;
+          }
+          console.log('[Talk] VAD triggered auto-stop (duration=' + duration + 'ms)');
           const audioBase64 = await stopAndGetAudio();
-          const sid = wsClient.currentSessionId;  // read live, not from stale closure
+          const sid = wsClient.currentSessionId;
           if (audioBase64 && sid) {
             wsClient.send('audio_chunk', {
               session_id: sid, audio: audioBase64,
-              seq: 1, timestamp: Date.now(), duration_ms: 0,
+              seq: 1, timestamp: Date.now(), duration_ms: duration,
             });
             wsClient.send('cancel', { session_id: sid, reason: 'vad_end_of_utterance' });
             transition('COMMITTING');
@@ -674,11 +698,11 @@ export default function TalkScreen() {
         (rms: number) => setLiveEnergy(rms),
       );
     } else if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
-      // If user taps again within 1.5s of recording start → they're cancelling,
-      // not submitting. Treat as cancel to avoid sending garbage audio to backend.
+      // Guard: if recording hasn't actually started yet (recordingStartedAt is 0 or very old),
+      // treat as cancel — don't try to submit non-existent audio.
       const recordingAge = Date.now() - recordingStartedAt.current;
-      if (recordingAge < 1500) {
-        console.log('[Talk] Recording cancelled (< 1.5s) — resetting to IDLE');
+      if (recordingStartedAt.current === 0 || recordingAge < 1500) {
+        console.log('[Talk] Recording cancelled (not started or < 1.5s) — resetting to IDLE');
         await stopRecording().catch(() => {});
         transition('IDLE');
         return;

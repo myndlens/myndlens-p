@@ -4,7 +4,7 @@ import requests
 import json
 from datetime import datetime, timezone, timedelta
 
-BASE_URL = "https://android-build-dev.preview.emergentagent.com/api"
+BASE_URL = "https://openclaw-tenant.preview.emergentagent.com/api"
 
 def final_validation():
     print("🔐 FINAL MIO SYSTEM VALIDATION - ALL CRITICAL GATES")

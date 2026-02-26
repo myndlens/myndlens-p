@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Test Configuration
-BASE_URL = "https://android-build-dev.preview.emergentagent.com"
+BASE_URL = "https://openclaw-tenant.preview.emergentagent.com"
 API_BASE = f"{BASE_URL}/api"
 S2S_TOKEN = "obegee-s2s-dev-token-CHANGE-IN-PROD"
 S2S_HEADERS = {"X-OBEGEE-S2S-TOKEN": S2S_TOKEN}

@@ -13,7 +13,7 @@ import websocket
 import threading
 
 # Backend URL
-BACKEND_URL = "https://android-build-dev.preview.emergentagent.com"
+BACKEND_URL = "https://openclaw-tenant.preview.emergentagent.com"
 
 def create_wav_chunks():
     """Create 8 audio chunks with actual WAV data"""

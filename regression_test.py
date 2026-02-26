@@ -9,7 +9,7 @@ import json
 import sys
 
 # Backend URL from environment
-BACKEND_URL = "https://android-build-dev.preview.emergentagent.com"
+BACKEND_URL = "https://openclaw-tenant.preview.emergentagent.com"
 
 def test_quick_regression():
     """Run quick regression test of critical endpoints"""

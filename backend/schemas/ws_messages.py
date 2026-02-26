@@ -142,6 +142,8 @@ class TTSAudioPayload(BaseModel):
     session_id: str
     format: str = "text"  # "text" (local TTS) | "audio" (binary stream)
     is_mock: bool = False
+    auto_record: bool = False    # True = mic opens automatically after TTS completes
+    is_clarification: bool = False  # True = this is a clarification question
 
 
 class ExecuteBlockedPayload(BaseModel):
