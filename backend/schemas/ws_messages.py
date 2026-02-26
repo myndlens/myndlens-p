@@ -60,6 +60,11 @@ class AuthPayload(BaseModel):
     token: str
     device_id: str
     client_version: str = "1.0.0"
+    # User preferences sent at auth-time so the backend can enforce them server-side.
+    # The app sends the current prefs object when opening the WS session.
+    delegation_mode: str = "assisted"   # advisory | assisted | delegated
+    ds_paused: bool = False             # Pause Digital Self signal ingestion
+    data_residency: str = "on_device"  # on_device | cloud_backup
 
 
 class HeartbeatPayload(BaseModel):

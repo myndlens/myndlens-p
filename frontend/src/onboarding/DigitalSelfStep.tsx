@@ -208,6 +208,19 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   }, [phase]);
 
   async function runBuild() {
+    // Respect the Pause DS preference — if the user paused DS, do not ingest
+    if (prefs.ds_paused) {
+      advance('contacts', 'skipped');
+      advance('calendar', 'skipped');
+      advance('sms', 'skipped');
+      advance('email', 'skipped');
+      advance('graph', 'skipped');
+      advance('embeddings', 'skipped');
+      advance('encrypt', 'skipped');
+      setResult({ contacts: 0, calendar: 0, callLogs: 0 });
+      setPhase('done');
+      return;
+    }
     setPhase('building');
     const totalStages = STAGES.filter(s => {
 
@@ -335,7 +348,23 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       setResult(importResult);
       setCurrentStageLabel('');
 
-      // Mark DS setup as completed — regardless of how many nodes were imported.
+        // Sync PKG to backend only if data_residency allows cloud backup.
+        // on_device = data stays encrypted on device only (default, respects user privacy).
+        // cloud_backup = sync to MyndLens backend for cross-device continuity.
+        const dataResidency = prefs?.data_residency || 'on_device';
+        if (dataResidency !== 'on_device') {
+          try {
+            const { syncPKGToBackend } = require('../digital-self/sync');
+            const { getItem: getUid } = require('../../src/utils/storage');
+            const uid2 = (await getUid('myndlens_user_id')) ?? 'local';
+            await syncPKGToBackend(uid2, true);
+            console.log('[DS] PKG synced to backend (data_residency=' + dataResidency + ')');
+          } catch (syncErr) {
+            console.log('[DS] Backend sync failed (non-fatal):', syncErr);
+          }
+        } else {
+          console.log('[DS] PKG sync skipped — data_residency=on_device');
+        }
       // The talk screen uses this flag to decide whether to show the setup modal.
       // A device with no contacts still counts as "set up" — the user went through it.
       try {

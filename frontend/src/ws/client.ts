@@ -93,11 +93,15 @@ export class MyndLensWSClient {
           console.log('[WS] Connected, sending AUTH');
           this._isConnected = true;
 
-          // Send AUTH message
+          // Send AUTH message with user prefs so backend can enforce them server-side
+          const prefs = await import('../state/settings-prefs').then(m => m.loadSettings()).catch(() => ({})) as any;
           this.send('auth', {
             token,
             device_id: deviceId,
             client_version: '1.0.0',
+            delegation_mode: prefs?.delegation_mode || 'assisted',
+            ds_paused:       prefs?.ds_paused ?? false,
+            data_residency:  prefs?.data_residency || 'on_device',
           });
         };
 

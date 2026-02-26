@@ -322,13 +322,15 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
         session_id = session.session_id
         active_connections[session_id] = websocket
 
-        # Store per-session auth context for use in audio_chunk handler
-        # (needed by permission grant → execute_request path)
+        # Store per-session auth context + user prefs for mandate enforcement
         _session_auth[session_id] = {
             "subscription_status": subscription_status,
             "tenant_id":           sso_claims.myndlens_tenant_id if sso_claims else "",
             "auth_token":          auth_payload.token,
             "user_id":             user_id_resolved or "",
+            "delegation_mode":     auth_payload.delegation_mode,
+            "ds_paused":           auth_payload.ds_paused,
+            "data_residency":      auth_payload.data_residency,
         }
 
         # Send AUTH_OK
@@ -1260,14 +1262,28 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         data = _make_envelope(WSMessageType.DRAFT_UPDATE, draft_payload)
         await ws.send_text(data)
 
-    # ── STEP 5: TTS synthesis ────────────────────────────────────────────────
+    # ── STEP 5: TTS synthesis + Delegation Mode enforcement ─────────────────
     logger.info("[MANDATE:5:TTS] session=%s synthesizing text='%s'", session_id, response_text[:60])
     tts = get_tts_provider()
     result = await tts.synthesize(response_text)
 
-    # needs_approval: mandate summary requires user to say Yes/No
-    # auto_record ensures mic starts automatically after TTS — no tap needed
-    needs_approval = "shall i proceed" in response_text.lower() or "i understand" in response_text.lower()
+    # Delegation Mode enforcement:
+    #   advisory   → ALWAYS ask for approval ("shall i proceed?")
+    #   assisted   → ask when mandate confidence < threshold (current behaviour)
+    #   delegated  → auto-execute, NEVER ask for approval
+    delegation_mode = (_session_auth.get(session_id) or {}).get("delegation_mode", "assisted")
+
+    if delegation_mode == "delegated":
+        # Delegated: auto-approve — execute immediately without user confirmation
+        needs_approval = False
+        logger.info("[MANDATE:5:DELEGATION] session=%s mode=delegated → auto-approving", session_id)
+    elif delegation_mode == "advisory":
+        # Advisory: always ask — user must confirm every mandate
+        needs_approval = True
+        logger.info("[MANDATE:5:DELEGATION] session=%s mode=advisory → always require approval", session_id)
+    else:
+        # Assisted (default): ask only when mandate text requests it
+        needs_approval = "shall i proceed" in response_text.lower() or "i understand" in response_text.lower()
 
     # CRITICAL: if this TTS is asking for approval, set clarification state to
     # "permission" BEFORE sending the audio. This ensures the next voice input
