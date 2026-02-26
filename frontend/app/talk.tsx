@@ -501,13 +501,16 @@ export default function TalkScreen() {
           // Auto-start recording after mandate summary ("Shall I proceed?")
           // Skip greeting — user is in context, they know to say Yes/No directly
           if (autoRecord) {
+            // 800ms delay — gives the TTS audio (including room reverb) time to fully
+            // decay before the mic opens. 400ms was too short: the recorder picked up
+            // TTS echo and sent empty/junk audio to STT → backend got "" → silent return
+            // → frontend stuck in THINKING forever.
             setTimeout(async () => {
               const sid = wsClient.currentSessionId;
               if (!sid) return;
               transition('LISTENING');
               transition('CAPTURING');
               recordingStartedAt.current = Date.now();
-              // Start recording WITHOUT greeting — user is answering a direct question
               await startRecording(
                 async () => {
                   const audioBase64r = await stopAndGetAudio();
@@ -526,7 +529,7 @@ export default function TalkScreen() {
                 },
                 (rms: number) => setLiveEnergy(rms),
               );
-            }, 400);
+            }, 800);
           }
         };
         // Play real ElevenLabs audio if available, else fall back to device TTS

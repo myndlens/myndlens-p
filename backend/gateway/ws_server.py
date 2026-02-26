@@ -796,7 +796,37 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
     """Handle text input as an alternative to voice (STT fallback)."""
     text = payload.get("text", "").strip()
     context_capsule = payload.get("context_capsule")  # on-device Digital Self PKG context
+
     if not text:
+        # Empty transcript — STT returned nothing (short audio, noise, TTS echo).
+        # Send a recovery TTS so the frontend exits THINKING state and the user
+        # knows to try again. If a clarification is pending, re-ask the question.
+        clarify = _clarification_state.get(session_id)
+        if clarify and clarify.get("pending") and clarify.get("question_asked"):
+            # Re-ask the pending clarification — user hasn't answered yet
+            tts = get_tts_provider()
+            result = await tts.synthesize(clarify["question_asked"])
+            if result.audio_bytes and not result.is_mock:
+                import base64
+                await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, {
+                    "text": clarify["question_asked"], "session_id": session_id,
+                    "format": "mp3", "is_mock": False, "auto_record": True,
+                    "audio": base64.b64encode(result.audio_bytes).decode("ascii"),
+                    "audio_size_bytes": len(result.audio_bytes),
+                }))
+            else:
+                await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, {
+                    "text": clarify["question_asked"], "session_id": session_id,
+                    "format": "text", "is_mock": True, "auto_record": True,
+                }))
+        else:
+            # No pending clarification — generic "try again" recovery
+            recovery = "I didn't catch that. Could you try again?"
+            await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, {
+                "text": recovery, "session_id": session_id,
+                "format": "text", "is_mock": True, "auto_record": True,
+            }))
+        logger.info("[STT_EMPTY] session=%s — sent recovery prompt", session_id)
         return
     # Guard: reject oversized inputs (prevents DoS through LLM/TTS cost)
     if len(text) > 2000:
