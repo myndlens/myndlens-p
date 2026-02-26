@@ -245,20 +245,10 @@ export default function TalkScreen() {
   const appInBackground = useRef(false);
   useFocusEffect(useCallback(() => {
     isScreenFocused.current = true;
-    // Reset the floating chat bubble to its default position (bottom:120, right:20).
-    // Navigating to Edit Profile and back accumulates pan offsets via extractOffset(),
-    // causing the FAB to drift onto other UI elements.
-    chatPanX.setOffset(0);
-    chatPanX.setValue(0);
-    chatPanY.setOffset(0);
-    chatPanY.setValue(0);
     return () => { isScreenFocused.current = false; };
   }, []));
   const chatBubbleAnim = useRef(new Animated.Value(1)).current;
   const chatSlideAnim = useRef(new Animated.Value(0)).current;
-  // chatPanX/chatPanY kept only for useFocusEffect reset — FAB removed, no longer used for drag.
-  const chatPanX = useRef(new Animated.Value(0)).current;
-  const chatPanY = useRef(new Animated.Value(0)).current;
   const micAnim = useRef(new Animated.Value(1)).current;
   const waveAnims = useRef([
     new Animated.Value(4),
