@@ -71,6 +71,87 @@ _session_auth: Dict[str, dict] = {}
 # Without this, determine_skills() and OC only see the hypothesis summary string.
 _pending_mandates: Dict[str, dict] = {}
 
+
+# ── Intent → Result Schema mapping (C5) ─────────────────────────────────────
+# Each intent category maps to a result_type and the JSON fields OC must return.
+# AGENTS.md is generated from this at mandate time — OC returns structured JSON.
+_INTENT_SCHEMAS: Dict[str, dict] = {
+    "Software Development":  {"result_type": "code_execution",
+        "fields": '  "language": "python|js|bash",\n  "code": "the full source code",\n  "output": "stdout from running the code",\n  "success": true,\n  "error": null'},
+    "Data Analysis":         {"result_type": "data_report",
+        "fields": '  "summary": "one-sentence finding",\n  "insights": ["key insight 1", "..."],\n  "data": {}'},
+    "Travel Concierge":      {"result_type": "travel_itinerary",
+        "fields": '  "legs": [{"from":"","to":"","date":"","carrier":"","ref":""}],\n  "hotels": [{"name":"","checkin":"","checkout":"","ref":""}],\n  "total_cost": "",\n  "currency": ""'},
+    "Content Creation":      {"result_type": "creative_output",
+        "fields": '  "content_type": "song|video|image|poster|text",\n  "title": "...",\n  "content": "the created content",\n  "url": null,\n  "thumbnail": null'},
+    "Financial Operations":  {"result_type": "transaction",
+        "fields": '  "action": "payment|transfer|subscription|cancellation",\n  "amount": 0,\n  "currency": "GBP",\n  "status": "completed|pending|failed",\n  "reference": ""'},
+    "Customer Success":      {"result_type": "support_action",
+        "fields": '  "action_taken": "...",\n  "outcome": "resolved|escalated|pending",\n  "reference": ""'},
+    "Event Planning":        {"result_type": "event_plan",
+        "fields": '  "event": "...",\n  "date": "...",\n  "venue": "...",\n  "attendees": [],\n  "schedule": []'},
+    "Weekly Planning":       {"result_type": "schedule",
+        "fields": '  "period": "week of ...",\n  "items": [{"time":"","task":"","priority":""}]'},
+    "Vendor Management":     {"result_type": "vendor_action",
+        "fields": '  "vendor": "...",\n  "action": "...",\n  "outcome": "...",\n  "reference": ""'},
+    "Conflict Resolution":   {"result_type": "resolution",
+        "fields": '  "parties": [],\n  "resolution": "...",\n  "next_steps": []'},
+    "Automation Setup":      {"result_type": "automation",
+        "fields": '  "automation_name": "...",\n  "trigger": "...",\n  "actions": [],\n  "status": "created|updated"'},
+}
+_DEFAULT_SCHEMA = {"result_type": "generic",
+    "fields": '  "summary": "concise summary of what was done",\n  "details": "full details or output"'}
+
+
+def _build_agents_md(intent: str, task: str, skill_name: str, dimensions: dict) -> str:
+    """Generate mandate-specific AGENTS.md — the output format contract for OC.
+
+    This is written to the agent's workspace before every execution.
+    It tells OC:
+      1. What task to complete
+      2. Which installed skill to invoke (from ~/.openclaw/skills/)
+      3. Exactly what JSON structure to return
+
+    OC injects AGENTS.md into the agent context at session start, making
+    its behaviour deterministic for this specific mandate.
+    """
+    schema = _INTENT_SCHEMAS.get(intent, _DEFAULT_SCHEMA)
+    result_type = schema["result_type"]
+    fields = schema["fields"]
+
+    # Build constraint lines from dimensions
+    constraint_lines = ""
+    if dimensions:
+        constraints = []
+        for k, v in dimensions.items():
+            val = v.get("value", v) if isinstance(v, dict) else v
+            if val and val not in ("missing", "unknown", ""):
+                constraints.append(f"- {k}: {val}")
+        if constraints:
+            constraint_lines = "\n## Constraints\n" + "\n".join(constraints[:8])
+
+    skill_section = f"\n## Skill to invoke\nUse the `{skill_name}` skill." if skill_name else ""
+
+    return f"""# Mandate Operating Instructions
+
+## Task
+{task}
+{skill_section}
+
+## Output Contract
+You MUST return ONLY a JSON object as your final response. No prose, no explanation before or after the JSON.
+
+```json
+{{
+  "result_type": "{result_type}",
+{fields}
+}}
+```
+
+If a required value is unavailable, use `null`. If an action fails, include `"error": "<reason>"` in the object.
+{constraint_lines}
+"""
+
 # Per-session DS resolve events — pipeline holds here waiting for device to
 # return readable text for vector-matched node IDs (ds_resolve / ds_context flow)
 _ds_resolve_events: Dict[str, asyncio.Event] = {}
@@ -510,8 +591,6 @@ async def _handle_execute_request(
 
         # ── Dispatch ───────────────────────────────────────────────────────────
         # Detect "display in chat" — only explicit phrases, not single common words.
-        # Single-word matching ("show","write","text","print") causes false positives
-        # on nearly every mandate ("Show me flights", "Write an email", etc.)
         DISPLAY_IN_CHAT_PHRASES = {
             "display in chat", "show in chat", "show me in chat",
             "put it in chat", "put in chat", "show on screen", "display on screen",
@@ -520,7 +599,7 @@ async def _handle_execute_request(
         display_in_chat = any(phrase in transcript_lower for phrase in DISPLAY_IN_CHAT_PHRASES)
         delivery_channels = ["in_app", "chat_display"] if display_in_chat else ["in_app"]
 
-        # Build a rich task description from dimensions — OC needs more than the summary
+        # Build task string from dimensions
         if full_mandate and full_mandate.get("actions"):
             dim_lines = []
             for action in full_mandate["actions"][:5]:
@@ -538,6 +617,24 @@ async def _handle_execute_request(
         else:
             task = top.hypothesis
 
+        # C5: Build AGENTS.md — the output format contract for OC
+        # This tells OC exactly which JSON schema to return for this intent.
+        # Written by the channel service into the agent workspace before execution.
+        primary_skill = skill_names[0] if skill_names else ""
+        agents_md = _build_agents_md(
+            intent=top.intent,
+            task=task,
+            skill_name=primary_skill,
+            dimensions=full_mandate.get("actions", [{}])[0].get("dimensions", {}) if full_mandate else {},
+        )
+
+        # C3: Include skill status hint for channel service
+        # agents[0].agents_md carries the AGENTS.md content to write
+        agents_payload = [{
+            "id":        f"myndlens-{req.draft_id[:8]}",
+            "agents_md": agents_md,
+        }] if agents_md else []
+
         mandate = {
             "mandate_id": req.draft_id,
             "tenant_id": tenant_id,
@@ -546,6 +643,7 @@ async def _handle_execute_request(
             "intent_raw": draft.transcript,
             "skill_plan": skill_plan.get("skill_plan", []),
             "execution_strategy": skill_plan.get("execution_strategy", "sequential"),
+            "agents": agents_payload,
             "approved_at": datetime.now(timezone.utc).isoformat(),
             "approved_by": user_id,
             "delivery_channels": delivery_channels,

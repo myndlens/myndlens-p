@@ -282,6 +282,9 @@ class DeliveryWebhookPayload(BaseModel):
     status: str
     delivered_to: List[str] = []
     summary: str = ""
+    intent: Optional[str] = None            # e.g. "Software Development"
+    result_type: Optional[str] = None       # e.g. "code_execution", "travel_itinerary"
+    structured_result: Optional[dict] = None  # parsed JSON from OC
     completed_at: Optional[str] = None
     error: Optional[str] = None
 
@@ -318,13 +321,16 @@ async def delivery_webhook(
         execution_id=payload.execution_id,
         message_type="pipeline_stage",
         payload={
-            "stage_id": "delivered" if payload.status == "COMPLETED" else "executing",
-            "stage_index": stage_index,
-            "total_stages": 10,
-            "status": "done" if payload.status == "COMPLETED" else "active",
-            "summary": payload.summary,
-            "sub_status": payload.summary[:120] if payload.summary else "",
-            "delivered_to": payload.delivered_to,
+            "stage_id":         "delivered" if payload.status == "COMPLETED" else "executing",
+            "stage_index":      stage_index,
+            "total_stages":     10,
+            "status":           "done" if payload.status == "COMPLETED" else "active",
+            "summary":          payload.summary,
+            "sub_status":       payload.summary[:120] if payload.summary else "",
+            "intent":           payload.intent,
+            "result_type":      payload.result_type or "generic",
+            "structured_result": payload.structured_result,
+            "delivered_to":     payload.delivered_to,
         },
     )
 

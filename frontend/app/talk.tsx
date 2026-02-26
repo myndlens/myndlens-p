@@ -83,6 +83,111 @@ function getPipelineState(
 // Waveform bar height profile — centre bar tallest (module constant, not recreated per render)
 const WAVE_PROFILE = [0.55, 0.85, 1.0, 0.85, 0.55];
 
+// ── ResultCard — routes to correct card type based on result_type ─────────────
+const ResultCard = ({ msg }: { msg: { text: string; result_type?: string; structured?: Record<string, any> } }) => {
+  const s = msg.structured || {};
+  const rt = msg.result_type || 'generic';
+
+  switch (rt) {
+    case 'code_execution': {
+      const ok = s.success !== false;
+      return (
+        <View>
+          {s.code ? <Text style={cardStyles.codeBlock}>{s.code}</Text> : null}
+          <View style={[cardStyles.badge, { backgroundColor: ok ? '#00D68F22' : '#FF444422' }]}>
+            <Text style={{ color: ok ? '#00D68F' : '#FF6666', fontSize: 11, fontWeight: '700' }}>
+              {ok ? '✓ Success' : '✗ Failed'}
+            </Text>
+          </View>
+          {s.output ? <Text style={cardStyles.outputText}>{s.output}</Text> : null}
+          {s.error ? <Text style={cardStyles.errorText}>{s.error}</Text> : null}
+        </View>
+      );
+    }
+    case 'travel_itinerary': {
+      const legs: any[] = s.legs || [];
+      const hotels: any[] = s.hotels || [];
+      return (
+        <View style={{ gap: 6 }}>
+          {legs.map((l: any, i: number) => (
+            <View key={i} style={cardStyles.travelRow}>
+              <Text style={cardStyles.travelIcon}>✈️</Text>
+              <Text style={cardStyles.travelText}>{l.from} → {l.to}  {l.date || ''}  {l.carrier || ''}</Text>
+              {l.ref ? <Text style={cardStyles.refText}>{l.ref}</Text> : null}
+            </View>
+          ))}
+          {hotels.map((h: any, i: number) => (
+            <View key={i} style={cardStyles.travelRow}>
+              <Text style={cardStyles.travelIcon}>🏨</Text>
+              <Text style={cardStyles.travelText}>{h.name}  {h.checkin || ''} – {h.checkout || ''}</Text>
+              {h.ref ? <Text style={cardStyles.refText}>{h.ref}</Text> : null}
+            </View>
+          ))}
+          {s.total_cost ? <Text style={cardStyles.costText}>Total: {s.total_cost} {s.currency || ''}</Text> : null}
+        </View>
+      );
+    }
+    case 'transaction': {
+      const ok = s.status === 'completed';
+      return (
+        <View style={{ gap: 4 }}>
+          <Text style={cardStyles.txAction}>{s.action || 'Transaction'}</Text>
+          {s.amount ? <Text style={cardStyles.txAmount}>{s.currency || ''} {s.amount}</Text> : null}
+          <View style={[cardStyles.badge, { backgroundColor: ok ? '#00D68F22' : '#FF944422' }]}>
+            <Text style={{ color: ok ? '#00D68F' : '#FF9444', fontSize: 12, fontWeight: '600' }}>
+              {s.status || 'unknown'}
+            </Text>
+          </View>
+          {s.reference ? <Text style={cardStyles.refText}>Ref: {s.reference}</Text> : null}
+        </View>
+      );
+    }
+    case 'creative_output': {
+      return (
+        <View style={{ gap: 4 }}>
+          {s.title ? <Text style={cardStyles.creativeTitle}>{s.title}</Text> : null}
+          <Text style={cardStyles.creativeType}>{s.content_type || 'content'}</Text>
+          {s.content ? <Text style={cardStyles.creativeContent}>{s.content}</Text> : null}
+          {s.url ? <Text style={cardStyles.linkText}>{s.url}</Text> : null}
+        </View>
+      );
+    }
+    case 'data_report': {
+      const insights: string[] = s.insights || [];
+      return (
+        <View style={{ gap: 4 }}>
+          {s.summary ? <Text style={cardStyles.reportSummary}>{s.summary}</Text> : null}
+          {insights.map((ins: string, i: number) => (
+            <Text key={i} style={cardStyles.insightText}>• {ins}</Text>
+          ))}
+        </View>
+      );
+    }
+    default:
+      return <Text style={{ color: '#C0E0D0', fontSize: 14, lineHeight: 20 }}>{msg.text}</Text>;
+  }
+};
+
+const cardStyles = StyleSheet.create({
+  codeBlock:      { fontFamily: 'monospace', fontSize: 12, color: '#A8FF78', backgroundColor: '#0A1A0A', padding: 8, borderRadius: 6, marginBottom: 6 },
+  outputText:     { fontFamily: 'monospace', fontSize: 12, color: '#E0F0E0', marginTop: 4 },
+  errorText:      { fontFamily: 'monospace', fontSize: 12, color: '#FF8888', marginTop: 4 },
+  badge:          { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginVertical: 4 },
+  travelRow:      { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: '#1E2E1E' },
+  travelIcon:     { fontSize: 16 },
+  travelText:     { flex: 1, color: '#C0E0C0', fontSize: 13 },
+  refText:        { color: '#888', fontSize: 11 },
+  costText:       { color: '#00D68F', fontWeight: '700', fontSize: 14, marginTop: 6 },
+  txAction:       { color: '#E0D0E0', fontWeight: '600', fontSize: 15, textTransform: 'capitalize' },
+  txAmount:       { color: '#F0E0FF', fontSize: 22, fontWeight: '700' },
+  creativeTitle:  { color: '#FFD700', fontWeight: '700', fontSize: 15 },
+  creativeType:   { color: '#888', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 },
+  creativeContent:{ color: '#D0D0E0', fontSize: 13, lineHeight: 20 },
+  linkText:       { color: '#6C9CE7', fontSize: 12, textDecorationLine: 'underline' },
+  reportSummary:  { color: '#E0E0D0', fontWeight: '600', fontSize: 14, marginBottom: 4 },
+  insightText:    { color: '#C8D0C0', fontSize: 13, lineHeight: 19 },
+});
+
 export default function TalkScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -116,7 +221,13 @@ export default function TalkScreen() {
   const [userNickname, setUserNickname] = useState('');
   const [waNotPaired, setWaNotPaired]   = useState(false);  // nudge for users who haven't paired WA
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = React.useState<Array<{role:'user'|'assistant'|'result', text:string, ts:number}>>([]);
+  const [chatMessages, setChatMessages] = React.useState<Array<{
+    role: 'user' | 'assistant' | 'result';
+    text: string;
+    result_type?: string;
+    structured?: Record<string, any>;
+    ts: number;
+  }>>([]);
   const chatScrollRef = React.useRef<any>(null);
   const openChat = () => {
     setChatOpen(true);
@@ -489,17 +600,23 @@ export default function TalkScreen() {
         const status = env.payload.status || 'active';
         const deliveredTo: string[] = env.payload.delivered_to || [];
         const displayInChat = deliveredTo.includes('chat_display') || deliveredTo.includes('chat');
+        const resultType: string = env.payload.result_type || 'generic';
+        const structured = env.payload.structured_result || null;
 
         if (status === 'done' && idx >= 0 && idx < PIPELINE_STAGES.length) {
           const label = PIPELINE_STAGES[idx].label;
           setCompletedStages(prev => prev.includes(label) ? prev : [...prev, label]);
-          // Stage 9 = results delivered — add to chat history
           if (idx >= 9 && sub) {
             setPipelineSubStatus(sub.substring(0, 200));
-            setChatMessages(prev => [...prev, { role: 'result', text: sub, ts: Date.now() }]);
+            setChatMessages(prev => [...prev, {
+              role: 'result',
+              text: sub,
+              result_type: resultType,
+              structured: structured || undefined,
+              ts: Date.now(),
+            }]);
             setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
-            // Auto-open chat if user asked to "display in chat"
-            if (displayInChat) { setChatOpen(true); }
+            if (displayInChat) setChatOpen(true);
           }
         } else if (status === 'active') {
           setPipelineStageIndex(idx);
@@ -951,13 +1068,21 @@ export default function TalkScreen() {
                   </Text>
                 ) : (
                   chatMessages.map((msg, i) => (
-                    <View key={i} style={msg.role === 'user' ? styles.userBubble : msg.role === 'result' ? styles.resultBubble : styles.assistantBubble}>
-                      <Text style={msg.role === 'user' ? styles.userLabel : msg.role === 'result' ? styles.resultLabel : styles.assistantLabel}>
-                        {msg.role === 'user' ? 'You' : msg.role === 'result' ? 'Result' : 'MyndLens'}
+                    <View key={i} style={
+                      msg.role === 'user'      ? styles.userBubble :
+                      msg.role === 'assistant' ? styles.assistantBubble :
+                      styles.resultBubble
+                    }>
+                      <Text style={
+                        msg.role === 'user'      ? styles.userLabel :
+                        msg.role === 'assistant' ? styles.assistantLabel :
+                        styles.resultLabel
+                      }>
+                        {msg.role === 'user' ? 'You' :
+                         msg.role === 'result' ? (msg.result_type === 'generic' ? 'Result' : msg.result_type!.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())) :
+                         'MyndLens'}
                       </Text>
-                      <Text style={msg.role === 'user' ? styles.userText : msg.role === 'result' ? styles.resultText : styles.assistantText}>
-                        {msg.text}
-                      </Text>
+                      <ResultCard msg={msg} />
                     </View>
                   ))
                 )}
