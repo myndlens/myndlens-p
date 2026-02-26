@@ -1006,7 +1006,7 @@ export default function TalkScreen() {
 
               {/* Header */}
               <View style={styles.chatModalHeader}>
-                <Text style={styles.chatModalTitle}>Conversation</Text>
+                <Text style={styles.chatModalTitle}>Chat Channel</Text>
                 <TouchableOpacity
                   onPress={() => closeChat()}
                   style={styles.chatCloseBtn}
@@ -1093,13 +1093,6 @@ export default function TalkScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Minimise tap area */}
-              <TouchableOpacity
-                style={styles.chatMinimiseBtn}
-                onPress={() => closeChat()}
-              >
-                <Text style={styles.chatMinimiseText}>Minimise  ↓</Text>
-              </TouchableOpacity>
             </Animated.View>
           </View>
         </Modal>
@@ -1256,13 +1249,6 @@ const styles = StyleSheet.create({
   resultBubble: { backgroundColor: '#0D2B1A', borderRadius: 12, padding: 12, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#00D68F' },
   resultLabel:  { color: '#00D68F', fontSize: 11, fontWeight: '700', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
   resultText:   { color: '#C0E0D0', fontSize: 14, lineHeight: 20 },
-
-  chatMinimiseBtn: {
-    alignItems: 'center', paddingVertical: 14,
-    borderTopWidth: 1, borderTopColor: '#131326',
-    backgroundColor: '#0A0A14',
-  },
-  chatMinimiseText: { color: '#333350', fontSize: 13, letterSpacing: 0.5 },
 
   // Siri-style waveform inside the mic button
   waveContainer: {
