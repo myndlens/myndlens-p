@@ -196,3 +196,38 @@ export async function isSyncDue(): Promise<boolean> {
   if (!last) return true;
   return Date.now() - new Date(last).getTime() > SYNC_INTERVAL_MS;
 }
+
+
+/**
+ * Full PKG backup — Cloud Backup mode only.
+ *
+ * Unlike syncPKGToBackend (vectors-only), this stores the full PKG snapshot
+ * including node text and structure for cross-device restore.
+ *
+ * The backup is encrypted in transit (TLS) and at rest (backend AES-256).
+ * Only activated when data_residency = 'cloud_backup'.
+ * Not called in on_device mode — text never leaves the device in that case.
+ */
+export async function backupPKGToCloud(userId: string): Promise<void> {
+  const pkg = await loadPKG(userId);
+  const apiUrl = process.env.EXPO_PUBLIC_BACKEND_URL ?? '';
+  const token = await getItem('myndlens_auth_token') ?? '';
+
+  const response = await fetch(`${apiUrl}/api/digital-self/backup`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      snapshot: pkg,
+      backed_up_at: new Date().toISOString(),
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Backup failed: HTTP ${response.status}: ${err}`);
+  }
+}

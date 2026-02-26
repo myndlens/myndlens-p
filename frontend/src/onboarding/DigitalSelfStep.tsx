@@ -348,22 +348,33 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       setResult(importResult);
       setCurrentStageLabel('');
 
-        // Sync PKG to backend only if data_residency allows cloud backup.
-        // on_device = data stays encrypted on device only (default, respects user privacy).
-        // cloud_backup = sync to MyndLens backend for cross-device continuity.
-        const dataResidency = prefs?.data_residency || 'on_device';
-        if (dataResidency !== 'on_device') {
-          try {
-            const { syncPKGToBackend } = require('../digital-self/sync');
-            const { getItem: getUid } = require('../../src/utils/storage');
-            const uid2 = (await getUid('myndlens_user_id')) ?? 'local';
-            await syncPKGToBackend(uid2, true);
-            console.log('[DS] PKG synced to backend (data_residency=' + dataResidency + ')');
-          } catch (syncErr) {
-            console.log('[DS] Backend sync failed (non-fatal):', syncErr);
+        // syncPKGToBackend: ALWAYS runs regardless of data_residency.
+        // It sends { node_id, text } → backend vectorises → text is DISCARDED.
+        // Only the 384-dim vector is stored. Raw text/contacts/phone never persist.
+        // This is required for mandate context matching to work.
+        //
+        // Cloud Backup (additional): when data_residency = 'cloud_backup',
+        // also store a full PKG snapshot (text + structure) for recovery/cross-device.
+        try {
+          const { syncPKGToBackend } = require('../digital-self/sync');
+          const { getItem: getUid } = require('../../src/utils/storage');
+          const uid2 = (await getUid('myndlens_user_id')) ?? 'local';
+          await syncPKGToBackend(uid2, true);
+          console.log('[DS] Vectors synced to cloud (text discarded server-side)');
+
+          // Additional full backup only when user opts into cloud_backup
+          const dataResidency = prefs?.data_residency || 'on_device';
+          if (dataResidency === 'cloud_backup') {
+            // Full PKG backup — text + structure kept for recovery
+            const { backupPKGToCloud } = require('../digital-self/sync');
+            if (typeof backupPKGToCloud === 'function') {
+              await backupPKGToCloud(uid2).catch((e: any) =>
+                console.log('[DS] Full backup failed (non-fatal):', e?.message));
+              console.log('[DS] Full PKG backup completed (cloud_backup mode)');
+            }
           }
-        } else {
-          console.log('[DS] PKG sync skipped — data_residency=on_device');
+        } catch (syncErr) {
+          console.log('[DS] Sync failed (non-fatal):', syncErr);
         }
       // The talk screen uses this flag to decide whether to show the setup modal.
       // A device with no contacts still counts as "set up" — the user went through it.

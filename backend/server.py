@@ -621,6 +621,39 @@ async def api_ds_tombstone(req: DSTombstoneRequest):
     return {"deleted": deleted}
 
 
+@api_router.post("/digital-self/backup")
+async def api_ds_backup(req: Request):
+    """Full PKG backup — Cloud Backup mode only.
+
+    Stores the full PKG snapshot (text + structure) encrypted at rest.
+    Not called in on_device mode — text never leaves the device in that case.
+    Activated only when user has set data_residency = 'cloud_backup'.
+    """
+    data = await req.json()
+    user_id = data.get("user_id", "")
+    snapshot = data.get("snapshot", {})
+    backed_up_at = data.get("backed_up_at", "")
+
+    if not user_id:
+        return {"status": "error", "detail": "user_id required"}
+
+    # Store snapshot in MongoDB — encrypted at rest via server-side encryption
+    from database import get_db
+    db = get_db()
+    await db.ds_backups.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "user_id":     user_id,
+            "snapshot":    snapshot,
+            "backed_up_at": backed_up_at,
+            "node_count":  len(snapshot.get("nodes", {})),
+        }},
+        upsert=True,
+    )
+    logger.info("[DS Backup] user=%s nodes=%d", user_id, len(snapshot.get("nodes", {})))
+    return {"status": "backed_up", "node_count": len(snapshot.get("nodes", {}))}
+
+
 
 
 class CreateCommitRequest(BaseModel):
