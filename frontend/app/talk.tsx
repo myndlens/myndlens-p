@@ -14,7 +14,6 @@ import {
   AppState,
   Modal,
   ScrollView,
-  PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -257,21 +256,9 @@ export default function TalkScreen() {
   }, []));
   const chatBubbleAnim = useRef(new Animated.Value(1)).current;
   const chatSlideAnim = useRef(new Animated.Value(0)).current;
+  // chatPanX/chatPanY kept only for useFocusEffect reset — FAB removed, no longer used for drag.
   const chatPanX = useRef(new Animated.Value(0)).current;
   const chatPanY = useRef(new Animated.Value(0)).current;
-  const chatPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_evt: any, g: any) => Math.abs(g.dx) > 4 || Math.abs(g.dy) > 4,
-      onPanResponderMove: Animated.event([null, { dx: chatPanX, dy: chatPanY }] as any, { useNativeDriver: false }) as any,
-      onPanResponderRelease: (_evt: any, _g: any) => {
-        // Snap to nearest edge (left or right)
-        // Keep current position — no snap for now, free positioning
-        chatPanX.extractOffset();
-        chatPanY.extractOffset();
-      },
-    })
-  ).current;
   const micAnim = useRef(new Animated.Value(1)).current;
   const waveAnims = useRef([
     new Animated.Value(4),
@@ -991,29 +978,26 @@ export default function TalkScreen() {
           </View>
         </View>
 
-        {/* Text fallback row removed — text input lives inside the Chat panel.
-            Tapping 💬 opens chat where users can type AND see conversation history. */}
+        {/* Text fallback row removed — text input lives inside the Chat panel. */}
 
-        {/* ── Floating Chat Bubble — draggable, glows when content present ── */}
-        <Animated.View
-          style={[
-            styles.chatFAB,
-            { transform: [{ translateX: chatPanX }, { translateY: chatPanY }, { scale: chatBubbleAnim }] },
-            (ttsText || transcript) && styles.chatFABActive,
-          ]}
-          {...chatPanResponder.panHandlers}
-        >
+        {/* ── Bottom bar: left = RESERVED for future actions, right = Chat ── */}
+        {/* This sits below Kill/Approve, eliminates the floating FAB overlap. */}
+        <View style={styles.bottomBar}>
+          {/* Left zone — reserved for future quick-action buttons */}
+          <View style={styles.bottomBarLeft} />
+
+          {/* Chat button — fixed, no longer draggable/floating */}
           <TouchableOpacity
             onPress={() => openChat()}
-            style={[styles.chatFABInner, (ttsText || transcript) ? styles.chatFABInnerActive : null]}
+            style={[styles.chatBtn, (ttsText || transcript) && styles.chatBtnActive]}
             activeOpacity={0.85}
           >
-            <Text style={styles.chatFABIcon}>💬</Text>
-            {(ttsText || transcript) && !chatOpen && (
+            <Text style={styles.chatBtnIcon}>💬</Text>
+            {(ttsText || transcript || chatMessages.length > 0) && !chatOpen && (
               <View style={styles.chatBadge} />
             )}
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* ── Chat Modal — slides in full-screen ───────────────────────── */}
         <Modal
@@ -1214,32 +1198,13 @@ const styles = StyleSheet.create({
   // Controls
   controlArea: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
 
-  // ── Floating Chat Bubble ────────────────────────────────────────────────
-  chatFAB: {
-    position: 'absolute',
-    bottom: 120,
-    right: 20,
-    zIndex: 99,
-  },
-  chatFABActive: {
-    // no additional positioning — glow is on chatFABInner
-  },
-  chatFABInner: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: '#1A1A2E',
-    borderWidth: 1.5, borderColor: '#333350',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  chatFABInnerActive: {
-    backgroundColor: '#1E1040',
-    borderColor: '#6C5CE7',
-    shadowColor: '#6C5CE7',
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 14,
-    shadowOpacity: 0.9,
-    elevation: 10,
-  },
-  chatFABIcon: { fontSize: 24 },
+  // ── Bottom bar — fixed row below Kill/Approve ───────────────────────────
+  // Left zone reserved for future quick-actions. Right = Chat button.
+  bottomBar:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
+  bottomBarLeft: { flex: 1 },
+  chatBtn:       { width: 52, height: 52, borderRadius: 26, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#333350' },
+  chatBtnActive: { backgroundColor: '#1E1040', borderColor: '#6C5CE7', elevation: 6 },
+  chatBtnIcon:   { fontSize: 24 },
   chatBadge: {
     position: 'absolute', top: 6, right: 6,
     width: 10, height: 10, borderRadius: 5,
