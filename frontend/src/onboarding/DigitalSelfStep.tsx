@@ -208,6 +208,13 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   }, [phase]);
 
   async function runBuild() {
+    // Load user preferences (delegation_mode, ds_paused, data_residency)
+    let prefs: any = {};
+    try {
+      const { loadSettings } = require('../state/settings-prefs');
+      prefs = await loadSettings();
+    } catch { /* defaults to empty — ds_paused=false, data_residency=on_device */ }
+
     // Respect the Pause DS preference — if the user paused DS, do not ingest
     if (prefs.ds_paused) {
       advance('contacts', 'skipped');
