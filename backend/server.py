@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import logging
 import uuid
+import asyncio
 
 import jwt
 from dotenv import load_dotenv
@@ -93,8 +94,12 @@ async def lifespan(app: FastAPI):
     from skills.library import load_and_index_library
     skills_result = await load_and_index_library()
     logger.info("Skills library: %s (%s skills)", skills_result.get("status"), skills_result.get("skills_indexed", 0))
+    # Start proactive intelligence scheduler (background task)
+    from proactive.scheduler import scheduler_loop
+    scheduler_task = asyncio.create_task(scheduler_loop())
     logger.info("MyndLens BE ready")
     yield
+    scheduler_task.cancel()
     await close_db()
     logger.info("MyndLens BE shutdown complete")
 
@@ -2271,6 +2276,32 @@ async def ds_ingest_endpoint(request: Request):
     from memory.ds_ingest import ingest_extraction_results
     stats = ingest_extraction_results(user_id, contacts, source=source)
     return {"status": "ingested", **stats}
+
+
+# ── Proactive Intelligence endpoints ──────────────────────────────────────
+@api_router.get("/proactive/briefing/{user_id}")
+async def get_briefing(user_id: str, request: Request):
+    """Generate and return a morning briefing for the user."""
+    internal_key = request.headers.get("X-Internal-Key", "")
+    settings = get_settings()
+    if not internal_key or internal_key != settings.EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=403, detail="Invalid key")
+    from proactive.nudge_engine import generate_morning_briefing
+    briefing = await generate_morning_briefing(user_id)
+    return {"briefing": briefing}
+
+
+@api_router.get("/proactive/nudges/{user_id}")
+async def get_user_nudges(user_id: str, request: Request):
+    """Get pending nudges for a user."""
+    internal_key = request.headers.get("X-Internal-Key", "")
+    settings = get_settings()
+    if not internal_key or internal_key != settings.EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=403, detail="Invalid key")
+    from proactive.nudge_engine import generate_nudges
+    nudges = await generate_nudges(user_id)
+    return {"nudges": [{"id": n.nudge_id, "priority": n.priority, "category": n.category,
+                        "title": n.title, "message": n.message} for n in nudges]}
 
 
 # Include REST router

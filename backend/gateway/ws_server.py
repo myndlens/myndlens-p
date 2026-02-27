@@ -369,6 +369,14 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             sso_claims is not None, subscription_status,
         )
 
+        # Register for proactive intelligence + deliver pending nudges
+        from proactive.scheduler import register_session, deliver_nudges_on_connect
+        if user_id_resolved:
+            register_session(user_id_resolved, websocket)
+            session_ctx = _session_contexts.get(session_id)
+            first_name = session_ctx.user_name.split()[0] if session_ctx and session_ctx.user_name else ""
+            asyncio.create_task(deliver_nudges_on_connect(user_id_resolved, websocket, first_name))
+
         # ---- Phase 2: Message Loop ----
         while True:
             raw = await websocket.receive_text()
@@ -460,6 +468,10 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             _session_question_count.pop(session_id, None)
             _fragment_locks.pop(session_id, None)
             cleanup_conversation(session_id)
+            # Unregister from proactive scheduler
+            from proactive.scheduler import unregister_session
+            if user_id_resolved:
+                unregister_session(user_id_resolved)
             # Clean up execution_sessions entries for this session (prevents memory leak)
             stale_keys = [k for k, v in execution_sessions.items() if v == session_id]
             for k in stale_keys:
