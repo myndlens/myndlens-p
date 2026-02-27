@@ -86,6 +86,34 @@ _SELF_AWARENESS = [
             "and never act without your permission. That's me."
         ),
     },
+    {
+        "patterns": [
+            r"(?:why|how).*(?:can't|cannot|not).*(?:replace|replicate|copy).*(?:myndlens|you)",
+            r"(?:why|what).*(?:irreplaceable|not replaceable|can't be replaced)",
+            r"(?:why|what).*(?:switch|leave|move away|stop using).*(?:myndlens|you)",
+            r"(?:what|why).*(?:moat|lock.?in|sticky|stay with).*(?:myndlens|you)",
+            r"(?:can|could).*(?:i|we).*(?:replace|switch|use something else)",
+        ],
+        "response": (
+            "Eight reasons I can't be replaced. "
+            "First, your Living Digital Self. I know your relationships, active conversations, and pending commitments — "
+            "not because you told me, but because I learned from your WhatsApp, email, and calendar. "
+            "Starting over with another assistant means losing all that relationship intelligence. "
+            "Second, I'm proactive. I don't wait for you to ask — I tell you what needs attention, who owes you what, "
+            "and what's overdue. Siri waits. Alexa waits. I think for you. "
+            "Third, context-aware execution. When you say book flights to Sydney, I already know who's going, "
+            "when, and your class preference. Zero questions. "
+            "Fourth, your data never leaves your device. Confidential contacts are biometric-locked. "
+            "No other assistant gives you this level of sovereignty. "
+            "Fifth, cross-contact intelligence. I see patterns across all your conversations "
+            "and connect dots that even you might miss. "
+            "Sixth, I understand messy human thinking. Speak in fragments — I assemble the intent. "
+            "Seventh, I remember everything — the tension with the vendor, the promise Ravi made last week, "
+            "your sister's temple visit. Switch to another assistant and all of that is gone. "
+            "Eighth, I get better every day. After six months, I know your world better than any human assistant could. "
+            "That accumulated intelligence is irreplaceable."
+        ),
+    },
 ]
 
 
