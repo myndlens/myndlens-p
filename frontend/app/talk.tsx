@@ -220,6 +220,7 @@ export default function TalkScreen() {
   const [liveEnergy, setLiveEnergy] = useState(0);
   const [userNickname, setUserNickname] = useState('');
   const [waNotPaired, setWaNotPaired]   = useState(false);
+  const [dsSyncStatus, setDsSyncStatus] = useState<string | null>(null); // 'syncing' | 'done' | null
   const [fragmentCount, setFragmentCount] = useState(0);  // pulsing dot counter
   const thoughtStreamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);  // 6s stream end timer
   const [chatOpen, setChatOpen] = useState(false);
@@ -251,6 +252,42 @@ export default function TalkScreen() {
     Keyboard.dismiss(); // Reset keyboard state when returning from other screens
     return () => { isScreenFocused.current = false; };
   }, []));
+
+  // Poll DS sync status (WhatsApp messages downloading, etc.)
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    (async () => {
+      try {
+        const { getItem, setItem: storeItem } = require('../src/utils/storage');
+        const token = await getItem('myndlens_auth_token');
+        const tenantId = await getItem('myndlens_tenant_id');
+        const dsImported = await getItem('whatsapp_ds_imported');
+        if (dsImported === 'true' || !token || !tenantId) return;
+
+        const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+        setDsSyncStatus('syncing');
+
+        timer = setInterval(async () => {
+          try {
+            const r = await fetch(`${obegeeUrl}/api/whatsapp/sync-progress/${tenantId}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (r.ok) {
+              const d = await r.json();
+              if (d.status === 'done') {
+                setDsSyncStatus('done');
+                await storeItem('whatsapp_ds_imported', 'true');
+                if (timer) clearInterval(timer);
+                setTimeout(() => setDsSyncStatus(null), 5000);
+              }
+            }
+          } catch { /* silent poll */ }
+        }, 15000);
+      } catch { /* silent */ }
+    })();
+    return () => { if (timer) clearInterval(timer); };
+  }, []);
+
   const chatBubbleAnim = useRef(new Animated.Value(1)).current;
   const chatSlideAnim = useRef(new Animated.Value(0)).current;
   const micAnim = useRef(new Animated.Value(1)).current;
@@ -942,6 +979,18 @@ export default function TalkScreen() {
           />
         </View>
 
+        {/* DS Sync Progress Banner */}
+        {dsSyncStatus && (
+          <View style={{ backgroundColor: dsSyncStatus === 'done' ? 'rgba(46,204,113,0.12)' : 'rgba(108,92,231,0.10)',
+            borderRadius: 10, marginHorizontal: 20, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 8,
+            flexDirection: 'row', alignItems: 'center', gap: 8 }} data-testid="ds-sync-banner">
+            {dsSyncStatus === 'syncing' && <ActivityIndicator size="small" color="#6C5CE7" />}
+            <Text style={{ color: dsSyncStatus === 'done' ? '#2ECC71' : '#B0A0E0', fontSize: 12 }}>
+              {dsSyncStatus === 'syncing' ? 'Building Digital Self — syncing messages...' : 'Digital Self updated'}
+            </Text>
+          </View>
+        )}
+
         {/* Middle zone — card centered between logo and controls */}
         <View style={styles.middleZone}>
 
@@ -983,7 +1032,7 @@ export default function TalkScreen() {
                 <>
                   <View style={[styles.pipelineCard, styles.pipelineCardIdle]}>
                     <View style={styles.pipelineIdleInner}>
-                      <Text style={styles.pipelineIdleTitle}>What's on Your Mind Right Now?</Text>
+                      <Text style={styles.pipelineIdleTitle}>What's on Your Mind{'\n'}Right Now?</Text>
                       <Text style={styles.pipelineIdleSubtext}>Tap the mic to instruct me.</Text>
                     </View>
                   </View>

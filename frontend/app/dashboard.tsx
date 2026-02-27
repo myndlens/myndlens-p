@@ -16,10 +16,19 @@ import { getStoredToken } from '../src/ws/auth';
 const OBEGEE = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
 
 async function obegee(path: string, token: string) {
-  const r = await fetch(`${OBEGEE}/api${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return r.ok ? r.json() : null;
+  try {
+    const r = await fetch(`${OBEGEE}/api${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) {
+      console.log(`[Dashboard] API ${path}: ${r.status}`);
+      return null;
+    }
+    return r.json();
+  } catch (e: any) {
+    console.log(`[Dashboard] API ${path} error:`, e.message);
+    return null;
+  }
 }
 
 export default function DashboardScreen() {
@@ -88,6 +97,22 @@ export default function DashboardScreen() {
       <View style={[s.container, { paddingTop: insets.top + 20, alignItems: 'center', justifyContent: 'center' }]}>
         <ActivityIndicator size="large" color="#6C5CE7" />
         <Text style={{ color: '#888', marginTop: 12, fontSize: 13 }}>Loading workspace…</Text>
+      </View>
+    );
+  }
+
+  if (!tenant) {
+    return (
+      <View style={[s.container, { paddingTop: insets.top + 20, alignItems: 'center', justifyContent: 'center' }]}>
+        <Text style={{ color: '#888', fontSize: 15, textAlign: 'center', marginHorizontal: 30 }}>
+          Unable to load workspace data.{'\n'}Check your connection and try again.
+        </Text>
+        <TouchableOpacity onPress={() => load()} style={{ marginTop: 16, backgroundColor: '#6C5CE7', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 10 }}>
+          <Text style={{ color: '#fff', fontSize: 14 }}>Retry</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 12 }}>
+          <Text style={{ color: '#6C63FF', fontSize: 13 }}>Go back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
