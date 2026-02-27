@@ -1277,6 +1277,30 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     if not context_capsule and session_ctx and session_ctx.raw_summary:
         context_capsule = json.dumps({"summary": session_ctx.raw_summary})
 
+    # ── STEP 0: Self-Awareness Check — answer meta-questions about MyndLens ──
+    from guardrails.self_awareness import check_self_awareness
+    self_answer = check_self_awareness(transcript, _user_first_name)
+    if self_answer:
+        response_text = self_answer
+        # Skip the entire pipeline — just speak the answer
+        tts = get_tts_provider()
+        tts_result = await tts.synthesize(response_text)
+        if tts_result.audio_bytes and not tts_result.is_mock:
+            tts_payload = {
+                "text": response_text, "session_id": session_id,
+                "format": "mp3", "is_mock": False,
+                "audio": base64.b64encode(tts_result.audio_bytes).decode("ascii"),
+                "audio_size_bytes": len(tts_result.audio_bytes),
+                "auto_record": False,
+            }
+            await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, tts_payload))
+        else:
+            await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                text=response_text, session_id=session_id, format="text", is_mock=True,
+            ))
+        logger.info("[SELF_AWARENESS] session=%s answered meta-question", session_id)
+        return
+
     # ── STEP 1: L1 Scout — intent classification ────────────────────────────
     logger.info("[MANDATE:1:L1_SCOUT] session=%s starting intent hypothesis", session_id)
     await _emit_stage("digital_self", 1, "active", "Classifying intent...")
