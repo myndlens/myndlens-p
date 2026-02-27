@@ -779,6 +779,11 @@ def get_active_session_count() -> int:
 async def _handle_audio_chunk(ws: WebSocket, session_id: str, payload: dict, user_id: str = "") -> None:
     """Process an audio chunk: validate → STT → transcript → respond."""
     try:
+        # If there's a pending permission clarification, clean any stale transcript
+        # from previous cycles so "Yes" doesn't get appended to old text
+        if _clarification_state.get(session_id, {}).get("pending"):
+            transcript_assembler.cleanup(session_id)
+
         audio_bytes, seq, error = decode_audio_payload(payload)
 
         if error:
@@ -977,6 +982,9 @@ async def _handle_thought_stream_end(ws: WebSocket, session_id: str, user_id: st
         "[CAPTURE:STREAM_END] session=%s fragments=%d combined='%s'",
         session_id, len(conv.fragments), combined[:80],
     )
+
+    # Clean transcript assembler so auto-record after TTS starts fresh
+    transcript_assembler.cleanup(session_id)
 
     # Transition conversation phase
     conv.phase = "PROCESSING"
