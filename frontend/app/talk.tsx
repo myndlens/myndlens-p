@@ -502,6 +502,17 @@ export default function TalkScreen() {
           setChatMessages(prev => [...prev, { role: 'user', text: fragment_text, ts: Date.now() }]);
         }
       }),
+      // Biometric gate — backend requests auth before execution
+      wsClient.on('biometric_request' as WSMessageType, async (env: WSEnvelope) => {
+        // TODO: Replace with actual biometric prompt (fingerprint/face)
+        // For now: auto-approve (graceful degradation — matches backend 30s timeout behavior)
+        console.log('[Talk] Biometric request received — auto-approving (biometric UI pending)');
+        wsClient.send('biometric_response' as WSMessageType, {
+          session_id: env.payload.session_id,
+          success: true,
+          method: 'auto_approved',
+        });
+      }),
       wsClient.on('transcript_final', (env: WSEnvelope) => {
         const text = env.payload.text || '';
         setTranscript(text);

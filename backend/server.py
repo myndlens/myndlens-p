@@ -2231,6 +2231,32 @@ async def llm_simple(request: Request):
     return {"response": response}
 
 
+# ── DS Ingest endpoint — receives distilled contacts from ObeGee and stores in RAG ──
+@api_router.post("/digital-self/ingest")
+async def ds_ingest_endpoint(request: Request):
+    """Accepts distilled contact intelligence from ObeGee (Gmail/IMAP/WhatsApp extraction)
+    and stores it in the MyndLens RAG vector store via ds_ingest.py.
+
+    This is the ObeGee→MyndLens bridge for DS data.
+    """
+    internal_key = request.headers.get("X-Internal-Key", "")
+    settings = get_settings()
+    if not internal_key or internal_key != settings.EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=403, detail="Invalid internal key")
+
+    body = await request.json()
+    user_id = body.get("user_id", "")
+    contacts = body.get("contacts", [])
+    source = body.get("source", "unknown")
+
+    if not user_id or not contacts:
+        raise HTTPException(status_code=400, detail="user_id and contacts required")
+
+    from memory.ds_ingest import ingest_extraction_results
+    stats = ingest_extraction_results(user_id, contacts, source=source)
+    return {"status": "ingested", **stats}
+
+
 # Include REST router
 app.include_router(api_router)
 

@@ -33,6 +33,12 @@ def ingest_contact(user_id: str, contact: Dict[str, Any]) -> int:
     source = contact.get("source", "unknown")
     rank = contact.get("inner_circle_rank", 99)
 
+    # Skip contacts with no useful data
+    if not name or name == "unknown":
+        return 0
+    if relationship == "unknown" and not contact.get("active_threads"):
+        return 0
+
     base_meta = {
         "user_id": user_id,
         "contact_name": name,
@@ -157,6 +163,7 @@ def ingest_contact(user_id: str, contact: Dict[str, Any]) -> int:
 
 def ingest_extraction_results(user_id: str, contacts: List[Dict[str, Any]], source: str = "unknown") -> Dict[str, int]:
     """Ingest all contacts from a DS extraction into the vector store.
+    Also persists to MongoDB for durability.
     Returns stats: { contacts_ingested, documents_added }
     """
     total_docs = 0
@@ -165,12 +172,34 @@ def ingest_extraction_results(user_id: str, contacts: List[Dict[str, Any]], sour
     for contact in contacts:
         if not contact.get("identity", {}).get("name"):
             continue
-        # Set source if not already set
         if "source" not in contact:
             contact["source"] = source
         docs = ingest_contact(user_id, contact)
         total_docs += docs
         total_contacts += 1
+
+    # Persist distilled contacts to MongoDB for durability
+    try:
+        import os
+        from pymongo import MongoClient
+        mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+        db_name = os.environ.get("DB_NAME", "myndlens_prod")
+        client = MongoClient(mongo_url)
+        db = client[db_name]
+        for contact in contacts:
+            name = contact.get("identity", {}).get("name", "")
+            if not name:
+                continue
+            contact_id = contact.get("identity", {}).get("phone") or contact.get("identity", {}).get("email") or name
+            clean = {k: v for k, v in contact.items() if k != "thread_contents"}
+            db.ds_contacts.update_one(
+                {"user_id": user_id, "contact_id": contact_id},
+                {"$set": {"user_id": user_id, "contact_id": contact_id, "source": source, **clean}},
+                upsert=True,
+            )
+        client.close()
+    except Exception as e:
+        logger.warning("[DS_INGEST] MongoDB persist failed (non-fatal): %s", str(e)[:60])
 
     logger.info("[DS_INGEST] user=%s source=%s contacts=%d docs=%d",
                 user_id, source, total_contacts, total_docs)
