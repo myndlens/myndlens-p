@@ -19,17 +19,21 @@ async def recall(
     user_id: str,
     query_text: str,
     n_results: int = 3,
-    include_confidential: bool = False,
+    include_confidential: bool = True,
 ) -> List[Dict[str, Any]]:
     """Retrieve relevant memory for a query. Read-only, side-effect free.
 
-    By default, confidential contacts/threads are EXCLUDED from results.
-    Set include_confidential=True only after biometric verification.
+    CONFIDENTIALITY NOTE: MyndLens engines get FULL access (including confidential)
+    by default — they need complete context for accurate intent processing.
+    The biometric gate applies only at the OUTPUT boundary:
+      - TTS speaking confidential info → biometric required
+      - Data sent to OC for execution → biometric required
+      - Data shown in chat → biometric required
+    Internal processing (L1 Scout, Gap Filler, Dimensions) → NO gate.
     """
-    # Build where filter — always scope to user, optionally exclude confidential
+    # Build where filter — scope to user
     where_filter: Dict[str, Any] = {"user_id": user_id}
     if not include_confidential:
-        # ChromaDB supports $ne operator for filtering
         where_filter = {"$and": [{"user_id": user_id}, {"confidential": {"$ne": True}}]}
 
     # 1. Semantic search in vector store — scoped to this user only
