@@ -1133,24 +1133,34 @@ export default function TalkScreen() {
               style={[styles.approveButton,
                 !pendingAction && fragmentCount === 0 && styles.approveDisabled]}
               onPress={() => {
-                // Dual-purpose: "I'm Done" during capture, "Approve" during mandate
+                // Triple-purpose:
+                // 1. During capture → "Done" (end thought stream)
+                // 2. During mandate approval → "Yes" (approve + execute)
+                // 3. During any TTS question → "Yes" (send affirmative)
                 if (fragmentCount > 0 && (audioStateRef.current === 'CAPTURING' || audioStateRef.current === 'ACCUMULATING')) {
-                  console.log('[Talk] Approve→Done: ending thought stream');
+                  console.log('[Talk] Button→Done: ending thought stream');
                   if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
                   stopRecording().catch(() => {});
                   const sid = wsClient.currentSessionId;
                   if (sid) wsClient.send('thought_stream_end', { session_id: sid });
                   transition('THINKING');
-                } else {
+                } else if (pendingAction) {
                   handleApprove();
+                } else if (audioState === 'RESPONDING' || audioState === 'IDLE') {
+                  // TTS just asked a question — tap Yes instead of speaking
+                  const sid = wsClient.currentSessionId;
+                  if (sid) {
+                    wsClient.send('text_input', { session_id: sid, text: 'Yes' });
+                    transition('THINKING');
+                  }
                 }
               }}
-              disabled={!pendingAction && fragmentCount === 0}
+              disabled={!pendingAction && fragmentCount === 0 && audioState !== 'RESPONDING' && audioState !== 'IDLE'}
               activeOpacity={0.8}
               data-testid="approve-btn"
             >
               <Text style={styles.smallBtnIcon}>{fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? '\u2713' : '\u2714'}</Text>
-              <Text style={styles.smallBtnText}>{fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? 'Done' : 'Approve'}</Text>
+              <Text style={styles.smallBtnText}>{fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? 'Done' : 'Yes'}</Text>
             </TouchableOpacity>
           </View>
         </View>
