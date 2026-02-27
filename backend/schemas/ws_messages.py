@@ -44,6 +44,8 @@ class WSMessageType(str, Enum):
     BIOMETRIC_RESPONSE = "biometric_response" # Device → Backend: biometric result
     FRAGMENT_ACK = "fragment_ack"             # Backend → Device: fragment processed, keep talking
     THOUGHT_STREAM_END = "thought_stream_end" # Device → Backend: user done thinking, run full pipeline
+    WA_PAIR_REQUEST = "wa_pair_request"       # Device → Backend: start WhatsApp pairing
+    WA_PAIR_CODE = "wa_pair_code"             # Backend → Device: pairing code to enter in WhatsApp
 
 
 # ---- Base Envelope ----

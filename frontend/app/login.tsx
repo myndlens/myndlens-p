@@ -27,9 +27,43 @@ export default function LoginScreen() {
   const router = useRouter();
   const setAuth = useSessionStore((s) => s.setAuth);
 
+  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailHint, setEmailHint] = useState('');
+
+  const OBEGEE_URL = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+
+  async function handleRequestCode() {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    Keyboard.dismiss();
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${OBEGEE_URL}/api/myndlens/request-pairing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.detail || 'Failed to send code');
+        return;
+      }
+      setEmailHint(data.email_hint || '');
+      setStep('code');
+    } catch (e: any) {
+      setError(e.message || 'Network error');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleConnect() {
     const trimmed = code.replace(/\s/g, '');
@@ -107,33 +141,59 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.middle}>
-          <Text style={styles.instruction}>Enter your pairing code</Text>
-          <Text style={styles.hint}>
-            Find it in your OpenClaw Dashboard under Settings
-          </Text>
-
-          <TextInput
-            style={styles.codeInput}
-            value={code}
-            onChangeText={(t) => {
-              setCode(t.replace(/[^0-9]/g, '').slice(0, 6));
-              setError(null);
-            }}
-            placeholder="000000"
-            placeholderTextColor="#333340"
-            keyboardType="number-pad"
-            maxLength={6}
-            textAlign="center"
-            editable={!loading}
-            returnKeyType="done"
-            onSubmitEditing={handleConnect}
-            // ── OTP auto-fill ──────────────────────────────────────────────
-            // iOS: OS suggests code from incoming SMS — one tap to fill
-            textContentType="oneTimeCode"
-            // Android: Autofill framework surfaces OTP from SMS automatically
-            autoComplete="sms-otp"
-            importantForAutofill="yes"
-          />
+          {step === 'email' ? (
+            <>
+              <Text style={styles.instruction}>Enter your registered email</Text>
+              <Text style={styles.hint}>
+                We'll send a 6-digit pairing code to your email
+              </Text>
+              <TextInput
+                style={styles.codeInput}
+                value={email}
+                onChangeText={(t) => { setEmail(t); setError(null); }}
+                placeholder="your@email.com"
+                placeholderTextColor="#333340"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                textAlign="center"
+                editable={!loading}
+                returnKeyType="done"
+                onSubmitEditing={handleRequestCode}
+                data-testid="login-email-input"
+              />
+            </>
+          ) : (
+            <>
+              <Text style={styles.instruction}>Enter your pairing code</Text>
+              <Text style={styles.hint}>
+                Code sent to {emailHint || 'your email'}. Check inbox.
+              </Text>
+              <TextInput
+                style={styles.codeInput}
+                value={code}
+                onChangeText={(t) => {
+                  setCode(t.replace(/[^0-9]/g, '').slice(0, 6));
+                  setError(null);
+                }}
+                placeholder="000000"
+                placeholderTextColor="#333340"
+                keyboardType="number-pad"
+                maxLength={6}
+                textAlign="center"
+                editable={!loading}
+                returnKeyType="done"
+                onSubmitEditing={handleConnect}
+                textContentType="oneTimeCode"
+                autoComplete="sms-otp"
+                importantForAutofill="yes"
+                data-testid="login-code-input"
+              />
+              <TouchableOpacity onPress={() => { setStep('email'); setCode(''); setError(null); }} style={{ marginTop: 8 }}>
+                <Text style={{ color: '#6C63FF', fontSize: 13, textAlign: 'center' }}>Use a different email</Text>
+              </TouchableOpacity>
+            </>
+          )}
 
           {error && (
             <Text style={styles.error}>{error}</Text>
@@ -142,15 +202,18 @@ export default function LoginScreen() {
 
         <View style={styles.bottom}>
           <TouchableOpacity
-            style={[styles.button, (loading || code.length !== 6) && styles.buttonDisabled]}
-            onPress={handleConnect}
-            disabled={loading || code.length !== 6}
+            style={[styles.button, loading && styles.buttonDisabled,
+              step === 'email' ? (!email.includes('@') && styles.buttonDisabled) : (code.length !== 6 && styles.buttonDisabled)
+            ]}
+            onPress={step === 'email' ? handleRequestCode : handleConnect}
+            disabled={loading || (step === 'email' ? !email.includes('@') : code.length !== 6)}
             activeOpacity={0.8}
+            data-testid="login-submit-btn"
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.buttonText}>Connect</Text>
+              <Text style={styles.buttonText}>{step === 'email' ? 'Send Code' : 'Connect'}</Text>
             )}
           </TouchableOpacity>
           <Text style={styles.footerHint}>Secure sign-in via ObeGee</Text>
