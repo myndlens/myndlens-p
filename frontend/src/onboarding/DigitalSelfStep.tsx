@@ -270,30 +270,46 @@ export default function DigitalSelfStep({ onComplete }: Props) {
         const tenantId = await getItem('myndlens_tenant_id');
         let waDone = false;
 
-        if (token && tenantId) {
-          const statusRes = await fetch(`${obegeeUrl}/api/whatsapp/status/${tenantId}`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          }).catch(() => null);
-          if (statusRes?.ok) {
-            const statusData = await statusRes.json();
-            if (statusData.status === 'connected') {
-              // Fire-and-forget — do NOT await
-              fetch(`${obegeeUrl}/api/whatsapp/sync-contacts/${tenantId}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-              }).then(async (r) => {
-                if (r?.ok) {
-                  const d = await r.json();
-                  await setItem('whatsapp_sync_job_id', d.job_id || '');
-                  // whatsapp_channel_connected marks actual connection — drives nudge visibility
-                  await setItem('whatsapp_channel_connected', 'true');
-                  console.log('[DS] WhatsApp async job started:', d.job_id);
-                }
-              }).catch(e => console.log('[DS] WA sync start (non-fatal):', e));
+        // First check local flag (set during WhatsApp pairing on dashboard)
+        const waConnected = await getItem('whatsapp_channel_connected');
+        console.log('[DS] WhatsApp local flag:', waConnected, 'tenantId:', tenantId);
 
-              advance('whatsapp', 'done');
-              waDone = true;
+        if (waConnected === 'true' && token && tenantId) {
+          // WhatsApp is paired — start async chat extraction
+          fetch(`${obegeeUrl}/api/whatsapp/sync-contacts/${tenantId}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          }).then(async (r) => {
+            if (r?.ok) {
+              const d = await r.json();
+              await setItem('whatsapp_sync_job_id', d.job_id || '');
+              console.log('[DS] WhatsApp async job started:', d.job_id);
+            } else {
+              console.log('[DS] WA sync API returned:', r?.status);
             }
+          }).catch(e => console.log('[DS] WA sync start (non-fatal):', e));
+
+          advance('whatsapp', 'done');
+          waDone = true;
+        } else if (token && tenantId) {
+          // Local flag not set — try API check as fallback
+          try {
+            const statusRes = await fetch(`${obegeeUrl}/api/whatsapp/status/${tenantId}`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (statusRes?.ok) {
+              const statusData = await statusRes.json();
+              console.log('[DS] WhatsApp API status:', statusData.status);
+              if (statusData.status === 'connected') {
+                await setItem('whatsapp_channel_connected', 'true');
+                advance('whatsapp', 'done');
+                waDone = true;
+              }
+            } else {
+              console.log('[DS] WhatsApp status API returned:', statusRes?.status);
+            }
+          } catch (e: any) {
+            console.log('[DS] WhatsApp status check failed:', e?.message);
           }
         }
 
@@ -628,6 +644,9 @@ export default function DigitalSelfStep({ onComplete }: Props) {
                   }
                 }
               }
+              // API check failed or returned non-connected — still advance
+              // (user affirmed they paired; DS build will re-check)
+              await setItem('whatsapp_channel_connected', 'true');
             } catch { /* non-critical */ }
             // Not connected — proceed anyway
             setPhase('source');
