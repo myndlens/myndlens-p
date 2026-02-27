@@ -52,6 +52,9 @@ from transcript.assembler import transcript_assembler
 from transcript.storage import save_transcript
 
 from intent.gap_filler import SessionContext, parse_capsule_summary, enrich_transcript
+from gateway.conversation_state import (
+    get_or_create_conversation, reset_conversation, cleanup_conversation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +75,8 @@ _session_auth: Dict[str, dict] = {}
 # Keyed by draft_id so _handle_execute_request() can retrieve real dimensions.
 # Without this, determine_skills() and OC only see the hypothesis summary string.
 _pending_mandates: Dict[str, dict] = {}
+# Biometric auth events — session_id -> {"event": asyncio.Event, "result": dict}
+_biometric_events: Dict[str, dict] = {}
 
 
 # ── Intent → Result Schema mapping (C5) ─────────────────────────────────────
@@ -410,6 +415,13 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                 if event:
                     event.set()   # Unblock the pipeline that's waiting in wait_for()
 
+            elif msg_type == WSMessageType.BIOMETRIC_RESPONSE.value:
+                # Device responding to biometric_request
+                bio = _biometric_events.get(session_id)
+                if bio:
+                    bio["result"] = payload
+                    bio["event"].set()
+
             else:
                 await _send(websocket, WSMessageType.ERROR, ErrorPayload(
                     message=f"Unknown message type: {msg_type}",
@@ -434,6 +446,8 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             for k in stale_drafts:
                 _pending_mandates.pop(k, None)
             _clarification_state.pop(session_id, None)
+            _session_question_count.pop(session_id, None)
+            cleanup_conversation(session_id)
             # Clean up execution_sessions entries for this session (prevents memory leak)
             stale_keys = [k for k, v in execution_sessions.items() if v == session_id]
             for k in stale_keys:
@@ -505,6 +519,36 @@ async def _handle_execute_request(
             )
             logger.warning("EXECUTE_BLOCKED: session=%s reason=PRESENCE_STALE", session_id)
             return
+
+        # BIOMETRIC GATE (E6) — request device-side biometric auth before execution
+        # Send biometric request, wait up to 30s for response.
+        # If device doesn't support biometrics, it responds immediately with success.
+        bio_event = asyncio.Event()
+        _biometric_events[session_id] = {"event": bio_event, "result": None}
+        await ws.send_text(_make_envelope(WSMessageType.BIOMETRIC_REQUEST, {
+            "session_id": session_id,
+            "draft_id": req.draft_id,
+            "reason": "Confirm execution with biometric authentication",
+        }))
+        try:
+            await asyncio.wait_for(bio_event.wait(), timeout=30.0)
+            bio_result = _biometric_events.get(session_id, {}).get("result")
+            if bio_result and bio_result.get("success"):
+                logger.info("BIOMETRIC: session=%s PASSED", session_id)
+            else:
+                await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
+                    reason="Biometric authentication failed or was cancelled.",
+                    code="BIOMETRIC_FAILED",
+                    draft_id=req.draft_id,
+                ))
+                logger.warning("BIOMETRIC: session=%s FAILED", session_id)
+                return
+        except asyncio.TimeoutError:
+            # Timeout = device doesn't support biometrics or user didn't respond
+            # For now, allow execution (graceful degradation)
+            logger.info("BIOMETRIC: session=%s timeout — allowing execution (graceful)", session_id)
+        finally:
+            _biometric_events.pop(session_id, None)
 
         # RETRIEVE DRAFT
         from l1.scout import get_draft
@@ -983,7 +1027,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     """Process transcript through Gap Filler → L1 Scout → Dimensions → Guardrails → TTS.
 
     RULES:
-    1. Max 3 questions total per mandate — tracked in _session_question_count
+    1. Max 3 questions total per mandate — tracked via ConversationState
     2. NO questions during or after mandate processing — all Q&A happens in Step 1.5
     3. TTS uses user's first name sparingly (start of summary only)
     """
@@ -994,9 +1038,16 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     if session_ctx_name and session_ctx_name.user_name:
         _user_first_name = session_ctx_name.user_name.split()[0]
 
-    # Reset question counter for fresh mandates (no pending clarification)
+    # Get or create conversation state for this session
+    conv = get_or_create_conversation(session_id, user_id=user_id, user_first_name=_user_first_name)
+
+    # Reset conversation for fresh mandates (no pending clarification)
     if not _clarification_state.get(session_id, {}).get("pending"):
+        conv.reset()
         _session_question_count[session_id] = 0
+
+    # Add this transcript as a fragment
+    conv.add_fragment(transcript)
 
     async def _emit_stage(stage_id: str, stage_index: int, status: str = "active", sub_status: str = ""):
         data = _make_envelope(WSMessageType.PIPELINE_STAGE, {

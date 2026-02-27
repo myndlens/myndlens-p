@@ -40,6 +40,8 @@ class WSMessageType(str, Enum):
     ERROR = "error"
     SESSION_TERMINATED = "session_terminated"
     DS_RESOLVE = "ds_resolve"       # Backend → Device: "resolve these node IDs for me"
+    BIOMETRIC_REQUEST = "biometric_request"   # Backend → Device: request biometric auth
+    BIOMETRIC_RESPONSE = "biometric_response" # Device → Backend: biometric result
 
 
 # ---- Base Envelope ----

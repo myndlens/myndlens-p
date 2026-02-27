@@ -1,9 +1,10 @@
-"""IDENTITY_ROLE section — powered by Soul Store + user nickname.
+"""IDENTITY_ROLE section — powered by Soul Store + shared personality.
 
 Retrieves identity from vector memory (soul fragments).
 Injects user's chosen nickname so the proxy responds to it.
 """
 from prompting.types import PromptContext, SectionOutput, SectionID, CacheClass
+from prompting.personality import PERSONALITY
 from soul.store import retrieve_soul
 from core.database import get_db
 
@@ -19,13 +20,10 @@ def generate(ctx: PromptContext) -> SectionOutput:
 
     if fragments:
         content = " ".join(f["text"] for f in fragments if f.get("text"))
+        # Append personality rules to soul fragments
+        content += f"\n\n{PERSONALITY}"
     else:
-        content = (
-            "You are MyndLens, a sovereign cognitive proxy. "
-            "Core function: Extract intent from conversation, generate structured dimensions, "
-            "bridge gaps using Digital Self memory. "
-            "Personality: Empathetic, concise, natural."
-        )
+        content = PERSONALITY
 
     # Inject nickname — the user_adjustments may carry it, or we use default
     nickname = "MyndLens"
