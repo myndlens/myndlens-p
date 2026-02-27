@@ -2227,6 +2227,51 @@ app.include_router(ds_sync_router, prefix="/api")
 
 
 # =====================================================
+
+# ── Internal LLM gateway for DS extractor ─────────────────────────────────────
+@api_router.post("/llm/simple")
+async def llm_simple(request: Request):
+    """Simple LLM call endpoint for internal services (DS extractor).
+    Accepts: { prompt: str, session_id: str }
+    Returns: { response: str }
+    """
+    # Verify internal key
+    internal_key = request.headers.get("X-Internal-Key", "")
+    settings = get_settings()
+    if not internal_key or internal_key != settings.EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=403, detail="Invalid internal key")
+
+    body = await request.json()
+    prompt = body.get("prompt", "")
+    session_id = body.get("session_id", "llm-simple")
+
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt required")
+
+    from prompting.llm_gateway import call_llm
+    from prompting.types import PromptArtifact
+
+    # Build a minimal artifact with just the prompt
+    artifact = PromptArtifact(
+        prompt_id=f"simple-{session_id}",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant. Output only what is requested."},
+            {"role": "user", "content": prompt},
+        ],
+        total_tokens_est=len(prompt) // 4,
+    )
+
+    response = await call_llm(
+        artifact=artifact,
+        call_site_id="DS_EXTRACTOR",
+        model_provider="gemini",
+        model_name="gemini-2.0-flash",
+        session_id=session_id,
+    )
+
+    return {"response": response}
+
+
 #  WebSocket Endpoint
 # =====================================================
 
