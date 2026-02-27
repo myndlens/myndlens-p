@@ -41,10 +41,18 @@ if (!codeMatch || !nameMatch) {
 
 const oldCode   = parseInt(codeMatch[1], 10);
 const newCode   = oldCode + 1;
-const versionName = nameMatch[1];
+const oldVersionName = nameMatch[1];
+
+// Auto-increment patch version: 1.0.9 → 1.0.10
+const vParts = oldVersionName.split('.');
+vParts[2] = String(parseInt(vParts[2] || '0', 10) + 1);
+const versionName = vParts.join('.');
 
 // ── Step 3: Write new values ─────────────────────────────────────────────────
-fs.writeFileSync(GRADLE, gradle.replace(/versionCode\s+\d+/, `versionCode ${newCode}`));
+fs.writeFileSync(GRADLE, gradle
+  .replace(/versionCode\s+\d+/, `versionCode ${newCode}`)
+  .replace(/versionName\s+"[^"]+"/, `versionName "${versionName}"`)
+);
 
 appJson.expo.version               = versionName;
 appJson.expo.android               = appJson.expo.android || {};
@@ -64,5 +72,5 @@ try {
 
 console.log(`\n✅ Ready to build:`);
 console.log(`   versionCode  ${oldCode} → ${newCode}`);
-console.log(`   versionName  ${versionName}`);
+console.log(`   versionName  ${oldVersionName} → ${versionName}`);
 console.log(`\n   eas build --platform android --profile production\n`);
