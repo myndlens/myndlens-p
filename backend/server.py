@@ -114,7 +114,12 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://app.myndlens.com",
+        "https://obegee.co.uk",
+        "http://localhost:3000",
+        "http://localhost:8002",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )

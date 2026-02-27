@@ -43,7 +43,7 @@ _ENV_TO_OC_TOOLS = {
     "TAVILY_API_KEY":         ["group:web"],
     "BRAVE_API_KEY":          ["group:web"],
     "PEXELS_API_KEY":         ["group:web"],
-    "FORESEEK_API_KEY":       ["group:runtime"],
+    "FORESEEK_API_KEY":       ["group:runtime", "group:web"],
     "TWILIO_ACCOUNT_SID":     ["group:messaging"],
     "UPLOAD_POST_API_KEY":    ["group:messaging"],
     "POST_BRIDGE_API_KEY":    ["group:messaging"],
@@ -51,7 +51,6 @@ _ENV_TO_OC_TOOLS = {
     "CAMINO_API_KEY":         ["group:web"],
     "STRIPE_SECRET_KEY":      ["group:runtime"],
     "PINGHUMAN_API_KEY":      ["group:messaging"],
-    "FORESEEK_API_KEY":       ["group:web"],
 }
 
 _BIN_TO_OC_TOOLS = {

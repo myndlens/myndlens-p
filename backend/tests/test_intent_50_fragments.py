@@ -173,7 +173,7 @@ async def run_one(test_id: str, fragment: str) -> TestResult:
                      "required_tools": s.get("required_tools", "")} for s in matched]
     topology = await assess_agent_topology(
         intent=top.hypothesis[:60] if top else fragment[:60],
-        intent=action_class,
+        action_class=action_class,
         skill_names=skill_names,
         built_skills=built_skills,
     )

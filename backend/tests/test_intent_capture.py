@@ -19,7 +19,8 @@ import sys
 import time
 import pytest
 
-sys.path.insert(0, "/app/backend")
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from l1.scout import _mock_l1, run_l1_scout
 from dimensions.engine import DimensionState, get_dimension_state, cleanup_dimensions

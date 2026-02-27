@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     DB_NAME: str = Field(default="myndlens_dev")
 
     # ── Auth / Signing ───────────────────────────────────────────
-    JWT_SECRET: str = Field(default="myndlens-dev-jwt-secret-change-in-prod")
+    JWT_SECRET: str = Field(default="")
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_EXPIRY_SECONDS: int = Field(default=3600)  # 1 hour
 
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     # ── ObeGee SSO ─────────────────────────────────────────────
     # Separate secret from MyndLens JWT — never reuse
-    OBEGEE_SSO_HS_SECRET: str = Field(default="obegee-sso-dev-secret-CHANGE-IN-PROD")
+    OBEGEE_SSO_HS_SECRET: str = Field(default="")
     OBEGEE_TOKEN_VALIDATION_MODE: str = Field(default="HS256")  # HS256 | JWKS
     OBEGEE_JWKS_URL: str = Field(default="https://obegee.co.uk/.well-known/jwks.json")  # Production JWKS
     OBEGEE_S2S_TOKEN: str = Field(default="obegee-s2s-dev-token-CHANGE-IN-PROD")
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     OBEGEE_MONGO_URL: str = Field(default="")  # ObeGee's MongoDB (read-only shared collections)
     OBEGEE_DB_NAME: str = Field(default="obegee_production")
     CHANNEL_ADAPTER_IP: str = Field(default="")  # 138.68.179.111 in prod
-    MYNDLENS_DISPATCH_TOKEN: str = Field(default="myndlens_dispatch_secret_2026")
+    MYNDLENS_DISPATCH_TOKEN: str = Field(default="")
     OBEGEE_API_URL: str = Field(default="")  # https://obegee.co.uk/api in prod
 
     # Service-to-service token for ObeGee API calls (NOT the user session token).
