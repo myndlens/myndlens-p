@@ -80,9 +80,12 @@ async def run_l1_scout(
                     logger.warning("L1 Scout: invalid context capsule, falling back to server recall")
 
             if memory_snippets is None and user_id:
-                from memory.retriever import recall
-                memory_snippets = await recall(user_id=user_id, query_text=transcript, n_results=3)
-                logger.info("L1 Scout: recalled %d memories (server) for user=%s", len(memory_snippets), user_id)
+                from mcp.ds_server import call_tool
+                result = await call_tool("search_memory", {
+                    "user_id": user_id, "query": transcript, "n_results": 3,
+                })
+                memory_snippets = result.get("results", []) if isinstance(result, dict) else []
+                logger.info("L1 Scout: recalled %d memories (MCP) for user=%s", len(memory_snippets), user_id)
         else:
             logger.debug("L1 Scout: transcript is pre-enriched — skipping memory_snippets to avoid duplication")
 

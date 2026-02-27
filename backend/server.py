@@ -2222,6 +2222,9 @@ if _settings_for_mock.ENV != "prod":
 from api.digital_self_sync import router as ds_sync_router
 app.include_router(ds_sync_router, prefix="/api")
 
+from mcp.router import mcp_router
+app.include_router(mcp_router)
+
 
 
 
