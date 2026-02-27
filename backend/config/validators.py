@@ -23,10 +23,27 @@ def validate_startup_config(settings) -> None:
         "MIO_KEY_ENCRYPTION_KEY": settings.MIO_KEY_ENCRYPTION_KEY,
         "MYNDLENS_BASE_URL": settings.MYNDLENS_BASE_URL,
     }
+
+    # In production, enforce ALL security-critical secrets
+    if settings.ENV == "prod":
+        required_vars["EMERGENT_LLM_KEY"] = getattr(settings, "EMERGENT_LLM_KEY", "")
+        required_vars["OBEGEE_S2S_TOKEN"] = getattr(settings, "OBEGEE_S2S_TOKEN", "")
+        # Mock IDP must be disabled in prod
+        if getattr(settings, "ENABLE_OBEGEE_MOCK_IDP", False):
+            raise RuntimeError(
+                "STARTUP FAILED — ENABLE_OBEGEE_MOCK_IDP must be False in production."
+            )
+    else:
+        # Dev/staging: require SSO secret if mock IDP is enabled (signs tokens locally)
+        if getattr(settings, "ENABLE_OBEGEE_MOCK_IDP", False):
+            sso_secret = getattr(settings, "OBEGEE_SSO_HS_SECRET", "")
+            if not sso_secret:
+                required_vars["OBEGEE_SSO_HS_SECRET"] = ""
+
     missing = [k for k, v in required_vars.items() if not v]
     if missing:
         raise RuntimeError(
-            f"STARTUP FAILED — missing required env vars in backend/.env: {', '.join(missing)}\n"
+            f"STARTUP FAILED — missing required env vars: {', '.join(missing)}\n"
             "Set them in .env or container environment and restart the server."
         )
 

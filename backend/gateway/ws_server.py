@@ -569,8 +569,14 @@ async def _handle_execute_request(
                 return
         except asyncio.TimeoutError:
             # Timeout = device doesn't support biometrics or user didn't respond
-            # For now, allow execution (graceful degradation)
-            logger.info("BIOMETRIC: session=%s timeout — allowing execution (graceful)", session_id)
+            # FAIL CLOSED for confidential/sensitive actions. Allow only for non-sensitive.
+            logger.warning("BIOMETRIC: session=%s timeout — blocking execution (fail-closed)", session_id)
+            await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
+                reason="Biometric authentication timed out. Please try again.",
+                code="BIOMETRIC_TIMEOUT",
+                draft_id=req.draft_id,
+            ))
+            return
         finally:
             _biometric_events.pop(session_id, None)
 

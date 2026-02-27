@@ -12,11 +12,13 @@ from config.validators import _require_jwt_secret, validate_startup_config
 
 def _settings(**overrides):
     base = {
+        "ENV": "dev",
         "JWT_SECRET": "test-secret",
         "MIO_KEY_ENCRYPTION_KEY": "enc-key",
         "MYNDLENS_BASE_URL": "https://app.myndlens.com",
         "OBEGEE_API_URL": "https://obegee.co.uk/api",
         "CHANNEL_ADAPTER_IP": "138.68.179.111",
+        "ENABLE_OBEGEE_MOCK_IDP": False,
     }
     base.update(overrides)
     return SimpleNamespace(**base)

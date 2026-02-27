@@ -101,15 +101,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS: strict origins in prod, localhost allowed only in dev
+_cors_origins = ["https://app.myndlens.com", "https://obegee.co.uk"]
+if get_settings().ENV != "prod":
+    _cors_origins.extend(["http://localhost:3000", "http://localhost:8002"])
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=[
-        "https://app.myndlens.com",
-        "https://obegee.co.uk",
-        "http://localhost:3000",
-        "http://localhost:8002",
-    ],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
