@@ -274,7 +274,31 @@ export default function DigitalSelfStep({ onComplete }: Props) {
         const waConnected = await getItem('whatsapp_channel_connected');
         console.log('[DS] WhatsApp local flag:', waConnected, 'tenantId:', tenantId);
 
-        if (waConnected === 'true' && token && tenantId) {
+        // Try all paths to detect WhatsApp connection
+        let waDetected = waConnected === 'true';
+
+        if (!waDetected && token && tenantId) {
+          // Local flag not set — check ObeGee API
+          try {
+            const statusRes = await fetch(`${obegeeUrl}/api/whatsapp/status/${tenantId}`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (statusRes?.ok) {
+              const statusData = await statusRes.json();
+              console.log('[DS] WhatsApp API status:', statusData.status);
+              if (statusData.status === 'connected') {
+                waDetected = true;
+                await setItem('whatsapp_channel_connected', 'true');
+              }
+            } else {
+              console.log('[DS] WA status API returned:', statusRes?.status);
+            }
+          } catch (e: any) {
+            console.log('[DS] WA status check failed:', e?.message);
+          }
+        }
+
+        if (waDetected && token && tenantId) {
           // WhatsApp is paired — start async chat extraction
           fetch(`${obegeeUrl}/api/whatsapp/sync-contacts/${tenantId}`, {
             method: 'POST',
@@ -291,26 +315,6 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
           advance('whatsapp', 'done');
           waDone = true;
-        } else if (token && tenantId) {
-          // Local flag not set — try API check as fallback
-          try {
-            const statusRes = await fetch(`${obegeeUrl}/api/whatsapp/status/${tenantId}`, {
-              headers: { 'Authorization': `Bearer ${token}` },
-            });
-            if (statusRes?.ok) {
-              const statusData = await statusRes.json();
-              console.log('[DS] WhatsApp API status:', statusData.status);
-              if (statusData.status === 'connected') {
-                await setItem('whatsapp_channel_connected', 'true');
-                advance('whatsapp', 'done');
-                waDone = true;
-              }
-            } else {
-              console.log('[DS] WhatsApp status API returned:', statusRes?.status);
-            }
-          } catch (e: any) {
-            console.log('[DS] WhatsApp status check failed:', e?.message);
-          }
         }
 
         if (!waDone) {

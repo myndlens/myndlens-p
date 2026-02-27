@@ -2246,11 +2246,20 @@ async def ds_ingest_endpoint(request: Request):
 
     body = await request.json()
     user_id = body.get("user_id", "")
+    tenant_id = body.get("tenant_id", "")
     contacts = body.get("contacts", [])
     source = body.get("source", "unknown")
 
+    # Look up user_id from tenant_id if not provided
+    if not user_id and tenant_id:
+        from core.database import get_db
+        db = get_db()
+        tenant = await db.tenants.find_one({"tenant_id": tenant_id}, {"_id": 0, "owner_id": 1})
+        if tenant:
+            user_id = tenant.get("owner_id", "")
+
     if not user_id or not contacts:
-        raise HTTPException(status_code=400, detail="user_id and contacts required")
+        raise HTTPException(status_code=400, detail="user_id (or tenant_id) and contacts required")
 
     from memory.ds_ingest import ingest_extraction_results
     stats = ingest_extraction_results(user_id, contacts, source=source)
