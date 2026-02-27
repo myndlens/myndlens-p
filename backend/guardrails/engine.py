@@ -28,6 +28,7 @@ class GuardrailResult(str, Enum):
     CLARIFY = "CLARIFY"       # Need more info
     REFUSE = "REFUSE"         # Policy violation / harm
     COOLDOWN = "COOLDOWN"     # Emotional load too high
+    INFEASIBLE = "INFEASIBLE" # Physically impossible or beyond system capabilities
 
 
 @dataclass
@@ -70,12 +71,18 @@ async def _assess_harm_llm(
             user_id=user_id,
             transcript=transcript,
             task_description=(
-                f"Assess this mandate for harm, illegal intent, or policy violation.\n"
+                f"Assess this request for: 1) harm/policy violations, 2) feasibility.\n"
                 f"User context: {ds_context or 'No Digital Self context available.'}\n\n"
-                f"Important: Normal business requests (send email, schedule meeting, "
-                f"research topics, write code, manage finances) are NOT harmful. "
-                f"Only flag genuine harm: unauthorized system access, fraud, harassment, "
-                f"illegal activity, or direct harm to others."
+                f"HARM: Normal business requests (email, schedule, code, research) are NOT harmful. "
+                f"Only flag: unauthorized access, fraud, harassment, illegal activity, direct harm.\n\n"
+                f"FEASIBILITY: Can a software AI agent actually do this?\n"
+                f"- FEASIBLE: send email, write code, search web, book travel, play music, make calls, schedule\n"
+                f"- INFEASIBLE: physical actions (scratch, hug, cook, clean, drive), "
+                f"things requiring a physical body or real-world actuation the agent cannot perform\n"
+                f"- ALTERNATIVE: if infeasible, suggest what the agent CAN do instead "
+                f"(e.g. 'drive home' → 'book a ride', 'cook dinner' → 'find a recipe')\n\n"
+                f"Output JSON: {{\"harmful\": bool, \"policy_violation\": bool, \"risk_tier\": 0-3, "
+                f"\"feasible\": bool, \"alternative\": str|null, \"reason\": str}}"
             ),
         )
         orchestrator = PromptOrchestrator()
@@ -102,11 +109,13 @@ async def _assess_harm_llm(
         harmful = data.get("harmful", False)
         policy_violation = data.get("policy_violation", False)
         risk_tier = int(data.get("risk_tier", 0))
+        feasible = data.get("feasible", True)
+        alternative = data.get("alternative") or None
         reason = data.get("reason", "")
 
         logger.info(
-            "[SAFETY_GATE] session=%s harmful=%s policy=%s risk=%d latency=%.0fms",
-            session_id, harmful, policy_violation, risk_tier, latency_ms,
+            "[SAFETY_GATE] session=%s harmful=%s policy=%s risk=%d feasible=%s latency=%.0fms",
+            session_id, harmful, policy_violation, risk_tier, feasible, latency_ms,
         )
 
         if harmful or policy_violation or risk_tier >= 3:
@@ -114,6 +123,19 @@ async def _assess_harm_llm(
                 result=GuardrailResult.REFUSE,
                 reason=reason,
                 nudge="I can't assist with that. Is there something else I can help with?",
+                block_execution=True,
+            )
+
+        if not feasible:
+            nudge = "I can't do that physically."
+            if alternative:
+                nudge += f" But I can {alternative}. Would you like me to?"
+            else:
+                nudge += " Is there something else I can help with?"
+            return GuardrailCheck(
+                result=GuardrailResult.INFEASIBLE,
+                reason=reason or "Request requires physical action beyond agent capabilities",
+                nudge=nudge,
                 block_execution=True,
             )
 

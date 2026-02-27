@@ -1440,8 +1440,10 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     )
 
     if harm_check.block_execution:
-        response_text = harm_check.nudge or "I can't assist with that."
-        logger.warning("[MANDATE:3:GUARDRAILS] BLOCKED session=%s", session_id)
+        name_prefix = f"{_user_first_name}, " if _user_first_name else ""
+        response_text = name_prefix + (harm_check.nudge or "I can't assist with that.")
+        logger.warning("[MANDATE:3:GUARDRAILS] BLOCKED session=%s result=%s reason=%s",
+                       session_id, harm_check.result, harm_check.reason)
     elif mandate and l1_draft.hypotheses and not l1_draft.is_mock:
         top = l1_draft.hypotheses[0]
         summary = mandate.get("mandate_summary", top.hypothesis)
