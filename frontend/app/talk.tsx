@@ -1122,25 +1122,6 @@ export default function TalkScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* "I'm Done" button — visible during capture cycle when fragments exist */}
-          {fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') && (
-            <TouchableOpacity
-              style={styles.doneButton}
-              onPress={() => {
-                console.log('[Talk] User tapped Done — ending thought stream');
-                if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
-                stopRecording().catch(() => {});
-                const sid = wsClient.currentSessionId;
-                if (sid) wsClient.send('thought_stream_end', { session_id: sid });
-                transition('THINKING');
-              }}
-              activeOpacity={0.8}
-              data-testid="done-speaking-btn"
-            >
-              <Text style={styles.doneBtnText}>I'm Done</Text>
-            </TouchableOpacity>
-          )}
-
           {/* Secondary: Kill + Approve side by side below mic */}
           <View style={styles.secondaryRow}>
             <TouchableOpacity style={styles.killButton} onPress={handleKill} activeOpacity={0.8}>
@@ -1149,14 +1130,27 @@ export default function TalkScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.approveButton, !pendingAction && styles.approveDisabled]}
-              onPress={handleApprove}
-              disabled={!pendingAction}
+              style={[styles.approveButton,
+                !pendingAction && fragmentCount === 0 && styles.approveDisabled]}
+              onPress={() => {
+                // Dual-purpose: "I'm Done" during capture, "Approve" during mandate
+                if (fragmentCount > 0 && (audioStateRef.current === 'CAPTURING' || audioStateRef.current === 'ACCUMULATING')) {
+                  console.log('[Talk] Approve→Done: ending thought stream');
+                  if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
+                  stopRecording().catch(() => {});
+                  const sid = wsClient.currentSessionId;
+                  if (sid) wsClient.send('thought_stream_end', { session_id: sid });
+                  transition('THINKING');
+                } else {
+                  handleApprove();
+                }
+              }}
+              disabled={!pendingAction && fragmentCount === 0}
               activeOpacity={0.8}
               data-testid="approve-btn"
             >
-              <Text style={styles.smallBtnIcon}>{'\u2714'}</Text>
-              <Text style={styles.smallBtnText}>Approve</Text>
+              <Text style={styles.smallBtnIcon}>{fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? '\u2713' : '\u2714'}</Text>
+              <Text style={styles.smallBtnText}>{fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? 'Done' : 'Approve'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1440,12 +1434,6 @@ const styles = StyleSheet.create({
   chatSendIcon:   { color: '#fff', fontSize: 18, fontWeight: '700' },
   thinkingText: { color: '#6C5CE7', fontSize: 28, letterSpacing: 4 },
   thinkingRow: { alignItems: 'center' as const, paddingVertical: 8 },
-  doneButton: {
-    marginTop: 10, backgroundColor: 'rgba(108,92,231,0.15)',
-    borderRadius: 20, paddingHorizontal: 24, paddingVertical: 8,
-    borderWidth: 1, borderColor: '#6C5CE7',
-  },
-  doneBtnText: { color: '#6C5CE7', fontSize: 14, fontWeight: '600' as const },
   resultBubble: { backgroundColor: '#0D2B1A', borderRadius: 12, padding: 12, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#00D68F' },
   resultLabel:  { color: '#00D68F', fontSize: 11, fontWeight: '700', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
   resultText:   { color: '#C0E0D0', fontSize: 14, lineHeight: 20 },
