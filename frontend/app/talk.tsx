@@ -494,41 +494,12 @@ export default function TalkScreen() {
       }),
       wsClient.on('transcript_partial', (env: WSEnvelope) => setPartialTranscript(env.payload.text || '')),
       wsClient.on('fragment_ack' as WSMessageType, (env: WSEnvelope) => {
-        // Path A — Capture Cycle: fragment processed, restart recording for next fragment
+        // Path A — Capture Cycle: fragment processed (informational only)
+        // Recording already restarted immediately — this just updates UI
         const { fragment_text, sub_intents, checklist_progress } = env.payload;
         console.log('[Talk] Fragment ACK:', fragment_text?.substring(0, 40), 'progress:', checklist_progress);
-        // Add fragment to chat as partial context
         if (fragment_text) {
           setChatMessages(prev => [...prev, { role: 'user', text: fragment_text, ts: Date.now() }]);
-        }
-        // Restart recording for next fragment
-        if (audioStateRef.current === 'ACCUMULATING') {
-          recordingStartedAt.current = Date.now();
-          transition('CAPTURING');
-          startRecording(
-            async () => {
-              // Same fragment capture callback — recursive
-              const dur = Date.now() - recordingStartedAt.current;
-              if (dur < 1000) { console.log('[Talk] VAD noise ignored, continuing'); return; }
-              const audio = await stopAndGetAudio();
-              const sid2 = wsClient.currentSessionId;
-              if (audio && sid2) {
-                wsClient.send('audio_chunk', { session_id: sid2, audio, seq: 1, timestamp: Date.now(), duration_ms: dur });
-                wsClient.send('cancel', { session_id: sid2, reason: 'fragment_captured' });
-                transition('ACCUMULATING');
-                setFragmentCount(prev => prev + 1);
-                if (thoughtStreamTimer.current) clearTimeout(thoughtStreamTimer.current);
-                thoughtStreamTimer.current = setTimeout(() => {
-                  if (audioStateRef.current === 'ACCUMULATING' || audioStateRef.current === 'CAPTURING') {
-                    stopRecording().catch(() => {});
-                    wsClient.send('thought_stream_end', { session_id: sid2 });
-                    transition('THINKING');
-                  }
-                }, 6000);
-              } else { transition('IDLE'); }
-            },
-            (rms: number) => setLiveEnergy(rms),
-          ).catch(() => transition('IDLE'));
         }
       }),
       wsClient.on('transcript_final', (env: WSEnvelope) => {
@@ -753,17 +724,38 @@ export default function TalkScreen() {
               seq: 1, timestamp: Date.now(), duration_ms: duration,
             });
             wsClient.send('cancel', { session_id: sid, reason: 'fragment_captured' });
-            transition('ACCUMULATING');
             setFragmentCount(prev => prev + 1);
 
-            // Start the thought-stream-end timer (6s)
-            // If user doesn't speak again within 6s, send thought_stream_end
+            // IMMEDIATELY restart recording — don't wait for FRAGMENT_ACK.
+            // Backend queues fragments and processes them sequentially.
+            // This ensures no audio is lost if user keeps speaking.
+            recordingStartedAt.current = Date.now();
+            // Stay in CAPTURING (not ACCUMULATING) — mic is active
+            await startRecording(
+              async () => {
+                // Recursive: same fragment capture logic
+                const dur2 = Date.now() - recordingStartedAt.current;
+                if (dur2 < 1000) { console.log('[Talk] VAD noise ignored, continuing'); return; }
+                const audio2 = await stopAndGetAudio();
+                const sid2 = wsClient.currentSessionId;
+                if (audio2 && sid2) {
+                  wsClient.send('audio_chunk', { session_id: sid2, audio: audio2, seq: 1, timestamp: Date.now(), duration_ms: dur2 });
+                  wsClient.send('cancel', { session_id: sid2, reason: 'fragment_captured' });
+                  setFragmentCount(prev => prev + 1);
+                  recordingStartedAt.current = Date.now();
+                  // Don't restart here — the fragment_ack handler or thought timer handles next step
+                  transition('ACCUMULATING');
+                } else { transition('IDLE'); }
+              },
+              (rms: number) => setLiveEnergy(rms),
+            ).catch(() => {});
+
+            // Reset thought-stream-end timer (6s from last speech)
             if (thoughtStreamTimer.current) clearTimeout(thoughtStreamTimer.current);
             thoughtStreamTimer.current = setTimeout(() => {
               const currentState = audioStateRef.current;
               if (currentState === 'ACCUMULATING' || currentState === 'CAPTURING') {
                 console.log('[Talk] Thought stream ended (6s silence)');
-                // Stop any active recording
                 stopRecording().catch(() => {});
                 wsClient.send('thought_stream_end', { session_id: sid });
                 transition('THINKING');

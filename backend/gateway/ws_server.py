@@ -77,6 +77,8 @@ _session_auth: Dict[str, dict] = {}
 _pending_mandates: Dict[str, dict] = {}
 # Biometric auth events — session_id -> {"event": asyncio.Event, "result": dict}
 _biometric_events: Dict[str, dict] = {}
+# Per-session fragment processing lock — ensures fragments are processed sequentially
+_fragment_locks: Dict[str, asyncio.Lock] = {}
 
 
 # ── Intent → Result Schema mapping (C5) ─────────────────────────────────────
@@ -456,6 +458,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                 _pending_mandates.pop(k, None)
             _clarification_state.pop(session_id, None)
             _session_question_count.pop(session_id, None)
+            _fragment_locks.pop(session_id, None)
             cleanup_conversation(session_id)
             # Clean up execution_sessions entries for this session (prevents memory leak)
             stale_keys = [k for k, v in execution_sessions.items() if v == session_id]
@@ -864,7 +867,19 @@ async def _handle_fragment_captured(ws: WebSocket, session_id: str, user_id: str
     Extracts sub-intents + dimensions from the fragment, updates the
     ConversationState checklist, and sends FRAGMENT_ACK back.
     Does NOT run the full mandate pipeline.
+
+    Uses a per-session lock to ensure fragments are processed sequentially
+    even when the user speaks faster than processing time.
     """
+    # Get or create per-session lock for sequential processing
+    if session_id not in _fragment_locks:
+        _fragment_locks[session_id] = asyncio.Lock()
+    async with _fragment_locks[session_id]:
+        await _process_fragment(ws, session_id, user_id)
+
+
+async def _process_fragment(ws: WebSocket, session_id: str, user_id: str = "") -> None:
+    """Inner fragment processor — called under the per-session lock."""
     try:
         stt = get_stt_provider()
         final_fragment = await stt.end_stream(session_id)
