@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard, Image,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard, Image, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -18,6 +18,7 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,7 +81,11 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.container, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + 40 }]}>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
         <View style={styles.brand}>
           <Image
             source={require('../assets/images/myndlens-logo.png')}
@@ -107,19 +112,28 @@ export default function LoginScreen() {
             data-testid="login-email-input"
           />
 
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={t => { setPassword(t); setError(null); }}
-            placeholder="Password"
-            placeholderTextColor="#333340"
-            secureTextEntry
-            autoComplete="password"
-            editable={!loading}
-            returnKeyType="done"
-            onSubmitEditing={handleLogin}
-            data-testid="login-password-input"
-          />
+          <View style={styles.passwordRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderRightWidth: 0 }]}
+              value={password}
+              onChangeText={t => { setPassword(t); setError(null); }}
+              placeholder="Password"
+              placeholderTextColor="#333340"
+              secureTextEntry={!showPassword}
+              autoComplete="password"
+              editable={!loading}
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
+              data-testid="login-password-input"
+            />
+            <TouchableOpacity
+              style={styles.eyeBtn}
+              onPress={() => setShowPassword(!showPassword)}
+              data-testid="toggle-password-visibility"
+            >
+              <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+            </TouchableOpacity>
+          </View>
 
           {error && <Text style={styles.error}>{error}</Text>}
         </View>
@@ -151,7 +165,7 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -159,7 +173,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#0A0A0F' },
   container: {
-    flex: 1, paddingHorizontal: 32, justifyContent: 'space-between',
+    flexGrow: 1, paddingHorizontal: 32, justifyContent: 'space-between',
   },
   brand: { alignItems: 'center' },
   logoImage: { width: 180, height: 180, marginBottom: 12 },
@@ -190,4 +204,13 @@ const styles = StyleSheet.create({
   footerHint: {
     color: '#444460', fontSize: 12, marginTop: 12, textAlign: 'center',
   },
+  passwordRow: {
+    flexDirection: 'row', alignItems: 'center',
+  },
+  eyeBtn: {
+    backgroundColor: '#12121F', borderWidth: 1, borderColor: '#1E1E30',
+    borderTopRightRadius: 12, borderBottomRightRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 14, justifyContent: 'center',
+  },
+  eyeIcon: { fontSize: 18 },
 });
