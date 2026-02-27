@@ -3,6 +3,7 @@
     "name": "MyndLens",
     "slug": "myndlens",
     "owner": "myndlens",
+    "scheme": "myndlens",
     "version": "1.0.9",
     "web": {
       "bundler": "metro",
@@ -67,6 +68,17 @@
         "READ_MEDIA_VIDEO",
         "READ_MEDIA_DOCUMENTS",
         "WRITE_EXTERNAL_STORAGE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "myndlens" },
+            { "scheme": "https", "host": "obegee.co.uk", "pathPrefix": "/app/pair" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "ios": {
