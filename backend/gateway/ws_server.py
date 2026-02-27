@@ -63,6 +63,8 @@ execution_sessions: Dict[str, str] = {}
 _session_contexts: Dict[str, SessionContext] = {}
 # Per-session clarification state (tracks pending micro-question loops)
 _clarification_state: Dict[str, dict] = {}
+# Per-session question counter — hard cap at 3 questions per mandate
+_session_question_count: Dict[str, int] = {}
 # Per-session auth context — stored at WS auth to allow execute_request from
 # within audio_chunk handler (permission grant path needs subscription/tenant/token)
 _session_auth: Dict[str, dict] = {}
@@ -887,7 +889,9 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
                     await _send_mock_tts_response(ws, session_id, clarify["original_transcript"],
                                                   user_id=user_id, context_capsule=clarify.get("context_capsule"))
             else:
-                neg_prompt = "What would you like to change?"
+                _ctx_neg = _session_contexts.get(session_id)
+                _fn = (_ctx_neg.user_name.split()[0] if _ctx_neg and _ctx_neg.user_name else "")
+                neg_prompt = f"Sure{' ' + _fn if _fn else ''}. What would you like to change?"
                 _clarification_state[session_id] = {
                     "pending": True, "type": "intent",
                     "original_transcript": clarify["original_transcript"],
@@ -915,7 +919,20 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
         # ── Dimension clarification response ──────────────────────────────────
         if clarify_type == "dimension":
             combined = f"{clarify['original_transcript']}. Answer: {text}"
-            _clarification_state[session_id] = {"permission_granted": True, "dim_attempts": clarify.get("dim_attempts", 1)}
+            _clarification_state[session_id] = {"dim_attempts": clarify.get("dim_attempts", 1)}
+            await _send_mock_tts_response(ws, session_id, combined, user_id=user_id,
+                                          context_capsule=clarify.get("context_capsule"))
+            return
+
+        # ── Micro-question response — enrich and re-run L1 with combined context ──
+        if clarify_type == "micro":
+            combined = f"{clarify['original_transcript']}. {text}"
+            carried_questions = clarify.get("questions_asked", [])
+            # Carry forward attempts so micro-questions don't re-fire
+            _clarification_state[session_id] = {
+                "questions_asked": carried_questions,
+                "attempts": clarify.get("attempts", 1),
+            }
             await _send_mock_tts_response(ws, session_id, combined, user_id=user_id,
                                           context_capsule=clarify.get("context_capsule"))
             return
@@ -924,7 +941,8 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
         combined = f"{clarify['original_transcript']}. Clarification: {text}"
         carried_questions = clarify.get("questions_asked", [])
         _clarification_state[session_id] = {
-            "questions_asked": carried_questions,  # carry forward — don't re-ask
+            "questions_asked": carried_questions,
+            "attempts": clarify.get("attempts", 1),  # carry forward to prevent re-asking
         }
         logger.info("[CLARIFICATION:INTENT] session=%s combined='%s' asked_so_far=%d",
                     session_id, combined[:80], len(carried_questions))
@@ -964,9 +982,21 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
 async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: str, user_id: str = "", context_capsule: str | None = None) -> None:
     """Process transcript through Gap Filler → L1 Scout → Dimensions → Guardrails → TTS.
 
-    Gap Filler enriches the raw transcript with Digital Self context BEFORE
-    L1 Scout sees it. The LLM receives a fully-contextualized mandate, not a fragment.
+    RULES:
+    1. Max 3 questions total per mandate — tracked in _session_question_count
+    2. NO questions during or after mandate processing — all Q&A happens in Step 1.5
+    3. TTS uses user's first name sparingly (start of summary only)
     """
+
+    # Get user's first name from session context (for friendly TTS)
+    session_ctx_name = _session_contexts.get(session_id)
+    _user_first_name = ""
+    if session_ctx_name and session_ctx_name.user_name:
+        _user_first_name = session_ctx_name.user_name.split()[0]
+
+    # Reset question counter for fresh mandates (no pending clarification)
+    if not _clarification_state.get(session_id, {}).get("pending"):
+        _session_question_count[session_id] = 0
 
     async def _emit_stage(stage_id: str, stage_index: int, status: str = "active", sub_status: str = ""):
         data = _make_envelope(WSMessageType.PIPELINE_STAGE, {
@@ -1076,13 +1106,13 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     await _emit_stage("digital_self", 1, "done")
 
     # ── STEP 1.5: Micro-Question Clarification Loop ─────────────────────────
-    # If L1 has low confidence or missing dimensions, generate personalized
-    # micro-questions (TTS → user → STT → re-run L1 with enriched context)
+    # RULES: Max 3 questions total. No questions after mandate processing starts.
     if l1_draft.hypotheses and not l1_draft.is_mock:
         top_check = l1_draft.hypotheses[0]
         from intent.micro_questions import should_ask_micro_questions, generate_micro_questions
 
-        if should_ask_micro_questions(top_check.confidence, top_check.dimension_suggestions, top_check.hypothesis):
+        questions_so_far = _session_question_count.get(session_id, 0)
+        if questions_so_far < 3 and should_ask_micro_questions(top_check.confidence, top_check.dimension_suggestions, top_check.hypothesis):
             clarify_state = _clarification_state.get(session_id, {})
             attempt = clarify_state.get("attempts", 0)
             questions_asked: list = clarify_state.get("questions_asked", [])
@@ -1104,9 +1134,11 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
 
                 if mq_result.questions:
                     question = mq_result.questions[0]
+                    _session_question_count[session_id] = questions_so_far + 1
 
                     _clarification_state[session_id] = {
                         "pending": True,
+                        "type": "micro",
                         "original_transcript": transcript,
                         "enriched_transcript": enriched_transcript,
                         "question_asked": question.question,
@@ -1212,81 +1244,35 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         missing_count = len(missing)
 
         if missing_count > 0:
-            # Skip dimension questions for execution/code tasks — just use defaults.
-            # "Build a hello world app" doesn't need "where to save?" or "dependencies?"
-            execution_keywords = [
-                "build", "run", "execute", "code", "write", "create", "make",
-                "script", "app", "program", "deploy", "install", "test", "hello world",
-            ]
-            skip_dims = any(kw in transcript.lower() for kw in execution_keywords)
-            dim_clarify = _clarification_state.get(session_id, {})
-            dim_attempt = dim_clarify.get("dim_attempts", 0)
-            if not skip_dims and dim_attempt < get_settings().MANDATE_MAX_CLARIFICATION_ROUNDS:
-                from intent.mandate_questions import generate_mandate_questions
-                mq_batch = await generate_mandate_questions(
-                    session_id=session_id, user_id=user_id,
-                    transcript=transcript, mandate=mandate, batch_size=3,
-                )
-                if mq_batch.questions:
-                    q = mq_batch.questions[0]
-                    _clarification_state[session_id] = {
-                        "pending": True, "type": "dimension",
-                        "original_transcript": transcript,
-                        "enriched_transcript": enriched_transcript,
-                        "mandate": mandate,
-                        "l1_draft_id": l1_draft.draft_id,
-                        "question_asked": q.question,
-                        "context_capsule": context_capsule,
-                        "dim_attempts": dim_attempt + 1,
-                    }
-                    cq_data = _make_envelope(WSMessageType.CLARIFICATION_QUESTION, {
-                        "question": q.question, "fills_dimension": q.fills_dimension,
-                        "fills_action": q.fills_action,
-                        "missing_total": mq_batch.total_missing, "session_id": session_id,
-                    })
-                    await ws.send_text(cq_data)
-                    tts = get_tts_provider()
-                    tts_result = await tts.synthesize(q.question)
-                    if tts_result.audio_bytes and not tts_result.is_mock:
-                        tts_payload = {
-                            "text": q.question, "session_id": session_id,
-                            "format": "mp3", "is_mock": False,
-                            "audio": base64.b64encode(tts_result.audio_bytes).decode("ascii"),
-                            "audio_size_bytes": len(tts_result.audio_bytes),
-                            "is_clarification": True,
-                            "auto_record": True,    # mic MUST open after question
-                        }
-                        await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, tts_payload))
-                    else:
-                        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                            text=q.question, session_id=session_id, format="text",
-                            is_mock=True, is_clarification=True, auto_record=True,
-                        ))
-                    logger.info("[MANDATE:2.5:DIM_Q] session=%s ASKED: '%s' (attempt %d, missing=%d)",
-                                session_id, q.question, dim_attempt + 1, mq_batch.total_missing)
-                    return
-            # Build TTS response: speak the intent structure with sub-intents
+            # RULE: No questions during mandate processing. All data collection
+            # must happen BEFORE mandate (in Step 1.5 micro-questions).
+            # Log the missing dimensions for debugging but proceed with defaults.
+            logger.info("[MANDATE:2:DIMS] session=%s %d missing dimensions — proceeding with defaults (no questions during mandate)",
+                        session_id, missing_count)
+            # Build TTS response: friendly, concise mandate summary with user name
+            name_prefix = f"{_user_first_name}, " if _user_first_name else ""
             sub_intents = top.sub_intents if top.sub_intents else []
             if sub_intents and len(sub_intents) > 0:
                 sub_list = ". ".join(str(s) for s in sub_intents[:3] if s)
                 response_text = (
-                    f"I understand. {summary}. "
+                    f"{name_prefix}got it. {summary}. "
                     f"This covers: {sub_list}. "
                     f"Shall I proceed?"
                 )
             else:
-                response_text = f"I understand. {summary}. Shall I proceed?"
+                response_text = f"{name_prefix}got it. {summary}. Shall I proceed?"
         else:
+            name_prefix = f"{_user_first_name}, " if _user_first_name else ""
             sub_intents = top.sub_intents if top.sub_intents else []
             if sub_intents and len(sub_intents) > 0:
                 sub_list = ". ".join(str(s) for s in sub_intents[:3] if s)
                 response_text = (
-                    f"I understand. {summary}. "
+                    f"{name_prefix}got it. {summary}. "
                     f"This covers: {sub_list}. "
                     f"Shall I proceed?"
                 )
             else:
-                response_text = f"I understand. {summary}. Shall I proceed?"
+                response_text = f"{name_prefix}got it. {summary}. Shall I proceed?"
     else:
         top_h = l1_draft.hypotheses[0].hypothesis if l1_draft.hypotheses else transcript[:50]
         response_text = f"Understood: {top_h}. Tap Approve."
