@@ -268,9 +268,49 @@ export default function SetupWizardScreen() {
         body: JSON.stringify({ phone_number: trimmedPhone, timezone: tz, notifications_enabled: notifs, delivery_channels: deliveryChannels, channel_details: channelDetails }),
       }, authToken);
     } catch { /* preferences save failure is non-fatal — phone is the critical part */ }
-    // Phone is now stored. Generate the pairing code (ObeGee can now SMS it).
-    setStep(7);
-    generateCode();
+    // Phone is now stored. Auto-pair the app using the existing auth token.
+    // No pairing code needed — we already have the auth from signup.
+    await autoPairFromSetup();
+  }
+
+  async function autoPairFromSetup() {
+    setStep(7); // Show "Connecting..." screen briefly
+    try {
+      // We already have authToken from signup. Store it as the MyndLens auth.
+      // Generate SSO token via the pairing endpoint using the code flow,
+      // BUT since we have the ObeGee auth token, we can auto-generate + auto-pair.
+      const res = await obegee('/myndlens/generate-code', { method: 'POST' }, authToken);
+      const code = res.code;
+      if (!code) throw new Error('No code generated');
+
+      // Immediately pair with the code (no user input needed)
+      const { getOrCreateDeviceId } = require('../src/ws/auth');
+      const deviceId = await getOrCreateDeviceId();
+      const pairRes = await obegee('/myndlens/pair', {
+        method: 'POST',
+        body: JSON.stringify({ code, device_id: deviceId, device_name: `${Platform.OS} Device` }),
+      });
+
+      if (pairRes.access_token) {
+        await setItem('myndlens_auth_token', pairRes.access_token);
+        await setItem('myndlens_user_id', pairRes.user_id || '');
+        await setItem('myndlens_tenant_id', pairRes.tenant_id || tenantId);
+        await setItem('myndlens_user_name', pairRes.user_name || name);
+        await setItem('myndlens_workspace_slug', pairRes.workspace_slug || slug || workspaceSlug);
+        setPairingCode(code);
+        // Skip to delivery channels
+        setTimeout(() => setStep(8), 1000);
+      } else {
+        throw new Error('Pairing failed');
+      }
+    } catch (err: any) {
+      // Fallback: show the code for manual entry
+      try {
+        const res = await obegee('/myndlens/generate-code', { method: 'POST' }, authToken);
+        setPairingCode(res.code || '------');
+      } catch { setPairingCode('------'); }
+      Alert.alert('Auto-connect failed', 'Enter the code shown on screen in the login page.');
+    }
   }
 
   async function handleDigitalSelf() {
@@ -457,13 +497,12 @@ export default function SetupWizardScreen() {
           </View>
         )}
 
-        {/* Step 7: Pairing (code generated after phone is stored) */}
+        {/* Step 7: Auto-pairing (no user action needed) */}
         {step === 7 && (
           <View style={[styles.stepBox, styles.centerBox]} data-testid="setup-pairing">
             <Text style={styles.title}>Connecting MyndLens...</Text>
-            <View style={styles.codeBox}><Text style={styles.codeText}>{pairingCode}</Text></View>
-            <ActivityIndicator color="#6C63FF" style={{ marginTop: 16 }} />
-            <Text style={styles.desc}>Pairing automatically...</Text>
+            <ActivityIndicator color="#6C63FF" size="large" style={{ marginVertical: 24 }} />
+            <Text style={styles.desc}>Setting up your secure connection. This takes a moment.</Text>
           </View>
         )}
 

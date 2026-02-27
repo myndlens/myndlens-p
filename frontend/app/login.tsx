@@ -1,15 +1,7 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Keyboard,
-  Image,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -17,58 +9,26 @@ import { getOrCreateDeviceId } from '../src/ws/auth';
 import { setItem } from '../src/utils/storage';
 import { useSessionStore } from '../src/state/session-store';
 
-/**
- * Login — ObeGee 6-digit pairing code.
- * User gets the code from ObeGee Dashboard → Settings → Generate Pairing Code.
- * Code is single-use, valid for 10 minutes.
- */
+const OBEGEE_URL = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
+
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const setAuth = useSessionStore((s) => s.setAuth);
 
-  const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [emailHint, setEmailHint] = useState('');
 
-  const OBEGEE_URL = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
-
-  async function handleRequestCode() {
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed || !trimmed.includes('@')) {
-      setError('Please enter a valid email address');
+  async function handleLogin() {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      setError('Please enter a valid email');
       return;
     }
-    Keyboard.dismiss();
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${OBEGEE_URL}/api/myndlens/request-pairing`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmed }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.detail || 'Failed to send code');
-        return;
-      }
-      setEmailHint(data.email_hint || '');
-      setStep('code');
-    } catch (e: any) {
-      setError(e.message || 'Network error');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleConnect() {
-    const trimmed = code.replace(/\s/g, '');
-    if (trimmed.length !== 6 || !/^\d{6}$/.test(trimmed)) {
-      setError('Please enter a valid 6-digit code');
+    if (!password) {
+      setError('Please enter your password');
       return;
     }
 
@@ -78,59 +38,49 @@ export default function LoginScreen() {
 
     try {
       const deviceId = await getOrCreateDeviceId();
-      const deviceName = `${Platform.OS} Device`;
-
-      // Call ObeGee pairing endpoint (or dev mock)
-      const pairUrl = `${process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk'}/api/myndlens/pair`;
-
-      const res = await fetch(pairUrl, {
+      const res = await fetch(`${OBEGEE_URL}/api/myndlens/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code: trimmed,
+          email: trimmedEmail,
+          password,
           device_id: deviceId,
-          device_name: deviceName,
+          device_name: `${Platform.OS} Device`,
         }),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || data.error || 'Invalid or expired code');
-      }
-
       const data = await res.json();
 
-      // Write ALL tokens atomically — Promise.all guarantees every write
-      // completes before navigation fires. Sequential awaits on Android
-      // Keystore can return before data is committed, causing the next
-      // screen to read empty storage and land back on the welcome screen.
+      if (!res.ok) {
+        if (res.status === 402) {
+          setError('Payment incomplete. Complete setup at obegee.co.uk');
+        } else if (res.status === 404) {
+          setError('No workspace found. Tap "New User" below to set up.');
+        } else {
+          setError(data.detail || 'Login failed');
+        }
+        return;
+      }
+
+      // Store auth
       await Promise.all([
         setItem('myndlens_auth_token', data.access_token),
+        setItem('myndlens_user_id', data.user_id),
         setItem('myndlens_tenant_id', data.tenant_id),
-        setItem('myndlens_workspace_slug', data.workspace_slug || ''),
-        setItem('myndlens_runtime_endpoint', data.runtime_endpoint || ''),
-        setItem('myndlens_dispatch_endpoint', data.dispatch_endpoint || ''),
-        setItem('myndlens_session_id', data.session_id || ''),
-        setItem('myndlens_user_id', data.tenant_id),
         setItem('myndlens_user_name', data.user_name || ''),
       ]);
-
-      // Update in-memory auth state AFTER storage is confirmed written
-      setAuth(data.tenant_id, deviceId);
+      setAuth(data.user_id, '');
       router.replace('/loading');
-    } catch (err: any) {
-      setError(err.message || 'Connection failed');
+    } catch (e: any) {
+      setError(e.message || 'Connection error. Check your internet.');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={[styles.container, { paddingTop: insets.top + 80, paddingBottom: insets.bottom + 40 }]}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={[styles.container, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + 40 }]}>
         <View style={styles.brand}>
           <Image
             source={require('../assets/images/myndlens-logo.png')}
@@ -141,84 +91,64 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.middle}>
-          {step === 'email' ? (
-            <>
-              <Text style={styles.instruction}>Enter your registered email</Text>
-              <Text style={styles.hint}>
-                We'll send a 6-digit pairing code to your email
-              </Text>
-              <TextInput
-                style={styles.codeInput}
-                value={email}
-                onChangeText={(t) => { setEmail(t); setError(null); }}
-                placeholder="your@email.com"
-                placeholderTextColor="#333340"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                textAlign="center"
-                editable={!loading}
-                returnKeyType="done"
-                onSubmitEditing={handleRequestCode}
-                data-testid="login-email-input"
-              />
-            </>
-          ) : (
-            <>
-              <Text style={styles.instruction}>Enter your pairing code</Text>
-              <Text style={styles.hint}>
-                Code sent to {emailHint || 'your email'}. Check inbox.
-              </Text>
-              <TextInput
-                style={styles.codeInput}
-                value={code}
-                onChangeText={(t) => {
-                  setCode(t.replace(/[^0-9]/g, '').slice(0, 6));
-                  setError(null);
-                }}
-                placeholder="000000"
-                placeholderTextColor="#333340"
-                keyboardType="number-pad"
-                maxLength={6}
-                textAlign="center"
-                editable={!loading}
-                returnKeyType="done"
-                onSubmitEditing={handleConnect}
-                textContentType="oneTimeCode"
-                autoComplete="sms-otp"
-                importantForAutofill="yes"
-                data-testid="login-code-input"
-              />
-              <TouchableOpacity onPress={() => { setStep('email'); setCode(''); setError(null); }} style={{ marginTop: 8 }}>
-                <Text style={{ color: '#6C63FF', fontSize: 13, textAlign: 'center' }}>Use a different email</Text>
-              </TouchableOpacity>
-            </>
-          )}
+          <Text style={styles.instruction}>Sign in</Text>
 
-          {error && (
-            <Text style={styles.error}>{error}</Text>
-          )}
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={t => { setEmail(t); setError(null); }}
+            placeholder="Email"
+            placeholderTextColor="#333340"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            editable={!loading}
+            returnKeyType="next"
+            data-testid="login-email-input"
+          />
+
+          <TextInput
+            style={styles.input}
+            value={password}
+            onChangeText={t => { setPassword(t); setError(null); }}
+            placeholder="Password"
+            placeholderTextColor="#333340"
+            secureTextEntry
+            autoComplete="password"
+            editable={!loading}
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
+            data-testid="login-password-input"
+          />
+
+          {error && <Text style={styles.error}>{error}</Text>}
         </View>
 
         <View style={styles.bottom}>
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled,
-              step === 'email' ? (!email.includes('@') && styles.buttonDisabled) : (code.length !== 6 && styles.buttonDisabled)
-            ]}
-            onPress={step === 'email' ? handleRequestCode : handleConnect}
-            disabled={loading || (step === 'email' ? !email.includes('@') : code.length !== 6)}
+            style={[styles.button, (loading || !email.includes('@') || !password) && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading || !email.includes('@') || !password}
             activeOpacity={0.8}
             data-testid="login-submit-btn"
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.buttonText}>{step === 'email' ? 'Send Code' : 'Connect'}</Text>
+              <Text style={styles.buttonText}>Sign In</Text>
             )}
           </TouchableOpacity>
-          <Text style={styles.footerHint}>Secure sign-in via ObeGee</Text>
-          <TouchableOpacity onPress={() => router.push('/setup')} style={{ marginTop: 16, paddingVertical: 8 }} data-testid="new-user-setup-btn">
-            <Text style={{ color: '#6C63FF', fontSize: 15, textAlign: 'center' }}>New User? Set up your workspace</Text>
+
+          <Text style={styles.footerHint}>Same credentials as ObeGee dashboard</Text>
+
+          <TouchableOpacity
+            onPress={() => router.push('/setup')}
+            style={{ marginTop: 16, paddingVertical: 8 }}
+            data-testid="new-user-setup-btn"
+          >
+            <Text style={{ color: '#6C63FF', fontSize: 15, textAlign: 'center' }}>
+              New User? Set up your workspace
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -229,77 +159,35 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#0A0A0F' },
   container: {
-    flex: 1,
-    paddingHorizontal: 32,
-    justifyContent: 'space-between',
+    flex: 1, paddingHorizontal: 32, justifyContent: 'space-between',
   },
-  brand: {
-    alignItems: 'center',
-  },
-  logoImage: {
-    width: 180,
-    height: 180,
-    marginBottom: 12,
-  },
+  brand: { alignItems: 'center' },
+  logoImage: { width: 180, height: 180, marginBottom: 12 },
   subtitle: {
-    fontSize: 16,
-    color: '#8B8B9E',
+    fontSize: 15, color: '#666680', fontWeight: '400', textAlign: 'center',
   },
-  middle: {
-    alignItems: 'center',
-  },
+  middle: { gap: 12 },
   instruction: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 8,
+    fontSize: 20, fontWeight: '700', color: '#E0E0F0', textAlign: 'center', marginBottom: 4,
   },
-  hint: {
-    fontSize: 14,
-    color: '#555568',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  codeInput: {
-    backgroundColor: '#12121E',
-    borderRadius: 16,
-    paddingVertical: 20,
-    paddingHorizontal: 32,
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 12,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#2A2A3E',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  input: {
+    borderWidth: 1, borderColor: '#1E1E30', borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 16, color: '#E0E0F0', backgroundColor: '#12121F',
   },
   error: {
-    color: '#E74C3C',
-    fontSize: 13,
-    marginTop: 12,
+    color: '#E74C3C', fontSize: 13, textAlign: 'center', marginTop: 4,
   },
-  bottom: {
-    alignItems: 'center',
-  },
+  bottom: { alignItems: 'center' },
   button: {
-    backgroundColor: '#6C5CE7',
-    borderRadius: 16,
-    paddingVertical: 18,
-    width: '100%',
-    alignItems: 'center',
+    backgroundColor: '#6C5CE7', borderRadius: 14, paddingVertical: 16,
+    width: '100%', alignItems: 'center',
   },
-  buttonDisabled: {
-    opacity: 0.4,
-  },
+  buttonDisabled: { opacity: 0.4 },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
+    color: '#FFFFFF', fontSize: 17, fontWeight: '700', letterSpacing: 0.5,
   },
   footerHint: {
-    color: '#555568',
-    fontSize: 13,
-    marginTop: 12,
+    color: '#444460', fontSize: 12, marginTop: 12, textAlign: 'center',
   },
 });
