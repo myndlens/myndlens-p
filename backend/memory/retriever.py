@@ -19,10 +19,21 @@ async def recall(
     user_id: str,
     query_text: str,
     n_results: int = 3,
+    include_confidential: bool = False,
 ) -> List[Dict[str, Any]]:
-    """Retrieve relevant memory for a query. Read-only, side-effect free."""
+    """Retrieve relevant memory for a query. Read-only, side-effect free.
+
+    By default, confidential contacts/threads are EXCLUDED from results.
+    Set include_confidential=True only after biometric verification.
+    """
+    # Build where filter — always scope to user, optionally exclude confidential
+    where_filter: Dict[str, Any] = {"user_id": user_id}
+    if not include_confidential:
+        # ChromaDB supports $ne operator for filtering
+        where_filter = {"$and": [{"user_id": user_id}, {"confidential": {"$ne": True}}]}
+
     # 1. Semantic search in vector store — scoped to this user only
-    vector_results = vector.query(query_text, n_results=n_results, where={"user_id": user_id})
+    vector_results = vector.query(query_text, n_results=n_results, where=where_filter)
 
     # 2. Enrich with graph context — load from DB if not in memory
     enriched = []

@@ -59,6 +59,25 @@ async def load_and_index_library() -> Dict[str, Any]:
     await db.skills_library.create_index([("search_text", "text")])
     _indexed = True
 
+    # Index skills into vector store for semantic matching
+    try:
+        from memory.client.vector import add_document as vector_add
+        for cat in categories:
+            cat_name = cat.get("name", "")
+            for skill in cat.get("skills", []):
+                name = skill.get("name", "")
+                desc = skill.get("description", "")
+                examples = skill.get("usage_examples", "")
+                if name and desc:
+                    vector_add(
+                        doc_id=f"skill_{name.lower().replace(' ', '_')}",
+                        text=f"Skill: {name}. {desc}. Examples: {examples}",
+                        metadata={"type": "skill", "skill_name": name, "category": cat_name},
+                    )
+        logger.info("Skills also indexed in vector store for semantic matching")
+    except Exception as e:
+        logger.warning("Skills vector indexing failed (non-fatal): %s", str(e)[:60])
+
     logger.info("Skills library indexed: %d skills from %d categories", total, len(categories))
     return {
         "status": "OK",
