@@ -1124,9 +1124,21 @@ export default function TalkScreen() {
 
           {/* Secondary: Kill + Approve side by side below mic */}
           <View style={styles.secondaryRow}>
-            <TouchableOpacity style={styles.killButton} onPress={handleKill} activeOpacity={0.8}>
-              <Text style={styles.smallBtnIcon}>{'\u2716'}</Text>
-              <Text style={styles.smallBtnText}>Kill</Text>
+            <TouchableOpacity style={styles.killButton} onPress={() => {
+                // Dual-purpose: Kill during execution, "Change" during approval/question
+                if (pendingAction || audioState === 'RESPONDING' || audioState === 'IDLE') {
+                  // Send "No, I want changes" — triggers the change flow
+                  const sid = wsClient.currentSessionId;
+                  if (sid) {
+                    wsClient.send('text_input', { session_id: sid, text: 'No, I want to change this' });
+                    transition('THINKING');
+                  }
+                } else {
+                  handleKill();
+                }
+              }} activeOpacity={0.8} data-testid="kill-btn">
+              <Text style={styles.smallBtnIcon}>{pendingAction || audioState === 'RESPONDING' ? '\u270E' : '\u2716'}</Text>
+              <Text style={styles.smallBtnText}>{pendingAction || audioState === 'RESPONDING' ? 'Change' : 'Kill'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
