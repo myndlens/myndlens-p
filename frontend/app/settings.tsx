@@ -675,6 +675,9 @@ export default function SettingsScreen() {
             sub="Corporate spend signals — planned for a future release" />
         </Section>
 
+        {/* ─── CONFIDENTIAL CONTACTS ─────────────────────────────────────── */}
+        <ConfidentialContactsSection />
+
         {/* ─── 3. AUTOMATION & CONSENT ────────────────────────────────────── */}
         <Section title="⚙️  Automation & Consent">
           <SegmentRow
@@ -904,6 +907,152 @@ export default function SettingsScreen() {
     </View>
   );
 }
+
+// ── Confidential Contacts Section ──────────────────────────────────────────
+
+function ConfidentialContactsSection() {
+  const [contacts, setContacts] = React.useState<string[]>([]);
+  const [topics, setTopics] = React.useState<string[]>([]);
+  const [newContact, setNewContact] = React.useState('');
+  const [newTopic, setNewTopic] = React.useState('');
+  const [loaded, setLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { getItem } = require('../src/utils/storage');
+        const raw = await getItem('ds_confidential_contacts');
+        const rawT = await getItem('ds_confidential_topics');
+        if (raw) setContacts(JSON.parse(raw));
+        if (rawT) setTopics(JSON.parse(rawT));
+      } catch { /* defaults */ }
+      setLoaded(true);
+    })();
+  }, []);
+
+  const save = async (c: string[], t: string[]) => {
+    try {
+      const { setItem } = require('../src/utils/storage');
+      await setItem('ds_confidential_contacts', JSON.stringify(c));
+      await setItem('ds_confidential_topics', JSON.stringify(t));
+    } catch { /* silent */ }
+  };
+
+  const addContact = () => {
+    const name = newContact.trim();
+    if (!name || contacts.includes(name)) return;
+    const updated = [...contacts, name];
+    setContacts(updated);
+    setNewContact('');
+    save(updated, topics);
+  };
+
+  const removeContact = (name: string) => {
+    const updated = contacts.filter(c => c !== name);
+    setContacts(updated);
+    save(updated, topics);
+  };
+
+  const addTopic = () => {
+    const topic = newTopic.trim();
+    if (!topic || topics.includes(topic)) return;
+    const updated = [...topics, topic];
+    setTopics(updated);
+    setNewTopic('');
+    save(contacts, updated);
+  };
+
+  const removeTopic = (topic: string) => {
+    const updated = topics.filter(t => t !== topic);
+    setTopics(updated);
+    save(contacts, updated);
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <View style={cs.section}>
+      <Text style={cs.title}>🔐  Confidential Contacts & Topics</Text>
+      <Text style={cs.principle}>
+        Confidential data is processed by MyndLens internally but sealed from voice output and agent execution unless you approve with biometric authentication.
+      </Text>
+
+      <Text style={cs.subHeading}>Confidential Contacts</Text>
+      <Text style={cs.hint}>Conversations with these contacts require biometric approval to access.</Text>
+      {contacts.map(c => (
+        <View key={c} style={cs.chip}>
+          <Text style={cs.chipText}>{c}</Text>
+          <TouchableOpacity onPress={() => removeContact(c)} data-testid={`remove-conf-${c}`}>
+            <Text style={cs.chipRemove}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+      <View style={cs.addRow}>
+        <TextInput
+          style={cs.input}
+          placeholder="Contact name..."
+          placeholderTextColor="#555"
+          value={newContact}
+          onChangeText={setNewContact}
+          onSubmitEditing={addContact}
+          data-testid="conf-contact-input"
+        />
+        <TouchableOpacity style={cs.addBtn} onPress={addContact} data-testid="conf-contact-add">
+          <Text style={cs.addBtnText}>Add</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={[cs.subHeading, { marginTop: 16 }]}>Confidential Topics</Text>
+      <Text style={cs.hint}>Messages containing these topics are filtered from all conversations before processing.</Text>
+      {topics.map(t => (
+        <View key={t} style={cs.chip}>
+          <Text style={cs.chipText}>{t}</Text>
+          <TouchableOpacity onPress={() => removeTopic(t)} data-testid={`remove-topic-${t}`}>
+            <Text style={cs.chipRemove}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+      <View style={cs.addRow}>
+        <TextInput
+          style={cs.input}
+          placeholder="Topic keyword..."
+          placeholderTextColor="#555"
+          value={newTopic}
+          onChangeText={setNewTopic}
+          onSubmitEditing={addTopic}
+          data-testid="conf-topic-input"
+        />
+        <TouchableOpacity style={cs.addBtn} onPress={addTopic} data-testid="conf-topic-add">
+          <Text style={cs.addBtnText}>Add</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const cs = StyleSheet.create({
+  section: { marginBottom: 20, paddingHorizontal: 16 },
+  title: { color: '#D0D0E0', fontSize: 16, fontWeight: '700', marginBottom: 6 },
+  principle: { color: '#777', fontSize: 12, marginBottom: 12, lineHeight: 17 },
+  subHeading: { color: '#A0A0B0', fontSize: 13, fontWeight: '600', marginBottom: 4 },
+  hint: { color: '#555', fontSize: 11, marginBottom: 8 },
+  chip: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(108,92,231,0.12)',
+    borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8, marginBottom: 6, alignSelf: 'flex-start',
+  },
+  chipText: { color: '#B0A0E0', fontSize: 13 },
+  chipRemove: { color: '#E74C3C', fontSize: 14, marginLeft: 8, fontWeight: '700' },
+  addRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  input: {
+    flex: 1, borderWidth: 1, borderColor: '#2A2A3A', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 6, color: '#D0D0E0', fontSize: 13,
+  },
+  addBtn: {
+    marginLeft: 8, backgroundColor: '#6C5CE7', borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 7,
+  },
+  addBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+});
 
 // ── Styles ─────────────────────────────────────────────────────────────────
 
