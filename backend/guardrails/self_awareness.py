@@ -20,7 +20,7 @@ _SELF_AWARENESS = [
             r"tell.*(?:me|us).*about.*(?:myndlens|yourself)",
         ],
         "response": (
-            "I'm MyndLens, your voice-first AI assistant. Here's how I work: "
+            "I'm MyndLens, your voice-first Personal Cognitive Proxy. "
             "You speak your thoughts — even fragmented ones — and I listen, understand, and build a clear intent. "
             "I check with your Digital Self — your personal intelligence built from your contacts, conversations, and patterns — "
             "to fill in the gaps. Then I create a structured mandate and ask for your approval before executing anything. "
@@ -35,7 +35,7 @@ _SELF_AWARENESS = [
         ],
         "response": (
             "Three things make me different. "
-            "First, I'm voice-first — you think out loud, and I capture fragmented thoughts into clear intent. No typing, no menus. "
+            "First, I'm Context Aware — you think out loud, and I capture fragmented thoughts into clear intent. No typing, no menus. "
             "Second, I have your Digital Self — I know your relationships, your active conversations, your pending commitments. "
             "I don't ask you to repeat context you've already shared with others. "
             "Third, sovereign execution — your data stays under your control, confidential contacts are biometric-locked, "
