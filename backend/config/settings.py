@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     OBEGEE_TOKEN_VALIDATION_MODE: str = Field(default="HS256")  # HS256 | JWKS
     OBEGEE_JWKS_URL: str = Field(default="https://obegee.co.uk/.well-known/jwks.json")  # Production JWKS
     OBEGEE_S2S_TOKEN: str = Field(default="obegee-s2s-dev-token-CHANGE-IN-PROD")
-    ENABLE_OBEGEE_MOCK_IDP: bool = Field(default=True)  # MUST be false in prod
+    ENABLE_OBEGEE_MOCK_IDP: bool = Field(default=False)  # Explicitly enable only in dev
 
     # ── ObeGee Shared Infrastructure ──────────────────────────
     OBEGEE_MONGO_URL: str = Field(default="")  # ObeGee's MongoDB (read-only shared collections)
