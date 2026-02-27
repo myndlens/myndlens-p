@@ -1,14 +1,16 @@
 /**
  * Audio State Machine — controls the voice interaction lifecycle.
  *
- * Spec §3.5 locked FSM:
- *   IDLE → LISTENING → CAPTURING → COMMITTING → THINKING → RESPONDING → IDLE
+ * Spec §3.5 locked FSM (updated for Capture Cycle):
+ *   IDLE → LISTENING → CAPTURING → COMMITTING → ACCUMULATING → CAPTURING (loop)
+ *   ACCUMULATING → THINKING (on thought_stream_end)
+ *   THINKING → RESPONDING → IDLE
  *
- * COMMITTING is the ONLY state where:
- *   - Recorder stops
- *   - stream_end is sent to server
- *   - Final user utterance buffer is frozen
- *   - Transition to THINKING occurs after server acknowledges
+ * ACCUMULATING is the capture cycle state:
+ *   - Fragment sent to backend for lightweight processing
+ *   - Backend sends FRAGMENT_ACK
+ *   - Mic restarts → back to CAPTURING for next fragment
+ *   - Extended silence (5-8s) → thought_stream_end → THINKING
  */
 import { create } from 'zustand';
 
@@ -17,17 +19,19 @@ export type AudioState =
   | 'LISTENING'
   | 'CAPTURING'
   | 'COMMITTING'
+  | 'ACCUMULATING'
   | 'THINKING'
   | 'RESPONDING';
 
 // Valid transitions per spec §3.5
 const VALID_TRANSITIONS: Record<AudioState, AudioState[]> = {
-  IDLE:       ['LISTENING'],
-  LISTENING:  ['CAPTURING', 'IDLE'],
-  CAPTURING:  ['COMMITTING', 'IDLE'],          // CAPTURING → COMMITTING only (no direct THINKING)
-  COMMITTING: ['THINKING', 'IDLE'],             // COMMITTING → THINKING after stream_end acknowledged
-  THINKING:   ['RESPONDING', 'IDLE', 'LISTENING'],
-  RESPONDING: ['LISTENING', 'IDLE', 'CAPTURING'],
+  IDLE:          ['LISTENING'],
+  LISTENING:     ['CAPTURING', 'IDLE'],
+  CAPTURING:     ['COMMITTING', 'ACCUMULATING', 'IDLE'],
+  COMMITTING:    ['THINKING', 'IDLE'],
+  ACCUMULATING:  ['CAPTURING', 'THINKING', 'IDLE'],  // CAPTURING=next fragment, THINKING=stream end
+  THINKING:      ['RESPONDING', 'IDLE', 'LISTENING'],
+  RESPONDING:    ['LISTENING', 'IDLE', 'CAPTURING'],
 };
 
 interface AudioStore {

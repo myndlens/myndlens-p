@@ -42,6 +42,8 @@ class WSMessageType(str, Enum):
     DS_RESOLVE = "ds_resolve"       # Backend → Device: "resolve these node IDs for me"
     BIOMETRIC_REQUEST = "biometric_request"   # Backend → Device: request biometric auth
     BIOMETRIC_RESPONSE = "biometric_response" # Device → Backend: biometric result
+    FRAGMENT_ACK = "fragment_ack"             # Backend → Device: fragment processed, keep talking
+    THOUGHT_STREAM_END = "thought_stream_end" # Device → Backend: user done thinking, run full pipeline
 
 
 # ---- Base Envelope ----

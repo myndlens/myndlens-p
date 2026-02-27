@@ -18,8 +18,13 @@ export type WSMessageType =
   | 'draft_update' | 'tts_audio'
   | 'execute_blocked' | 'execute_ok'
   | 'error' | 'session_terminated'
-  | 'ds_resolve'    // Backend → Device: resolve these node IDs
-  | 'ds_context';   // Device → Backend: here is the readable text for those nodes
+  | 'ds_resolve'         // Backend → Device: resolve these node IDs
+  | 'ds_context'         // Device → Backend: here is the readable text for those nodes
+  | 'fragment_ack'       // Backend → Device: fragment processed, keep talking
+  | 'thought_stream_end' // Device → Backend: user done thinking, run full pipeline
+  | 'biometric_request'  // Backend → Device: request biometric auth
+  | 'biometric_response' // Device → Backend: biometric result
+  | 'pipeline_stage' | 'clarification_question';  // pipeline progress + clarification
 
 export interface WSEnvelope {
   type: WSMessageType;

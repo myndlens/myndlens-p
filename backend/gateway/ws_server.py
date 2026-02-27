@@ -397,8 +397,17 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                     transcript_assembler.cleanup(session_id)
                     _clarification_state.pop(session_id, None)
                     logger.info("Kill switch: pipeline aborted for session=%s", session_id)
+                elif reason == "fragment_captured":
+                    # Path A — Capture Cycle: lightweight fragment processing
+                    await _handle_fragment_captured(websocket, session_id, user_id=user_id_resolved or "")
                 else:
+                    # Path B (legacy) — full pipeline on single utterance
                     await _handle_stream_end(websocket, session_id, user_id=user_id_resolved or "")
+
+            elif msg_type == WSMessageType.THOUGHT_STREAM_END.value:
+                # Path B — Full Pipeline: user finished thinking, run mandate pipeline
+                logger.info("Thought stream end: session=%s", session_id)
+                await _handle_thought_stream_end(websocket, session_id, user_id=user_id_resolved or "")
 
             elif msg_type == WSMessageType.TEXT_INPUT.value:
                 await _handle_text_input(websocket, session_id, payload, user_id=user_id_resolved or "")
@@ -845,6 +854,127 @@ async def _handle_stream_end(ws: WebSocket, session_id: str, user_id: str = "") 
 
     except Exception as e:
         logger.error("Stream end error: session=%s error=%s", session_id, str(e))
+
+
+
+async def _handle_fragment_captured(ws: WebSocket, session_id: str, user_id: str = "") -> None:
+    """PATH A — Capture Cycle: lightweight fragment processing.
+
+    Called when frontend VAD detects a sentence-level pause (1.5s).
+    Extracts sub-intents + dimensions from the fragment, updates the
+    ConversationState checklist, and sends FRAGMENT_ACK back.
+    Does NOT run the full mandate pipeline.
+    """
+    try:
+        stt = get_stt_provider()
+        final_fragment = await stt.end_stream(session_id)
+
+        if not final_fragment:
+            # No audio captured — send ACK anyway so frontend keeps listening
+            await ws.send_text(_make_envelope(WSMessageType.FRAGMENT_ACK, {
+                "session_id": session_id, "status": "empty",
+                "sub_intents": [], "checklist_progress": 0,
+            }))
+            return
+
+        state, span = transcript_assembler.add_fragment(session_id, final_fragment)
+        fragment_text = state.get_current_text()
+
+        # Send transcript partial so user sees what was captured
+        await _send(ws, WSMessageType.TRANSCRIPT_PARTIAL, TranscriptPayload(
+            text=fragment_text, is_final=False,
+            fragment_count=len(state.fragments),
+            confidence=final_fragment.confidence,
+            span_ids=[span.span_id],
+        ))
+
+        # Get conversation state + DS context
+        session_ctx = _session_contexts.get(session_id)
+        ds_summary = session_ctx.raw_summary if session_ctx else ""
+        conv = get_or_create_conversation(session_id, user_id=user_id)
+
+        # Run lightweight sub-intent extraction (single Gemini Flash call)
+        from intent.fragment_analyzer import analyze_fragment
+        analysis = await analyze_fragment(
+            session_id=session_id,
+            user_id=user_id,
+            fragment_text=fragment_text,
+            accumulated_context=conv.combined_transcript,
+            ds_summary=ds_summary,
+        )
+
+        # Update conversation state
+        conv.add_fragment(fragment_text, sub_intents=analysis.sub_intents, confidence=analysis.confidence)
+        for dim, val in analysis.dimensions_found.items():
+            conv.fill_checklist(dim, val, source="user_said")
+
+        # Calculate checklist progress
+        total_items = len(conv.checklist)
+        filled_items = len([c for c in conv.checklist if c.filled])
+        progress = round(filled_items / max(total_items, 1) * 100)
+
+        # Send FRAGMENT_ACK — tells frontend "got it, keep talking"
+        await ws.send_text(_make_envelope(WSMessageType.FRAGMENT_ACK, {
+            "session_id": session_id,
+            "status": "captured",
+            "fragment_index": len(conv.fragments),
+            "fragment_text": fragment_text[:80],
+            "sub_intents": analysis.sub_intents,
+            "dimensions_found": analysis.dimensions_found,
+            "checklist_progress": progress,
+            "latency_ms": round(analysis.latency_ms),
+        }))
+
+        # Cleanup STT assembler for next fragment
+        transcript_assembler.cleanup(session_id)
+
+        logger.info(
+            "[CAPTURE:FRAGMENT] session=%s frag=%d text='%s' sub_intents=%s dims=%d progress=%d%% %.0fms",
+            session_id, len(conv.fragments), fragment_text[:40],
+            analysis.sub_intents, len(analysis.dimensions_found), progress, analysis.latency_ms,
+        )
+
+    except Exception as e:
+        logger.error("[CAPTURE:FRAGMENT] error: session=%s %s", session_id, str(e))
+        # Still send ACK so frontend doesn't hang
+        await ws.send_text(_make_envelope(WSMessageType.FRAGMENT_ACK, {
+            "session_id": session_id, "status": "error", "error": str(e),
+            "sub_intents": [], "checklist_progress": 0,
+        }))
+
+
+async def _handle_thought_stream_end(ws: WebSocket, session_id: str, user_id: str = "") -> None:
+    """PATH B — Full Pipeline: user finished thinking, run mandate pipeline.
+
+    Called when frontend detects extended silence (5-8s) or user taps "Done".
+    Uses the accumulated ConversationState (all fragments, checklist) to run
+    the full L1 → Dimensions → Guardrails → TTS pipeline.
+    """
+    conv = get_or_create_conversation(session_id, user_id=user_id)
+
+    if not conv.fragments:
+        logger.warning("[CAPTURE:STREAM_END] session=%s no fragments accumulated", session_id)
+        return
+
+    # Use the combined transcript from all accumulated fragments
+    combined = conv.get_combined_transcript()
+    logger.info(
+        "[CAPTURE:STREAM_END] session=%s fragments=%d combined='%s'",
+        session_id, len(conv.fragments), combined[:80],
+    )
+
+    # Transition conversation phase
+    conv.phase = "PROCESSING"
+
+    # Get context capsule
+    session_ctx = _session_contexts.get(session_id)
+    context_capsule = None
+    if session_ctx and session_ctx.raw_summary:
+        context_capsule = json.dumps({"summary": session_ctx.raw_summary})
+
+    # Route through _handle_text_input which checks clarification state
+    # and then runs _send_mock_tts_response with the FULL combined transcript
+    await _handle_text_input(ws, session_id, {"text": combined, "context_capsule": context_capsule}, user_id=user_id)
 
 
 async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user_id: str = "") -> None:

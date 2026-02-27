@@ -219,7 +219,9 @@ export default function TalkScreen() {
   useEffect(() => { pendingDraftIdRef.current = pendingDraftId; }, [pendingDraftId]);
   const [liveEnergy, setLiveEnergy] = useState(0);
   const [userNickname, setUserNickname] = useState('');
-  const [waNotPaired, setWaNotPaired]   = useState(false);  // nudge for users who haven't paired WA
+  const [waNotPaired, setWaNotPaired]   = useState(false);
+  const [fragmentCount, setFragmentCount] = useState(0);  // pulsing dot counter
+  const thoughtStreamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);  // 6s stream end timer
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = React.useState<Array<{
     role: 'user' | 'assistant' | 'result';
@@ -405,6 +407,16 @@ export default function TalkScreen() {
       );
       pulse.start();
       return () => pulse.stop();
+    } else if (audioState === 'ACCUMULATING') {
+      // Gentle pulse — "processing your fragment, keep talking"
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(micAnim, { toValue: 1.08, duration: 800, useNativeDriver: true }),
+          Animated.timing(micAnim, { toValue: 0.96, duration: 800, useNativeDriver: true }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
     } else if (audioState === 'RESPONDING') {
       const glow = Animated.loop(
         Animated.sequence([
@@ -481,6 +493,44 @@ export default function TalkScreen() {
         } catch { /* non-critical */ }
       }),
       wsClient.on('transcript_partial', (env: WSEnvelope) => setPartialTranscript(env.payload.text || '')),
+      wsClient.on('fragment_ack' as WSMessageType, (env: WSEnvelope) => {
+        // Path A — Capture Cycle: fragment processed, restart recording for next fragment
+        const { fragment_text, sub_intents, checklist_progress } = env.payload;
+        console.log('[Talk] Fragment ACK:', fragment_text?.substring(0, 40), 'progress:', checklist_progress);
+        // Add fragment to chat as partial context
+        if (fragment_text) {
+          setChatMessages(prev => [...prev, { role: 'user', text: fragment_text, ts: Date.now() }]);
+        }
+        // Restart recording for next fragment
+        if (audioStateRef.current === 'ACCUMULATING') {
+          recordingStartedAt.current = Date.now();
+          transition('CAPTURING');
+          startRecording(
+            async () => {
+              // Same fragment capture callback — recursive
+              const dur = Date.now() - recordingStartedAt.current;
+              if (dur < 1000) { console.log('[Talk] VAD noise ignored, continuing'); return; }
+              const audio = await stopAndGetAudio();
+              const sid2 = wsClient.currentSessionId;
+              if (audio && sid2) {
+                wsClient.send('audio_chunk', { session_id: sid2, audio, seq: 1, timestamp: Date.now(), duration_ms: dur });
+                wsClient.send('cancel', { session_id: sid2, reason: 'fragment_captured' });
+                transition('ACCUMULATING');
+                setFragmentCount(prev => prev + 1);
+                if (thoughtStreamTimer.current) clearTimeout(thoughtStreamTimer.current);
+                thoughtStreamTimer.current = setTimeout(() => {
+                  if (audioStateRef.current === 'ACCUMULATING' || audioStateRef.current === 'CAPTURING') {
+                    stopRecording().catch(() => {});
+                    wsClient.send('thought_stream_end', { session_id: sid2 });
+                    transition('THINKING');
+                  }
+                }, 6000);
+              } else { transition('IDLE'); }
+            },
+            (rms: number) => setLiveEnergy(rms),
+          ).catch(() => transition('IDLE'));
+        }
+      }),
       wsClient.on('transcript_final', (env: WSEnvelope) => {
         const text = env.payload.text || '';
         setTranscript(text);
@@ -655,6 +705,8 @@ export default function TalkScreen() {
       setPipelineSubStatus('');
       setPipelineProgress(0);
       setPendingAction(null);  // D6: clear stale approve/kill state from previous mandate
+      setFragmentCount(0);    // Reset fragment counter for new conversation
+      if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
       // Gate: if DS setup was never completed, surface the setup modal every tap
       try {
         const { getItem } = require('../src/utils/storage');
@@ -685,27 +737,38 @@ export default function TalkScreen() {
 
       await startRecording(
         async () => {
-          // VAD auto-stop: user finished speaking
+          // VAD auto-stop: sentence-level pause detected (1.5s silence)
           const duration = Date.now() - recordingStartedAt.current;
           if (duration < 1000) {
-            // Too short — likely background noise or TTS echo triggering VAD.
-            // Do NOT submit. Silently discard and stay in CAPTURING so the
-            // real speech can be captured. If the user genuinely spoke < 1s,
-            // they can tap the mic button to submit manually.
             console.log('[Talk] VAD noise trigger ignored (< 1s), continuing to record');
             return;
           }
-          console.log('[Talk] VAD triggered auto-stop (duration=' + duration + 'ms)');
+          console.log('[Talk] VAD triggered fragment capture (duration=' + duration + 'ms)');
           const audioBase64 = await stopAndGetAudio();
           const sid = wsClient.currentSessionId;
           if (audioBase64 && sid) {
+            // Send as fragment (Path A — Capture Cycle)
             wsClient.send('audio_chunk', {
               session_id: sid, audio: audioBase64,
               seq: 1, timestamp: Date.now(), duration_ms: duration,
             });
-            wsClient.send('cancel', { session_id: sid, reason: 'vad_end_of_utterance' });
-            transition('COMMITTING');
-            transition('THINKING');
+            wsClient.send('cancel', { session_id: sid, reason: 'fragment_captured' });
+            transition('ACCUMULATING');
+            setFragmentCount(prev => prev + 1);
+
+            // Start the thought-stream-end timer (6s)
+            // If user doesn't speak again within 6s, send thought_stream_end
+            if (thoughtStreamTimer.current) clearTimeout(thoughtStreamTimer.current);
+            thoughtStreamTimer.current = setTimeout(() => {
+              const currentState = audioStateRef.current;
+              if (currentState === 'ACCUMULATING' || currentState === 'CAPTURING') {
+                console.log('[Talk] Thought stream ended (6s silence)');
+                // Stop any active recording
+                stopRecording().catch(() => {});
+                wsClient.send('thought_stream_end', { session_id: sid });
+                transition('THINKING');
+              }
+            }, 6000);
           } else {
             console.warn('[Talk] stopAndGetAudio null or no session — resetting to IDLE');
             transition('IDLE');
@@ -890,6 +953,7 @@ export default function TalkScreen() {
             : PIPELINE_STAGES.findIndex((_, i) => getPipelineState(i, audioState, pendingAction, transcript) === 'active');
           const activeStage = activeIndex >= 0 ? PIPELINE_STAGES[activeIndex] : null;
           const isIdle = !activeStage && audioState === 'IDLE' && completedStages.length === 0;
+          const isAccumulating = audioState === 'ACCUMULATING' || (audioState === 'CAPTURING' && fragmentCount > 0);
 
           const activeText = activeIndex === 0 && userNickname
             ? `Listening, ${userNickname}\u2026`
@@ -897,7 +961,22 @@ export default function TalkScreen() {
 
           return (
             <View style={styles.pipelineWrapper} data-testid="pipeline-progress">
-              {isIdle ? (
+              {isAccumulating ? (
+                <View style={[styles.pipelineCard, { backgroundColor: 'rgba(108,92,231,0.08)', borderColor: '#6C5CE7' }]}>
+                  <View style={styles.pipelineIdleInner}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                      <Animated.View style={{
+                        width: 10, height: 10, borderRadius: 5, backgroundColor: '#6C5CE7',
+                        opacity: micAnim,
+                      }} />
+                      <Text style={[styles.pipelineIdleTitle, { color: '#6C5CE7' }]}>
+                        Listening{fragmentCount > 0 ? ` (${fragmentCount} captured)` : '\u2026'}
+                      </Text>
+                    </View>
+                    <Text style={styles.pipelineIdleSubtext}>Keep talking. I'll process when you're done.</Text>
+                  </View>
+                </View>
+              ) : isIdle ? (
                 <>
                   <View style={[styles.pipelineCard, styles.pipelineCardIdle]}>
                     <View style={styles.pipelineIdleInner}>
