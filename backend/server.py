@@ -22,6 +22,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
 from config.settings import get_settings
+from config.validators import validate_startup_config
 from core.logging_config import setup_logging
 from core.database import get_db, init_indexes, close_db
 from core.exceptions import DispatchBlockedError
@@ -57,18 +58,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """FastAPI lifespan: startup validation → init → serve → shutdown."""
     settings = get_settings()
-
-    # ── Startup: Fail fast on missing critical configuration ────────────────
-    _required_vars = {
-        "MIO_KEY_ENCRYPTION_KEY": settings.MIO_KEY_ENCRYPTION_KEY,
-        "MYNDLENS_BASE_URL": settings.MYNDLENS_BASE_URL,
-    }
-    _missing = [k for k, v in _required_vars.items() if not v]
-    if _missing:
-        raise RuntimeError(
-            f"STARTUP FAILED — missing required env vars in backend/.env: {', '.join(_missing)}\n"
-            "Set them and restart the server."
-        )
+    validate_startup_config(settings)
 
     _warned_vars = {
         "OBEGEE_API_URL": settings.OBEGEE_API_URL,

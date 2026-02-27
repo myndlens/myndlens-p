@@ -16,6 +16,14 @@ from core.exceptions import AuthError
 logger = logging.getLogger(__name__)
 
 
+def _require_jwt_secret() -> str:
+    """Read JWT secret and fail closed if configuration is invalid."""
+    secret = get_settings().JWT_SECRET
+    if not secret:
+        raise AuthError("JWT secret is not configured")
+    return secret
+
+
 class TokenClaims(BaseModel):
     """Claims embedded in auth JWT."""
     user_id: str
@@ -43,7 +51,7 @@ def generate_token(
         "iat": now.timestamp(),
         "exp": (now + timedelta(seconds=settings.JWT_EXPIRY_SECONDS)).timestamp(),
     }
-    token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    token = jwt.encode(payload, _require_jwt_secret(), algorithm=settings.JWT_ALGORITHM)
     logger.info("Token generated for user=%s device=%s session=%s", user_id, device_id, session_id)
     return token
 
@@ -54,7 +62,7 @@ def validate_token(token: str) -> TokenClaims:
     try:
         payload = jwt.decode(
             token,
-            settings.JWT_SECRET,
+            _require_jwt_secret(),
             algorithms=[settings.JWT_ALGORITHM],
         )
         claims = TokenClaims(**payload)
