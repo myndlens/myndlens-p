@@ -444,8 +444,8 @@ export default function SettingsScreen() {
         { text: 'Revoke All', style: 'destructive', onPress: async () => {
           await revokeAllCredentials();
           setImapCreds({ host: '', port: 993, email: '', password: '' });
-          setGmailToken('');
-          setLinkedinToken('');
+          setGmailConnected(false);
+          setLinkedinConnected(false);
           Alert.alert('Done', 'All credentials revoked.');
         }},
       ],
