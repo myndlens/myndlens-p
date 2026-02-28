@@ -667,7 +667,8 @@ async def _handle_execute_request(
         # ── Retrieve the full enriched mandate stored during Phase 1 ──────────
         # Phase 1 (voice → approval) extracted real dimensions: where, when, who, budget etc.
         # Without this, determine_skills and OC only see the hypothesis summary string.
-        full_mandate = _pending_mandates.pop(req.draft_id, None)
+        # Non-destructive read — keep mandate until dispatch succeeds (retry-safe)
+        full_mandate = _pending_mandates.get(req.draft_id, None)
 
         skill_plan = await determine_skills(
             session_id=session_id, user_id=user_id,
@@ -778,6 +779,9 @@ async def _handle_execute_request(
             draft_id=req.draft_id,
             dispatch_status=result.get("status", "QUEUED"),
         ))
+
+        # Clean up mandate only AFTER successful dispatch (retry-safe)
+        _pending_mandates.pop(req.draft_id, None)
 
         # Acknowledge execution with TTS — confirms mandate accepted
         ack_text = f"On it. {top.hypothesis[:80]}."
@@ -1252,7 +1256,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     # Reset conversation for fresh mandates (no pending clarification)
     if not _clarification_state.get(session_id, {}).get("pending"):
         conv.reset()
-        _session_question_count[session_id] = 0
+        conv.questions_remaining = 3  # Hard cap per mandate lifecycle
 
     # Add this transcript as a fragment
     conv.add_fragment(transcript)
@@ -1394,8 +1398,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         top_check = l1_draft.hypotheses[0]
         from intent.micro_questions import should_ask_micro_questions, generate_micro_questions
 
-        questions_so_far = _session_question_count.get(session_id, 0)
-        if questions_so_far < 3 and should_ask_micro_questions(top_check.confidence, top_check.dimension_suggestions, top_check.hypothesis):
+        if conv.can_ask_question() and should_ask_micro_questions(top_check.confidence, top_check.dimension_suggestions, top_check.hypothesis):
             clarify_state = _clarification_state.get(session_id, {})
             attempt = clarify_state.get("attempts", 0)
             questions_asked: list = clarify_state.get("questions_asked", [])
@@ -1417,7 +1420,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
 
                 if mq_result.questions:
                     question = mq_result.questions[0]
-                    _session_question_count[session_id] = questions_so_far + 1
+                    conv.record_question(question.question)
 
                     _clarification_state[session_id] = {
                         "pending": True,
