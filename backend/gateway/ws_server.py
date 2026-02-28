@@ -1644,7 +1644,11 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         # Store full enriched mandate so _handle_execute_request can retrieve it.
         # This is the ONLY place where real dimensions exist — if not stored here,
         # determine_skills() and OC will only see the hypothesis summary string.
-        _pending_mandates[l1_draft.draft_id] = mandate
+        _pending_mandates[l1_draft.draft_id] = {
+            **(mandate if isinstance(mandate, dict) else {"raw": mandate}),
+            "_session_id": session_id,
+            "_user_id": user_id,
+        }
         from intent.mandate_questions import get_all_missing
         missing = get_all_missing(mandate)
         logger.info(
@@ -1743,21 +1747,22 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     delegation_mode = (_session_auth.get(session_id) or {}).get("delegation_mode", "assisted")
 
     if delegation_mode == "delegated":
-        # Delegated: auto-approve — execute immediately without user confirmation
         needs_approval = False
-        logger.info("[MANDATE:5:DELEGATION] session=%s mode=delegated → auto-approving", session_id)
+        logger.info("[MANDATE:5:DELEGATION] session=%s mode=delegated → auto-execute", session_id)
     elif delegation_mode == "advisory":
-        # Advisory: always ask — user must confirm every mandate
         needs_approval = True
-        logger.info("[MANDATE:5:DELEGATION] session=%s mode=advisory → always require approval", session_id)
     else:
-        # Assisted (default): ask only when mandate text requests it
-        needs_approval = "shall i proceed" in response_text.lower() or "i understand" in response_text.lower()
+        # Assisted: always ask for approval (explicit policy, not text matching)
+        needs_approval = True
 
-    # CRITICAL: if this TTS is asking for approval, set clarification state to
-    # "permission" BEFORE sending the audio. This ensures the next voice input
-    # from the user ("Yes"/"No") is handled as an approval response and NOT
-    # processed as a brand new intent (which would cause an infinite loop).
+    # Store mandate with session_id for cleanup
+    _pending_mandates[l1_draft.draft_id] = {
+        **(mandate if isinstance(mandate, dict) else {"mandate": mandate}),
+        "_session_id": session_id,
+        "_user_id": user_id,
+        "_created_at": datetime.now(timezone.utc).isoformat(),
+    } if isinstance(_pending_mandates.get(l1_draft.draft_id), dict) or l1_draft.draft_id not in _pending_mandates else _pending_mandates[l1_draft.draft_id]
+
     if needs_approval:
         _clarification_state[session_id] = {
             "pending":             True,
@@ -1769,6 +1774,15 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         }
         logger.info("[MANDATE:5:APPROVAL_GATE] session=%s draft_id=%s — awaiting Yes/No",
                     session_id, l1_draft.draft_id)
+    else:
+        # Delegated mode: auto-execute immediately
+        from schemas.ws_messages import ExecuteRequestPayload
+        asyncio.create_task(_handle_execute_request(
+            ws, session_id,
+            ExecuteRequestPayload(draft_id=l1_draft.draft_id, approved=True),
+            user_id=user_id,
+        ))
+        logger.info("[MANDATE:5:AUTO_EXECUTE] session=%s draft_id=%s", session_id, l1_draft.draft_id)
 
     if result.audio_bytes and not result.is_mock:
         audio_b64 = base64.b64encode(result.audio_bytes).decode("ascii")
@@ -1779,9 +1793,10 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             "audio_size_bytes": len(result.audio_bytes),
             "auto_record": needs_approval,
             "is_clarification": needs_approval,
-            "ui_mode": "approval" if needs_approval else "idle",
+            "ui_mode": "approval" if needs_approval else "executing" if delegation_mode == "delegated" else "idle",
             "awaiting_command": "approve_or_change" if needs_approval else "none",
             "draft_id": l1_draft.draft_id if needs_approval else "",
+            "requires_approval": needs_approval,
         }
         await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, payload_dict))
         logger.info("[MANDATE:5:TTS] session=%s DONE real_audio bytes=%d", session_id, len(result.audio_bytes))
@@ -1791,9 +1806,10 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             "format": "text", "is_mock": True,
             "auto_record": needs_approval,
             "is_clarification": needs_approval,
-            "ui_mode": "approval" if needs_approval else "idle",
+            "ui_mode": "approval" if needs_approval else "executing" if delegation_mode == "delegated" else "idle",
             "awaiting_command": "approve_or_change" if needs_approval else "none",
             "draft_id": l1_draft.draft_id if needs_approval else "",
+            "requires_approval": needs_approval,
         }
         await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, payload_dict))
         logger.info("[MANDATE:5:TTS] session=%s DONE mock_text", session_id)
