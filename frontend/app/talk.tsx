@@ -417,13 +417,23 @@ export default function TalkScreen() {
           }
           await TTS.stop().catch(() => {});
           resetAudio();
-          setPendingAction(null);
-          setPendingDraftId(null);
-          setPipelineStageIndex(-1);
-          setPipelineSubStatus('');
-          setPipelineProgress(0);
-          setConnectionStatus('disconnected');
-          if (isScreenFocused.current) {
+
+          // Silent reconnect — do NOT show loading screen
+          // The WS dropped during background (normal after 5+ min).
+          // Just reconnect quietly. The user stays on the Talk screen.
+          console.log('[Talk] WS disconnected during background — reconnecting silently');
+          setConnectionStatus('connecting');
+          try {
+            const { getItem } = require('../src/utils/storage');
+            const token = await getItem('myndlens_auth_token');
+            if (token) {
+              await wsClient.connect();
+              console.log('[Talk] Silent reconnect successful');
+            } else {
+              router.replace('/loading');
+            }
+          } catch (e) {
+            console.log('[Talk] Silent reconnect failed, going to loading:', e);
             router.replace('/loading');
           }
         }
