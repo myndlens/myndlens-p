@@ -1061,7 +1061,6 @@ export default function TalkScreen() {
             : PIPELINE_STAGES.findIndex((_, i) => getPipelineState(i, audioState, pendingAction, transcript) === 'active');
           const activeStage = activeIndex >= 0 ? PIPELINE_STAGES[activeIndex] : null;
           const isIdle = !activeStage && audioState === 'IDLE' && completedStages.length === 0;
-          const isAccumulating = audioState === 'ACCUMULATING' || (audioState === 'CAPTURING' && fragmentCount > 0);
 
           const activeText = activeIndex === 0 && userNickname
             ? `Listening, ${userNickname}\u2026`
@@ -1069,22 +1068,7 @@ export default function TalkScreen() {
 
           return (
             <View style={styles.pipelineWrapper} data-testid="pipeline-progress">
-              {isAccumulating ? (
-                <View style={[styles.pipelineCard, { backgroundColor: 'rgba(108,92,231,0.08)', borderColor: '#6C5CE7' }]}>
-                  <View style={styles.pipelineIdleInner}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                      <Animated.View style={{
-                        width: 10, height: 10, borderRadius: 5, backgroundColor: '#6C5CE7',
-                        opacity: micAnim,
-                      }} />
-                      <Text style={[styles.pipelineIdleTitle, { color: '#6C5CE7' }]}>
-                        Listening{fragmentCount > 0 ? ` (${fragmentCount} captured)` : '\u2026'}
-                      </Text>
-                    </View>
-                    <Text style={styles.pipelineIdleSubtext}>Keep talking. I'll process when you're done.</Text>
-                  </View>
-                </View>
-              ) : isIdle ? (
+              {isIdle ? (
                 <>
                   <View style={[styles.pipelineCard, styles.pipelineCardIdle]}>
                     <View style={styles.pipelineIdleInner}>
@@ -1184,12 +1168,15 @@ export default function TalkScreen() {
           <View style={styles.secondaryRow}>
             <TouchableOpacity style={styles.killButton} onPress={() => {
                 const sid = wsClient.currentSessionId;
+                console.log('[BTN:KILL/CHANGE] tap — sid=%s awaitingCommand=%s pendingAction=%s', sid, awaitingCommand, pendingAction);
                 if (!sid) return;
                 if (awaitingCommand === 'approve_or_change' || pendingAction) {
+                  console.log('[BTN:CHANGE] sending DECLINE_CHANGE');
                   wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'DECLINE_CHANGE', source: 'button' });
                   setAwaitingCommand('none');
                   transition('THINKING');
                 } else {
+                  console.log('[BTN:KILL] calling handleKill');
                   handleKill();
                 }
               }} activeOpacity={0.8} data-testid="kill-btn">
@@ -1202,19 +1189,25 @@ export default function TalkScreen() {
                 awaitingCommand === 'none' && !pendingAction && fragmentCount === 0 && styles.approveDisabled]}
               onPress={() => {
                 const sid = wsClient.currentSessionId;
+                console.log('[BTN:DONE/YES] tap — sid=%s fragmentCount=%d audioState=%s awaitingCommand=%s pendingAction=%s',
+                  sid, fragmentCount, audioStateRef.current, awaitingCommand, pendingAction);
                 if (!sid) return;
                 if (fragmentCount > 0 && (audioStateRef.current === 'CAPTURING' || audioStateRef.current === 'ACCUMULATING')) {
                   // END_THOUGHT
+                  console.log('[BTN:DONE] sending END_THOUGHT');
                   if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
                   stopRecording().catch(() => {});
                   wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'END_THOUGHT', source: 'button' });
                   transition('THINKING');
                 } else if (awaitingCommand === 'approve_or_change' || pendingAction) {
                   // APPROVE
+                  console.log('[BTN:YES] sending APPROVE draft=%s', pendingDraftId);
                   wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'APPROVE', source: 'button', draft_id: pendingDraftId || '' });
                   setAwaitingCommand('none');
                   setPendingAction(null);
                   transition('THINKING');
+                } else {
+                  console.log('[BTN:DONE/YES] no action — conditions not met');
                 }
               }}
               disabled={awaitingCommand === 'none' && !pendingAction && fragmentCount === 0}

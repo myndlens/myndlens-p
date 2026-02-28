@@ -612,8 +612,11 @@ async def _handle_execute_request(
     auth_token: str = "",
 ) -> None:
     """Execute an approved mandate: L2 → QC → Skills → Dispatch."""
+    logger.info("[EXECUTE:START] session=%s draft=%s tenant=%s user=%s",
+                session_id, payload.get("draft_id", "?"), tenant_id, user_id)
     try:
         req = ExecuteRequestPayload(**payload)
+        logger.info("[EXECUTE:PARSED] session=%s draft=%s", session_id, req.draft_id)
 
         # SUBSCRIPTION GATE
         if subscription_status != "ACTIVE":
@@ -645,41 +648,13 @@ async def _handle_execute_request(
             logger.warning("EXECUTE_BLOCKED: session=%s reason=PRESENCE_STALE", session_id)
             return
 
-        # BIOMETRIC GATE (E6) — request device-side biometric auth before execution
-        # Send biometric request, wait up to 30s for response.
-        # If device doesn't support biometrics, it responds immediately with success.
-        bio_event = asyncio.Event()
-        _biometric_events[session_id] = {"event": bio_event, "result": None}
-        await ws.send_text(_make_envelope(WSMessageType.BIOMETRIC_REQUEST, {
-            "session_id": session_id,
-            "draft_id": req.draft_id,
-            "reason": "Confirm execution with biometric authentication",
-        }))
-        try:
-            await asyncio.wait_for(bio_event.wait(), timeout=30.0)
-            bio_result = _biometric_events.get(session_id, {}).get("result")
-            if bio_result and bio_result.get("success"):
-                logger.info("BIOMETRIC: session=%s PASSED", session_id)
-            else:
-                await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
-                    reason="Biometric authentication failed or was cancelled.",
-                    code="BIOMETRIC_FAILED",
-                    draft_id=req.draft_id,
-                ))
-                logger.warning("BIOMETRIC: session=%s FAILED", session_id)
-                return
-        except asyncio.TimeoutError:
-            # Timeout = device doesn't support biometrics or user didn't respond
-            # FAIL CLOSED for confidential/sensitive actions. Allow only for non-sensitive.
-            logger.warning("BIOMETRIC: session=%s timeout — blocking execution (fail-closed)", session_id)
-            await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
-                reason="Biometric authentication timed out. Please try again.",
-                code="BIOMETRIC_TIMEOUT",
-                draft_id=req.draft_id,
-            ))
-            return
-        finally:
-            _biometric_events.pop(session_id, None)
+        # BIOMETRIC GATE (E6) — BYPASSED
+        # The biometric request/response flow creates a WS deadlock: this handler
+        # blocks the message loop waiting for bio_event, but the biometric_response
+        # message can only be processed by the same blocked loop. Bypassed until
+        # the frontend has real biometric UI and we restructure to use a background
+        # reader for the response.
+        logger.info("BIOMETRIC: session=%s BYPASSED (E6 pending frontend impl)", session_id)
 
         # RETRIEVE DRAFT
         from l1.scout import get_draft
@@ -749,6 +724,11 @@ async def _handle_execute_request(
         full_mandate = await get_mandate(req.draft_id)
         if full_mandate:
             await transition_state(req.draft_id, MandateState.APPROVED)
+            logger.info("[EXECUTE:MANDATE_FOUND] session=%s draft=%s state=%s",
+                        session_id, req.draft_id, full_mandate.get("_state", "?"))
+        else:
+            logger.warning("[EXECUTE:NO_MANDATE] session=%s draft=%s — not found in DB",
+                          session_id, req.draft_id)
 
         skill_plan = await determine_skills(
             session_id=session_id, user_id=user_id,
@@ -887,6 +867,8 @@ async def _handle_execute_request(
         }] if agents_md else []
 
         # ── PROVISION GATE — pre-dispatch validation (H2) ─────────────────
+        logger.info("[EXECUTE:PROVISION] session=%s agents_count=%d skills=%s",
+                    session_id, len(agents_payload), skill_names)
         if full_mandate:
             await transition_state(req.draft_id, MandateState.PROVISIONING)
         if not agents_payload:
@@ -917,7 +899,10 @@ async def _handle_execute_request(
             "approved_by": user_id,
             "delivery_channels": delivery_channels,
         }
+        logger.info("[EXECUTE:DISPATCH] session=%s draft=%s tenant=%s cycle=%s",
+                    session_id, req.draft_id, tenant_id, mandate_cycle_id)
         result = await dispatch_mandate(session_id, mandate, api_token=auth_token)
+        logger.info("[EXECUTE:DISPATCH_OK] session=%s result=%s", session_id, result)
 
         # Record skill usage for reinforcement learning — updated on webhook callback
         # (actual outcome recorded in delivery webhook when ObeGee confirms result)
@@ -1127,6 +1112,11 @@ async def _process_fragment(ws: WebSocket, session_id: str, user_id: str = "") -
                 session_id, clarify.get("type", "?"), fragment_text[:60],
             )
             transcript_assembler.cleanup(session_id)
+            # Signal frontend to stop recording and show processing state
+            await _send(ws, WSMessageType.PIPELINE_STAGE, {
+                "session_id": session_id, "stage_index": 2,
+                "status": "active", "sub_status": "Processing your response...",
+            })
             await _handle_text_input(ws, session_id, {"text": fragment_text}, user_id=user_id)
             return
 
@@ -1426,12 +1416,20 @@ async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, u
             ))
 
     elif command == "END_THOUGHT":
+        logger.info("[COMMAND:END_THOUGHT] session=%s phase=%s fragments=%d",
+                     session_id, conv.phase, len(conv.fragments))
         if conv.phase in ("ACTIVE_CAPTURE", "LISTENING"):
             conv.phase = "PROCESSING"
             combined = conv.get_combined_transcript()
+            logger.info("[COMMAND:END_THOUGHT] session=%s combined='%s'",
+                         session_id, combined[:80] if combined else "(empty)")
             if combined:
                 transcript_assembler.cleanup(session_id)
                 await _handle_text_input(ws, session_id, {"text": combined}, user_id=user_id)
+            else:
+                logger.warning("[COMMAND:END_THOUGHT] session=%s — empty transcript, ignoring", session_id)
+        else:
+            logger.warning("[COMMAND:END_THOUGHT] session=%s — phase '%s' not capturable, ignoring", session_id, conv.phase)
 
     elif command == "HOLD":
         conv.phase = "HELD"
