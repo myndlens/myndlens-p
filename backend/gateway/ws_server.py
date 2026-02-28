@@ -56,6 +56,10 @@ from intent.gap_filler import SessionContext, parse_capsule_summary, enrich_tran
 from gateway.conversation_state import (
     get_or_create_conversation, cleanup_conversation,
 )
+from mandate.store import (
+    save_mandate, get_mandate, transition_state,
+    delete_mandate, cleanup_session_mandates, MandateState,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,10 +81,8 @@ _open_connections = 0
 # Per-session auth context — stored at WS auth to allow execute_request from
 # within audio_chunk handler (permission grant path needs subscription/tenant/token)
 _session_auth: Dict[str, dict] = {}
-# Full enriched mandate — stored after extract_mandate_dimensions() in Phase 1.
-# Keyed by draft_id so _handle_execute_request() can retrieve real dimensions.
-# Without this, determine_skills() and OC only see the hypothesis summary string.
-_pending_mandates: Dict[str, dict] = {}
+# Full enriched mandates are now persisted to MongoDB via mandate.store
+# (replaces process-local _pending_mandates dict for crash safety — H1).
 # Biometric auth events — session_id -> {"event": asyncio.Event, "result": dict}
 _biometric_events: Dict[str, dict] = {}
 # Per-session fragment processing lock — ensures fragments are processed sequentially
@@ -414,6 +416,56 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             first_name = session_ctx.user_name.split()[0] if session_ctx and session_ctx.user_name else ""
             asyncio.create_task(deliver_nudges_on_connect(user_id_resolved, websocket, first_name))
 
+        # ── MANDATE RESUME — check for pending mandates from a prior session ──
+        # When the app backgrounds and the WS drops, the mandate persists in DB
+        # (H1). On reconnect, restore the approval flow so the user can continue.
+        if user_id_resolved:
+            from mandate.store import get_pending_for_user
+            pending = await get_pending_for_user(user_id_resolved)
+            if pending and pending.get("state") == "APPROVAL_PENDING":
+                draft_id = pending["draft_id"]
+                mandate_data = pending.get("mandate_data", {})
+                cycle_id = pending.get("cycle_id", "")
+
+                # Re-bind mandate to the new session
+                from mandate.store import save_mandate, MandateState
+                await save_mandate(
+                    draft_id=draft_id,
+                    mandate_data=mandate_data,
+                    state=MandateState.APPROVAL_PENDING,
+                    session_id=session_id,
+                    user_id=user_id_resolved,
+                    cycle_id=cycle_id,
+                )
+
+                # Restore clarification state so Yes/Change commands work
+                summary = mandate_data.get("mandate_summary", "")
+                original_transcript = mandate_data.get("original_transcript", "")
+                _clarification_state[session_id] = {
+                    "pending": True,
+                    "type": "permission",
+                    "original_transcript": original_transcript or summary,
+                    "question_asked": summary,
+                    "draft_id": draft_id,
+                    "_cycle_id": cycle_id,
+                }
+
+                # Send the mandate summary as TTS so the user can approve/change
+                resume_text = f"Welcome back. You had a pending action: {summary}. Shall I proceed?" if summary else "Welcome back. You have a pending action. Shall I proceed?"
+                await _send(websocket, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                    text=resume_text,
+                    session_id=session_id,
+                    format="text",
+                    is_mock=True,
+                    auto_record=True,
+                    is_clarification=True,
+                    ui_mode="approval",
+                ))
+                logger.info(
+                    "[MANDATE_RESUME] session=%s draft=%s state=%s — approval flow restored",
+                    session_id, draft_id, pending["state"],
+                )
+
         # ---- Phase 2: Message Loop ----
         while True:
             raw = await websocket.receive_text()
@@ -504,11 +556,8 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             active_connections.pop(session_id, None)
             _session_contexts.pop(session_id, None)
             _session_auth.pop(session_id, None)
-            # Clean up pending mandates for this session to prevent memory leak
-            stale_drafts = [k for k, v in _pending_mandates.items()
-                            if isinstance(v, dict) and v.get("_session_id") == session_id]
-            for k in stale_drafts:
-                _pending_mandates.pop(k, None)
+            # Clean up pending mandates for this session (DB-backed — H1)
+            await cleanup_session_mandates(session_id)
             _clarification_state.pop(session_id, None)
             _session_question_count.pop(session_id, None)
             _fragment_locks.pop(session_id, None)
@@ -692,8 +741,10 @@ async def _handle_execute_request(
         # ── Retrieve the full enriched mandate stored during Phase 1 ──────────
         # Phase 1 (voice → approval) extracted real dimensions: where, when, who, budget etc.
         # Without this, determine_skills and OC only see the hypothesis summary string.
-        # Non-destructive read — keep mandate until dispatch succeeds (retry-safe)
-        full_mandate = _pending_mandates.get(req.draft_id, None)
+        # DB-backed read — survives process restarts (H1)
+        full_mandate = await get_mandate(req.draft_id)
+        if full_mandate:
+            await transition_state(req.draft_id, MandateState.APPROVED)
 
         skill_plan = await determine_skills(
             session_id=session_id, user_id=user_id,
@@ -831,8 +882,26 @@ async def _handle_execute_request(
             "execution_strategy": execution_strategy,
         }] if agents_md else []
 
+        # ── PROVISION GATE — pre-dispatch validation (H2) ─────────────────
+        if full_mandate:
+            await transition_state(req.draft_id, MandateState.PROVISIONING)
+        if not agents_payload:
+            await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
+                reason="No agents could be provisioned for this task.",
+                code="PROVISION_FAILED",
+                draft_id=req.draft_id,
+            ))
+            logger.warning("EXECUTE_BLOCKED: provision failed (no agents): session=%s", session_id)
+            if full_mandate:
+                await transition_state(req.draft_id, MandateState.FAILED)
+            return
+
+        # Retrieve cycle_id for end-to-end traceability (H4)
+        mandate_cycle_id = full_mandate.get("_cycle_id", "") if full_mandate else ""
+
         mandate = {
             "mandate_id": req.draft_id,
+            "cycle_id": mandate_cycle_id,
             "tenant_id": tenant_id,
             "task": task,
             "intent": top.intent,
@@ -856,8 +925,10 @@ async def _handle_execute_request(
             dispatch_status=result.get("status", "QUEUED"),
         ))
 
-        # Clean up mandate only AFTER successful dispatch (retry-safe)
-        _pending_mandates.pop(req.draft_id, None)
+        # Clean up mandate only AFTER successful dispatch (H1 — durable lifecycle)
+        if full_mandate:
+            await transition_state(req.draft_id, MandateState.DISPATCHED)
+        await delete_mandate(req.draft_id)
 
         # Acknowledge execution with TTS — confirms mandate accepted
         ack_text = f"On it. {top.hypothesis[:80]}."
@@ -882,6 +953,7 @@ async def _handle_execute_request(
             session_id=session_id,
             details={
                 "draft_id": req.draft_id,
+                "cycle_id": mandate_cycle_id,
                 "execution_id": result.get("execution_id"),
                 "intent": top.intent,
                 "skills": skill_names,
@@ -1038,6 +1110,21 @@ async def _process_fragment(ws: WebSocket, session_id: str, user_id: str = "") -
 
         state, span = transcript_assembler.add_fragment(session_id, final_fragment)
         fragment_text = state.get_current_text()
+
+        # ── COMMAND STATE INTERCEPT ──────────────────────────────────────
+        # When the system is awaiting a command (approval, change, clarification),
+        # voice input must be routed through the command handler, NOT the intent
+        # pipeline. This prevents approval/change speech from being treated as
+        # a new mandate.
+        clarify = _clarification_state.get(session_id)
+        if clarify and clarify.get("pending"):
+            logger.info(
+                "[COMMAND_INTERCEPT] session=%s type=%s — voice routed to command handler: '%s'",
+                session_id, clarify.get("type", "?"), fragment_text[:60],
+            )
+            transcript_assembler.cleanup(session_id)
+            await _handle_text_input(ws, session_id, {"text": fragment_text}, user_id=user_id)
+            return
 
         # Send transcript partial so user sees what was captured
         await _send(ws, WSMessageType.TRANSCRIPT_PARTIAL, TranscriptPayload(
@@ -1204,6 +1291,9 @@ async def _handle_wa_pair_request(ws: WebSocket, session_id: str, payload: dict,
         import httpx
         obegee_url = os.environ.get("OBEGEE_API_URL", "http://obegee-backend:8001")
         pairing_key = os.environ.get("WHATSAPP_PAIRING_API_KEY", "")
+        wa_pairing_url = get_settings().WA_PAIRING_SERVICE_URL
+        if not wa_pairing_url:
+            wa_pairing_url = f"http://{os.environ.get('CHANNEL_ADAPTER_IP', '143.198.241.199')}:8081"
 
         # Start pairing via ObeGee → runtime server
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -1215,7 +1305,7 @@ async def _handle_wa_pair_request(ws: WebSocket, session_id: str, payload: dict,
 
             # Start new pairing
             resp = await client.post(
-                "http://143.198.241.199:8081/whatsapp/start-pairing",
+                f"{wa_pairing_url}/whatsapp/start-pairing",
                 headers={"X-API-Key": pairing_key, "Content-Type": "application/json"},
                 json={"tenant_id": tenant_id, "phone_number": phone},
             )
@@ -1231,7 +1321,7 @@ async def _handle_wa_pair_request(ws: WebSocket, session_id: str, payload: dict,
             await asyncio.sleep(3)
             async with httpx.AsyncClient(timeout=8.0) as client:
                 poll = await client.get(
-                    f"http://143.198.241.199:8081/whatsapp/pairing-status/{tenant_id}",
+                    f"{wa_pairing_url}/whatsapp/pairing-status/{tenant_id}",
                     headers={"X-API-Key": pairing_key},
                 )
                 if poll.is_success:
@@ -1280,10 +1370,14 @@ async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, u
             # Execute the approved mandate
             stored_draft_id = clarify.get("draft_id", "") or draft_id
             if stored_draft_id:
-                from schemas.ws_messages import ExecuteRequestPayload
-                await _handle_execute_request(ws, session_id, ExecuteRequestPayload(
-                    draft_id=stored_draft_id, approved=True,
-                ), user_id=user_id)
+                auth_ctx = _session_auth.get(session_id, {})
+                await _handle_execute_request(ws, session_id,
+                    {"session_id": session_id, "draft_id": stored_draft_id},
+                    subscription_status=auth_ctx.get("subscription_status", "ACTIVE"),
+                    user_id=user_id,
+                    tenant_id=auth_ctx.get("tenant_id", ""),
+                    auth_token=auth_ctx.get("auth_token", ""),
+                )
                 _clarification_state.pop(session_id, None)
             else:
                 await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
@@ -1301,13 +1395,25 @@ async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, u
 
     elif command == "DECLINE_CHANGE":
         if has_pending:
-            _clarification_state.pop(session_id, None)
+            # Transition to CHANGE INTENT CAPTURE state — a dedicated state
+            # that accepts the user's modification intent, NOT a new mandate.
             session_ctx = _session_contexts.get(session_id)
             name = session_ctx.user_name.split()[0] if session_ctx and session_ctx.user_name else ""
+            change_prompt = f"{'Sure ' + name + '. ' if name else ''}What would you like to change?"
+            _clarification_state[session_id] = {
+                "pending": True,
+                "type": "change",
+                "original_transcript": clarify.get("original_transcript", ""),
+                "draft_id": clarify.get("draft_id", ""),
+                "question_asked": change_prompt,
+                "context_capsule": clarify.get("context_capsule"),
+                "_cycle_id": clarify.get("_cycle_id", ""),
+            }
             await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                text=f"{'Sure ' + name + '. ' if name else ''}What would you like to change?",
+                text=change_prompt,
                 session_id=session_id, format="text", is_mock=True,
                 is_clarification=True, auto_record=True,
+                ui_mode="change_capture",
             ))
         else:
             await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
@@ -1408,7 +1514,7 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
                 if draft_id:
                     await _handle_execute_request(
                         ws, session_id,
-                        {"draft_id": draft_id},
+                        {"session_id": session_id, "draft_id": draft_id},
                         subscription_status=auth_ctx.get("subscription_status", "ACTIVE"),
                         user_id=auth_ctx.get("user_id", user_id),
                         tenant_id=auth_ctx.get("tenant_id", ""),
@@ -1426,10 +1532,12 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
                 _fn = (_ctx_neg.user_name.split()[0] if _ctx_neg and _ctx_neg.user_name else "")
                 neg_prompt = f"Sure{' ' + _fn if _fn else ''}. What would you like to change?"
                 _clarification_state[session_id] = {
-                    "pending": True, "type": "intent",
+                    "pending": True, "type": "change",
                     "original_transcript": clarify["original_transcript"],
+                    "draft_id": clarify.get("draft_id", ""),
                     "question_asked": neg_prompt,
                     "context_capsule": clarify.get("context_capsule"),
+                    "_cycle_id": clarify.get("_cycle_id", ""),
                 }
                 _tts_neg = get_tts_provider()
                 tts_r = await _tts_neg.synthesize(neg_prompt)
@@ -1466,6 +1574,24 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
                 "questions_asked": carried_questions,
                 "attempts": clarify.get("attempts", 1),
             }
+            await _send_mock_tts_response(ws, session_id, combined, user_id=user_id,
+                                          context_capsule=clarify.get("context_capsule"))
+            return
+
+        # ── Change intent response ─────────────────────────────────────────────
+        # User spoke their desired changes after tapping "Change" or saying "no".
+        # Merge changes with the original mandate transcript and re-run the full
+        # pipeline. The pipeline will produce a modified mandate and ask for
+        # approval again — completing the change → re-approve → execute cycle.
+        if clarify_type == "change":
+            original = clarify.get("original_transcript", "")
+            combined = f"{original}. Change requested: {text}"
+            # Carry cycle_id forward so the modified mandate stays in the same lifecycle
+            _clarification_state[session_id] = {
+                "_cycle_id": clarify.get("_cycle_id", ""),
+            }
+            logger.info("[CHANGE_INTENT] session=%s original='%s' change='%s'",
+                        session_id, original[:60], text[:60])
             await _send_mock_tts_response(ws, session_id, combined, user_id=user_id,
                                           context_capsule=clarify.get("context_capsule"))
             return
@@ -1529,6 +1655,13 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
 
     # Get or create conversation state for this session
     conv = get_or_create_conversation(session_id, user_id=user_id, user_first_name=_user_first_name)
+
+    # Generate or reuse mandate cycle ID for end-to-end traceability (H4)
+    existing_clarify = _clarification_state.get(session_id, {})
+    cycle_id = existing_clarify.get("_cycle_id", "")
+    if not cycle_id:
+        import uuid
+        cycle_id = f"cycle_{uuid.uuid4().hex[:16]}"
 
     # Reset conversation for fresh mandates (no pending clarification)
     if not _clarification_state.get(session_id, {}).get("pending"):
@@ -1708,6 +1841,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
                         "questions_asked": questions_asked + [question.question],
                         "context_capsule": context_capsule,
                         "attempts": 1,
+                        "_cycle_id": cycle_id,
                     }
 
                     # Send the question to the client
@@ -1772,14 +1906,18 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             intent=top.intent, sub_intents=top.sub_intents,
             l1_dimensions=top.dimension_suggestions,
         )
-        # Store full enriched mandate so _handle_execute_request can retrieve it.
+        # Store full enriched mandate to DB (H1 — durable lifecycle).
         # This is the ONLY place where real dimensions exist — if not stored here,
         # determine_skills() and OC will only see the hypothesis summary string.
-        _pending_mandates[l1_draft.draft_id] = {
-            **(mandate if isinstance(mandate, dict) else {"raw": mandate}),
-            "_session_id": session_id,
-            "_user_id": user_id,
-        }
+        mandate_data = mandate if isinstance(mandate, dict) else {"raw": mandate}
+        await save_mandate(
+            draft_id=l1_draft.draft_id,
+            mandate_data=mandate_data,
+            state=MandateState.DIMENSIONS_EXTRACTED,
+            session_id=session_id,
+            user_id=user_id,
+            cycle_id=cycle_id,
+        )
         from intent.mandate_questions import get_all_missing
         missing = get_all_missing(mandate)
         logger.info(
@@ -1886,13 +2024,18 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         # Assisted: always ask for approval (explicit policy, not text matching)
         needs_approval = True
 
-    # Store mandate with session_id for cleanup
-    _pending_mandates[l1_draft.draft_id] = {
-        **(mandate if isinstance(mandate, dict) else {"mandate": mandate}),
-        "_session_id": session_id,
-        "_user_id": user_id,
-        "_created_at": datetime.now(timezone.utc).isoformat(),
-    } if isinstance(_pending_mandates.get(l1_draft.draft_id), dict) or l1_draft.draft_id not in _pending_mandates else _pending_mandates[l1_draft.draft_id]
+    # Persist mandate as APPROVAL_PENDING in DB (H1 — replaces in-memory dict)
+    mandate_data = mandate if isinstance(mandate, dict) else {"mandate": mandate}
+    mandate_data["original_transcript"] = transcript
+    mandate_data["tts_text"] = response_text
+    await save_mandate(
+        draft_id=l1_draft.draft_id,
+        mandate_data=mandate_data,
+        state=MandateState.APPROVAL_PENDING,
+        session_id=session_id,
+        user_id=user_id,
+        cycle_id=cycle_id,
+    )
 
     if needs_approval:
         _clarification_state[session_id] = {
@@ -1902,16 +2045,20 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             "question_asked":      response_text,
             "context_capsule":     context_capsule,
             "draft_id":            l1_draft.draft_id,
+            "_cycle_id":           cycle_id,
         }
         logger.info("[MANDATE:5:APPROVAL_GATE] session=%s draft_id=%s — awaiting Yes/No",
                     session_id, l1_draft.draft_id)
     else:
         # Delegated mode: auto-execute immediately
-        from schemas.ws_messages import ExecuteRequestPayload
+        auth_ctx = _session_auth.get(session_id, {})
         asyncio.create_task(_handle_execute_request(
             ws, session_id,
-            ExecuteRequestPayload(draft_id=l1_draft.draft_id, approved=True),
+            {"session_id": session_id, "draft_id": l1_draft.draft_id},
+            subscription_status=auth_ctx.get("subscription_status", "ACTIVE"),
             user_id=user_id,
+            tenant_id=auth_ctx.get("tenant_id", ""),
+            auth_token=auth_ctx.get("auth_token", ""),
         ))
         logger.info("[MANDATE:5:AUTO_EXECUTE] session=%s draft_id=%s", session_id, l1_draft.draft_id)
 

@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # Generate with: python3 -c "import secrets; print(secrets.token_hex(32))"
     MIO_KEY_ENCRYPTION_KEY: str = Field(default="")
 
+    # ── WhatsApp Pairing Service (H3 — externalized from hardcoded IP) ────
+    WA_PAIRING_SERVICE_URL: str = Field(default="")
+
     # ── Self-referential URL (used in pairing response) ──────
     MYNDLENS_BASE_URL: str = Field(default="https://app.myndlens.com")
 

@@ -92,6 +92,13 @@ async def init_indexes() -> None:
     await db.mandate_dispatches.create_index("execution_id")
     await db.mandate_dispatches.create_index("session_id")
 
+    # Pending Mandates (H1): durable mandate lifecycle
+    await db.pending_mandates.create_index("draft_id", unique=True)
+    await db.pending_mandates.create_index("session_id")
+    await db.pending_mandates.create_index("cycle_id")
+    await db.pending_mandates.create_index("state")
+    await db.pending_mandates.create_index("updated_at", expireAfterSeconds=86400)  # auto-expire after 24h
+
     # Prompt Outcomes: user + time analytics
     await db.prompt_outcomes.create_index([("user_id", 1), ("created_at", -1)])
 
