@@ -265,7 +265,10 @@ export default function TalkScreen() {
         const token = await getItem('myndlens_auth_token');
         const tenantId = await getItem('myndlens_tenant_id');
         const dsImported = await getItem('whatsapp_ds_imported');
-        if (dsImported === 'true' || !token || !tenantId) return;
+        const waConnected = await getItem('whatsapp_channel_connected');
+
+        // Only show sync banner if: WA is connected AND DS not yet imported
+        if (dsImported === 'true' || waConnected !== 'true' || !token || !tenantId) return;
 
         const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
         setDsSyncStatus('syncing');
