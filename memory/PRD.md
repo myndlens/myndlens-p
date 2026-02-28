@@ -16,8 +16,39 @@ When uncertain, the system engages in conversational clarification.
 
 ## Production URLs
 - Frontend (EAS production): `EXPO_PUBLIC_BACKEND_URL=https://app.myndlens.com` (stale — needs redeploy)
-- Emergent preview backend: `https://openclaw-tenant.preview.emergentagent.com`
+- Emergent preview backend: `https://obegee-runtime.preview.emergentagent.com`
 - GitHub: `git@github.com:myndlens/myndlens-p.git`
+
+## Deployment — Golden Rules
+
+1. **NEVER deploy without pushing to GitHub first.** Both repos (ObeGee and MyndLens) have GitHub remotes. Code MUST be committed and pushed before any Docker build or deploy.
+2. **NEVER take shortcuts.** No tarball-SCP, no direct file copy, no ad-hoc Docker builds. Deploy scripts pull from GitHub on the server. That is the only source for Docker builds.
+3. **NEVER directly edit files on production servers.** All changes happen in the Emergent pod, get pushed to GitHub, then deployed via scripts.
+4. **NEVER invent a new deploy script.** Use: `/app/deploy_all_20260211.sh`
+5. **NEVER deploy without explicit user approval.**
+
+### MyndLens Deploy Process
+```bash
+# 1. Commit
+cd /app/myndlens-git && git add <files> && git commit -m "message"
+
+# 2. Push to GitHub
+GIT_SSH_COMMAND="ssh -i ~/.ssh/github_myndlens -o StrictHostKeyChecking=no" git -C /app/myndlens-git push origin main
+
+# 3. Deploy (pulls from GitHub on server → Docker build → restart)
+bash /app/deploy_all_20260211.sh myndlens
+```
+
+### ObeGee Deploy Process
+```bash
+# 1. Code is auto-committed by Emergent platform
+
+# 2. Push to GitHub
+GIT_SSH_COMMAND="ssh -i ~/.ssh/github_myndlens -o StrictHostKeyChecking=no" git -C /app push getopenclaw deployment-clean:main
+
+# 3. Deploy (pulls from GitHub on server → Docker build → restart)
+bash /app/deploy_all_20260211.sh backend
+```
 
 ## Key File Map
 - `frontend/android/app/src/main/AndroidManifest.xml` — all Android permissions
