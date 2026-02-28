@@ -499,9 +499,10 @@ export default function TalkScreen() {
   useEffect(() => {
     const unsubs = [
       wsClient.on('heartbeat_ack', (env: WSEnvelope) => setHeartbeatSeq(env.payload.seq)),
-      wsClient.on('auth_ok', async () => {
+      wsClient.on('auth_ok', async (env: WSEnvelope) => {
         // Set session ID in store — used by VAD callback to send audio
         setSessionId(wsClient.currentSessionId);
+        const hasPendingMandate = env.payload?.has_pending_mandate ?? false;
 
         // Restore pipeline visual state if we went to background mid-execution
         try {
@@ -538,6 +539,14 @@ export default function TalkScreen() {
           const stored = await getItem('myndlens_user_name');
           const firstName = stored ? stored.split(' ')[0] : '';
           if (firstName) setUserNickname(firstName);
+
+          // Skip local greeting if backend has a pending mandate to resume —
+          // the backend will send its own TTS with the mandate summary.
+          // Playing both causes conflicting audio (P1 fix).
+          if (hasPendingMandate) {
+            console.log('[Talk] Pending mandate — suppressing local greeting');
+            return;
+          }
 
           const hour = new Date().getHours();
           const word = hour >= 5 && hour < 12 ? 'Good morning'
