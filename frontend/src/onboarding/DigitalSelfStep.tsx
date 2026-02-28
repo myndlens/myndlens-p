@@ -23,7 +23,7 @@ const STAGES = [
   { id: 'encrypt',    label: 'Encrypting on this device',     icon: '🔐', onnx: false },
 ];
 
-type StageStatus = 'pending' | 'active' | 'done' | 'skipped' | 'empty';
+type StageStatus = 'pending' | 'active' | 'done' | 'skipped' | 'empty' | 'error';
 
 interface Props {
   onComplete: () => void;
@@ -238,7 +238,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
     let completed = 0;
 
-    const advance = (stageId: string, status: 'done' | 'skipped' | 'empty') => {
+    const advance = (stageId: string, status: 'done' | 'skipped' | 'empty' | 'error') => {
       setStageStatuses(prev => ({ ...prev, [stageId]: status }));
       completed++;
       Animated.timing(progressAnim, {
@@ -299,26 +299,47 @@ export default function DigitalSelfStep({ onComplete }: Props) {
         }
 
         if (waDetected && token && tenantId) {
-          // WhatsApp is paired — start async chat extraction
-          fetch(`${obegeeUrl}/api/whatsapp/sync-contacts/${tenantId}`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          }).then(async (r) => {
-            if (r?.ok) {
-              const d = await r.json();
-              await setItem('whatsapp_sync_job_id', d.job_id || '');
-              console.log('[DS] WhatsApp async job started:', d.job_id);
-            } else {
-              console.log('[DS] WA sync API returned:', r?.status);
-            }
-          }).catch(e => console.log('[DS] WA sync start (non-fatal):', e));
+          // WhatsApp lifecycle: QUEUED → RUNNING → DONE → IMPORTED
+          await setItem('wa_lifecycle', 'QUEUED');
+          let waJobStarted = false;
+          let waRetries = 0;
 
-          advance('whatsapp', 'done');
-          waDone = true;
+          while (waRetries < 3 && !waJobStarted) {
+            try {
+              const r = await fetch(`${obegeeUrl}/api/whatsapp/sync-contacts/${tenantId}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+              });
+              if (r?.ok) {
+                const d = await r.json();
+                await setItem('whatsapp_sync_job_id', d.job_id || '');
+                await setItem('wa_lifecycle', 'RUNNING');
+                waJobStarted = true;
+                console.log('[DS] WhatsApp job started:', d.job_id);
+              } else {
+                console.log('[DS] WA sync retry', waRetries + 1, 'status:', r?.status);
+              }
+            } catch (e: any) {
+              console.log('[DS] WA sync retry', waRetries + 1, 'error:', e?.message);
+            }
+            if (!waJobStarted) {
+              waRetries++;
+              await new Promise(r => setTimeout(r, 2000 * waRetries)); // backoff
+            }
+          }
+
+          if (waJobStarted) {
+            advance('whatsapp', 'done');
+            waDone = true;
+          } else {
+            await setItem('wa_lifecycle', 'FAILED_RETRYABLE');
+            advance('whatsapp', 'error');
+            // Don't block build — WA sync can complete in background
+            waDone = false;
+          }
         }
 
         if (!waDone) {
-          // WhatsApp not paired — skip gracefully, async sync will run when paired
           advance('whatsapp', 'skipped');
         }
       } catch (err) {
@@ -822,9 +843,31 @@ export default function DigitalSelfStep({ onComplete }: Props) {
         )}
         {result && result.contacts === 0 && result.calendar === 0 && (
           <Text style={[dss.doneStat, { marginTop: 10, color: '#aaa', fontSize: 12 }]}>
-            Add contacts to your address book or sync email in Settings → Digital Self to populate your Digital Self.
+            Add contacts or sync email in Settings to enrich your Digital Self.
           </Text>
         )}
+
+        {/* Build Summary Card */}
+        <View style={{ marginTop: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: 12 }}>
+          <Text style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>Build Report</Text>
+          {STAGES.map(s => {
+            const status = stageStatuses[s.id] || 'pending';
+            if (status === 'pending') return null;
+            return (
+              <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
+                <Text style={{ fontSize: 12, marginRight: 6 }}>
+                  {status === 'done' ? '\u2705' : status === 'error' ? '\u274C' : status === 'empty' ? '\u26A0' : '\u23ED'}
+                </Text>
+                <Text style={{ color: '#aaa', fontSize: 12 }}>{s.label}: {status}</Text>
+              </View>
+            );
+          })}
+          {Object.values(stageStatuses).includes('error') && (
+            <Text style={{ color: '#E74C3C', fontSize: 11, marginTop: 6 }}>
+              Some sources failed. You can retry from Settings.
+            </Text>
+          )}
+        </View>
       </View>
 
       <TouchableOpacity style={dss.primaryBtn} onPress={onComplete} data-testid="setup-ds-done">

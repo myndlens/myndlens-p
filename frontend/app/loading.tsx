@@ -129,12 +129,15 @@ export default function LoadingScreen() {
                     }
                   }
                   await setItem('whatsapp_ds_imported', 'true');
+                  await setItem('wa_lifecycle', 'PKG_IMPORTED');
                   // Re-sync DS capsule to backend now that it's enriched
                   const { buildContextCapsule } = require('../src/digital-self');
                   const capsule2 = await buildContextCapsule(userId2, '');
                   if (capsule2.summary) {
                     wsClient.send('context_sync' as any, { summary: capsule2.summary });
+                    await setItem('wa_lifecycle', 'CONTEXT_SYNCED');
                   }
+                  await setItem('wa_lifecycle', 'COMPLETED');
                   console.log(`[WA-BG] Imported ${imported}/${d.contacts.length} WhatsApp contacts into PKG`);
                 } else if (d.status === 'running') {
                   // Still running — poll again in 30s
