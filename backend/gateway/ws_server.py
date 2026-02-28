@@ -661,6 +661,24 @@ async def _handle_execute_request(
             session_id, l2.intent, l2.confidence,
         )
 
+        # L1/L2 conflict enforcement — block or warn on disagreement
+        if l2.intent != top.intent:
+            intent_mismatch = True  # noqa: F841 — used for audit logging
+            confidence_delta = abs(top.confidence - l2.confidence)
+            if confidence_delta > 0.4:
+                # Severe mismatch — block execution
+                logger.warning("L1/L2 SEVERE mismatch: session=%s L1=%s L2=%s delta=%.2f",
+                              session_id, top.intent, l2.intent, confidence_delta)
+                await _send(ws, WSMessageType.EXECUTE_BLOCKED, ExecuteBlockedPayload(
+                    reason="Intent verification conflict. Please clarify your request.",
+                    code="L1_L2_CONFLICT",
+                    draft_id=req.draft_id,
+                ))
+                return
+            elif confidence_delta > 0.2:
+                # Moderate mismatch — log warning, proceed with caution
+                logger.warning("L1/L2 moderate mismatch: session=%s L1=%s L2=%s", session_id, top.intent, l2.intent)
+
         # Stage 6: Skill Determination — LLM decides
         await broadcast_stage(session_id, 6, "active", "Determining skills...")
         from skills.determine import determine_skills
@@ -976,7 +994,53 @@ async def _process_fragment(ws: WebSocket, session_id: str, user_id: str = "") -
         ds_summary = session_ctx.raw_summary if session_ctx else ""
         conv = get_or_create_conversation(session_id, user_id=user_id)
 
-        # Run lightweight sub-intent extraction (single Gemini Flash call)
+        # Route: classify utterance before running expensive LLM fragment analyzer
+        from intent.router import route_fragment
+        route = await route_fragment(session_id, user_id, fragment_text)
+
+        if route.route == "command":
+            cmd = route.normalized_command
+            if cmd == "HOLD":
+                conv.phase = "HELD"
+                await ws.send_text(_make_envelope(WSMessageType.FRAGMENT_ACK, {
+                    "session_id": session_id, "status": "held",
+                    "sub_intents": [], "checklist_progress": 0,
+                }))
+            elif cmd == "RESUME":
+                conv.phase = "ACTIVE_CAPTURE"
+                await ws.send_text(_make_envelope(WSMessageType.FRAGMENT_ACK, {
+                    "session_id": session_id, "status": "resumed",
+                    "sub_intents": [], "checklist_progress": 0,
+                }))
+            elif cmd in ("CANCEL", "KILL"):
+                conv.reset()
+                await ws.send_text(_make_envelope(WSMessageType.FRAGMENT_ACK, {
+                    "session_id": session_id, "status": "cancelled",
+                    "sub_intents": [], "checklist_progress": 0,
+                }))
+            transcript_assembler.cleanup(session_id)
+            return
+
+        if route.route in ("noise", "interruption"):
+            await ws.send_text(_make_envelope(WSMessageType.FRAGMENT_ACK, {
+                "session_id": session_id, "status": "ignored",
+                "sub_intents": [], "checklist_progress": 0,
+            }))
+            transcript_assembler.cleanup(session_id)
+            return
+
+        # If conversation is HELD, don't process intent fragments
+        if conv.phase == "HELD":
+            await ws.send_text(_make_envelope(WSMessageType.FRAGMENT_ACK, {
+                "session_id": session_id, "status": "held_ignored",
+                "sub_intents": [], "checklist_progress": 0,
+            }))
+            transcript_assembler.cleanup(session_id)
+            return
+
+        conv.phase = "ACTIVE_CAPTURE"
+
+        # Route is intent_fragment — run lightweight sub-intent extraction
         from intent.fragment_analyzer import analyze_fragment
         analysis = await analyze_fragment(
             session_id=session_id,

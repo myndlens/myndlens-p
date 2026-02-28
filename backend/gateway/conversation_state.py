@@ -55,7 +55,7 @@ class ConversationState:
     questions_remaining: int = 3
 
     # Phase tracking
-    phase: str = "LISTENING"  # LISTENING | ACCUMULATING | PROCESSING | APPROVAL | EXECUTING | DONE
+    phase: str = "LISTENING"  # LISTENING | ACTIVE_CAPTURE | HELD | RESUMING | PROCESSING | APPROVAL_PENDING | EXECUTING | DONE
 
     # Timestamps
     created_at: float = field(default_factory=lambda: datetime.now(timezone.utc).timestamp())
