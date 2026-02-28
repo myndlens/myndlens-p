@@ -702,7 +702,34 @@ async def _handle_execute_request(
         skill_names = [s.get("skill_name", "") for s in skill_plan.get("skill_plan", [])]
         execution_strategy = skill_plan.get("execution_strategy", "sequential")
 
-        await broadcast_stage(session_id, 6, "done", f"{len(skill_names)} skills determined")
+        # DEFECT B fix: Validate skills against canonical library
+        from skills.library import search_skills
+        validated_skills = []
+        for sn in skill_names:
+            if not sn:
+                continue
+            matches = await search_skills(query=sn, limit=1)
+            if matches:
+                validated_skills.append(sn)
+            else:
+                logger.warning("[SKILLS] Unresolvable skill '%s' — skipped", sn)
+        skill_names = validated_skills if validated_skills else skill_names[:1]  # fallback to first
+
+        # DEFECT C fix: Derive tool policy from selected skills
+        tools_allow = set()
+        tools_deny = set()
+        for sp in skill_plan.get("skill_plan", []):
+            for tool in sp.get("required_tools", []):
+                tools_allow.add(tool)
+        # High-risk tools require explicit tenant policy (future: check tenant config)
+        HIGH_RISK_TOOLS = {"shell_exec", "ssh", "sudo", "rm", "delete", "transfer_funds"}
+        for t in list(tools_allow):
+            if t in HIGH_RISK_TOOLS:
+                tools_deny.add(t)
+                tools_allow.discard(t)
+                logger.info("[TOOLS] High-risk tool '%s' denied by default policy", t)
+
+        await broadcast_stage(session_id, 6, "done", f"{len(skill_names)} skills validated")
         logger.info("Skills determined: session=%s count=%d strategy=%s skills=%s",
                     session_id, len(skill_names), execution_strategy, skill_names)
 
@@ -770,22 +797,34 @@ async def _handle_execute_request(
         else:
             task = top.hypothesis
 
-        # C5: Build AGENTS.md — the output format contract for OC
-        # This tells OC exactly which JSON schema to return for this intent.
-        # Written by the channel service into the agent workspace before execution.
-        primary_skill = skill_names[0] if skill_names else ""
-        agents_md = _build_agents_md(
-            intent=top.intent,
-            task=task,
-            skill_name=primary_skill,
+        # DEFECT F fix: Build AGENTS.md for ALL skills, not just first
+        agents_md_parts = []
+        for i, sn in enumerate(skill_names):
+            dims = {}
+            if full_mandate and full_mandate.get("actions") and i < len(full_mandate["actions"]):
+                dims = full_mandate["actions"][i].get("dimensions", {})
+            elif full_mandate and full_mandate.get("actions"):
+                dims = full_mandate["actions"][0].get("dimensions", {})
+            part = _build_agents_md(
+                intent=top.intent, task=task, skill_name=sn, dimensions=dims,
+            )
+            if part:
+                agents_md_parts.append(f"## Skill: {sn}\n{part}")
+        agents_md = "\n\n".join(agents_md_parts) if agents_md_parts else _build_agents_md(
+            intent=top.intent, task=task, skill_name=skill_names[0] if skill_names else "",
             dimensions=full_mandate.get("actions", [{}])[0].get("dimensions", {}) if full_mandate else {},
         )
 
-        # C3: Include skill status hint for channel service
-        # agents[0].agents_md carries the AGENTS.md content to write
+        # DEFECT D fix: Expanded agent payload with unique ID and full spec
+        import hashlib
+        agent_id = f"myndlens-{hashlib.sha256(f'{tenant_id}:{user_id}:{req.draft_id}'.encode()).hexdigest()[:12]}"
         agents_payload = [{
-            "id":        f"myndlens-{req.draft_id[:8]}",
+            "id": agent_id,
             "agents_md": agents_md,
+            "skills": skill_names,
+            "tools_allow": list(tools_allow),
+            "tools_deny": list(tools_deny),
+            "execution_strategy": execution_strategy,
         }] if agents_md else []
 
         mandate = {
