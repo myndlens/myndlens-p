@@ -6,6 +6,11 @@
     "scheme": "myndlens",
     "version": "1.0.9",
     "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/splash-image.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0F"
+    },
     "web": {
       "bundler": "metro",
       "output": "static",
