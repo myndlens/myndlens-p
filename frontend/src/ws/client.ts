@@ -22,6 +22,7 @@ export type WSMessageType =
   | 'ds_context'         // Device → Backend: here is the readable text for those nodes
   | 'fragment_ack'       // Backend → Device: fragment processed, keep talking
   | 'thought_stream_end' // Device → Backend: user done thinking, run full pipeline
+  | 'command_input'      // Device → Backend: normalized command
   | 'biometric_request'  // Backend → Device: request biometric auth
   | 'biometric_response' // Device → Backend: biometric result
   | 'pipeline_stage' | 'clarification_question';  // pipeline progress + clarification

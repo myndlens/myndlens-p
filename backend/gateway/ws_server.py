@@ -458,6 +458,9 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             elif msg_type == WSMessageType.TEXT_INPUT.value:
                 await _handle_text_input(websocket, session_id, payload, user_id=user_id_resolved or "")
 
+            elif msg_type == WSMessageType.COMMAND_INPUT.value:
+                await _handle_command_input(websocket, session_id, payload, user_id=user_id_resolved or "")
+
             elif msg_type == "context_sync":
                 # Device sends full PKG context capsule immediately after auth_ok
                 await _handle_context_sync(session_id, user_id_resolved or "", payload)
@@ -1127,6 +1130,85 @@ async def _handle_thought_stream_end(ws: WebSocket, session_id: str, user_id: st
     await _handle_text_input(ws, session_id, {"text": combined, "context_capsule": context_capsule}, user_id=user_id)
 
 
+
+async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, user_id: str = "") -> None:
+    """Handle explicit command_input from FE — deterministic routing, no intent pipeline."""
+    command = payload.get("command", "").upper()
+    source = payload.get("source", "button")
+    draft_id = payload.get("draft_id", "")
+
+    logger.info("[COMMAND] session=%s cmd=%s source=%s", session_id, command, source)
+
+    conv = get_or_create_conversation(session_id, user_id=user_id)
+    clarify = _clarification_state.get(session_id, {})
+    has_pending = clarify.get("pending", False)
+    clarify_type = clarify.get("type", "")
+
+    if command == "APPROVE":
+        if has_pending and clarify_type == "permission":
+            # Execute the approved mandate
+            stored_draft_id = clarify.get("draft_id", "") or draft_id
+            if stored_draft_id:
+                from schemas.ws_messages import ExecuteRequestPayload
+                await _handle_execute_request(ws, session_id, ExecuteRequestPayload(
+                    draft_id=stored_draft_id, approved=True,
+                ), user_id=user_id)
+                _clarification_state.pop(session_id, None)
+            else:
+                await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                    text="I don't have a pending action to approve.", session_id=session_id,
+                    format="text", is_mock=True,
+                ))
+        elif has_pending:
+            # Treat as affirmative answer to clarification
+            await _handle_text_input(ws, session_id, {"text": "Yes"}, user_id=user_id)
+        else:
+            await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                text="Nothing to approve right now.", session_id=session_id,
+                format="text", is_mock=True,
+            ))
+
+    elif command == "DECLINE_CHANGE":
+        if has_pending:
+            _clarification_state.pop(session_id, None)
+            session_ctx = _session_contexts.get(session_id)
+            name = session_ctx.user_name.split()[0] if session_ctx and session_ctx.user_name else ""
+            await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                text=f"{'Sure ' + name + '. ' if name else ''}What would you like to change?",
+                session_id=session_id, format="text", is_mock=True,
+                is_clarification=True, auto_record=True,
+            ))
+        else:
+            await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                text="Nothing active to change.", session_id=session_id,
+                format="text", is_mock=True,
+            ))
+
+    elif command == "END_THOUGHT":
+        if conv.phase in ("ACTIVE_CAPTURE", "LISTENING"):
+            conv.phase = "PROCESSING"
+            combined = conv.get_combined_transcript()
+            if combined:
+                transcript_assembler.cleanup(session_id)
+                await _handle_text_input(ws, session_id, {"text": combined}, user_id=user_id)
+
+    elif command == "HOLD":
+        conv.phase = "HELD"
+        logger.info("[COMMAND] session=%s HELD", session_id)
+
+    elif command == "RESUME":
+        conv.phase = "ACTIVE_CAPTURE"
+        logger.info("[COMMAND] session=%s RESUMED", session_id)
+
+    elif command == "CANCEL":
+        conv.reset()
+        _clarification_state.pop(session_id, None)
+        logger.info("[COMMAND] session=%s CANCELLED", session_id)
+
+    else:
+        logger.warning("[COMMAND] session=%s unknown command: %s", session_id, command)
+
+
 async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user_id: str = "") -> None:
     """Handle text input as an alternative to voice (STT fallback)."""
     from guardrails.sanitizer import sanitize_for_llm
@@ -1697,6 +1779,9 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             "audio_size_bytes": len(result.audio_bytes),
             "auto_record": needs_approval,
             "is_clarification": needs_approval,
+            "ui_mode": "approval" if needs_approval else "idle",
+            "awaiting_command": "approve_or_change" if needs_approval else "none",
+            "draft_id": l1_draft.draft_id if needs_approval else "",
         }
         await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, payload_dict))
         logger.info("[MANDATE:5:TTS] session=%s DONE real_audio bytes=%d", session_id, len(result.audio_bytes))
@@ -1706,6 +1791,9 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             "format": "text", "is_mock": True,
             "auto_record": needs_approval,
             "is_clarification": needs_approval,
+            "ui_mode": "approval" if needs_approval else "idle",
+            "awaiting_command": "approve_or_change" if needs_approval else "none",
+            "draft_id": l1_draft.draft_id if needs_approval else "",
         }
         await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, payload_dict))
         logger.info("[MANDATE:5:TTS] session=%s DONE mock_text", session_id)

@@ -203,6 +203,7 @@ export default function TalkScreen() {
   const [textInput, setTextInput] = React.useState('');
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
   const [pendingDraftId, setPendingDraftId] = React.useState<string | null>(null);
+  const [awaitingCommand, setAwaitingCommand] = React.useState<string>('none');
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [pipelineStageIndex, setPipelineStageIndex] = React.useState<number>(-1);
   const [pipelineSubStatus, setPipelineSubStatus] = React.useState<string>('');
@@ -583,6 +584,15 @@ export default function TalkScreen() {
         const audioBase64: string = env.payload.audio || '';
         const isMock: boolean = env.payload.is_mock ?? true;
         const autoRecord: boolean = env.payload.auto_record ?? false;
+        const uiMode: string = env.payload.ui_mode ?? '';
+        const awCmd: string = env.payload.awaiting_command ?? 'none';
+        const draftId: string = env.payload.draft_id ?? '';
+        // Update server-driven command context
+        if (awCmd !== 'none') {
+          setAwaitingCommand(awCmd);
+          if (draftId) setPendingDraftId(draftId);
+          setPendingAction('approve');
+        }
         setTtsText(text);
         transition('RESPONDING');
         setIsSpeaking(true);
@@ -1132,52 +1142,44 @@ export default function TalkScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* Secondary: Kill + Approve side by side below mic */}
+          {/* Secondary: Kill/Change + Done/Yes — server-driven via command_input */}
           <View style={styles.secondaryRow}>
             <TouchableOpacity style={styles.killButton} onPress={() => {
-                // Dual-purpose: Kill during execution, "Change" during approval/question
-                if (pendingAction || audioState === 'RESPONDING' || audioState === 'IDLE') {
-                  // Send "No, I want changes" — triggers the change flow
-                  const sid = wsClient.currentSessionId;
-                  if (sid) {
-                    wsClient.send('text_input', { session_id: sid, text: 'No, I want to change this' });
-                    transition('THINKING');
-                  }
+                const sid = wsClient.currentSessionId;
+                if (!sid) return;
+                if (awaitingCommand === 'approve_or_change' || pendingAction) {
+                  wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'DECLINE_CHANGE', source: 'button' });
+                  setAwaitingCommand('none');
+                  transition('THINKING');
                 } else {
                   handleKill();
                 }
               }} activeOpacity={0.8} data-testid="kill-btn">
-              <Text style={styles.smallBtnIcon}>{pendingAction || audioState === 'RESPONDING' ? '\u270E' : '\u2716'}</Text>
-              <Text style={styles.smallBtnText}>{pendingAction || audioState === 'RESPONDING' ? 'Change' : 'Kill'}</Text>
+              <Text style={styles.smallBtnIcon}>{awaitingCommand === 'approve_or_change' || pendingAction ? '\u270E' : '\u2716'}</Text>
+              <Text style={styles.smallBtnText}>{awaitingCommand === 'approve_or_change' || pendingAction ? 'Change' : 'Kill'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.approveButton,
-                !pendingAction && fragmentCount === 0 && styles.approveDisabled]}
+                awaitingCommand === 'none' && !pendingAction && fragmentCount === 0 && styles.approveDisabled]}
               onPress={() => {
-                // Triple-purpose:
-                // 1. During capture → "Done" (end thought stream)
-                // 2. During mandate approval → "Yes" (approve + execute)
-                // 3. During any TTS question → "Yes" (send affirmative)
+                const sid = wsClient.currentSessionId;
+                if (!sid) return;
                 if (fragmentCount > 0 && (audioStateRef.current === 'CAPTURING' || audioStateRef.current === 'ACCUMULATING')) {
-                  console.log('[Talk] Button→Done: ending thought stream');
+                  // END_THOUGHT
                   if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
                   stopRecording().catch(() => {});
-                  const sid = wsClient.currentSessionId;
-                  if (sid) wsClient.send('thought_stream_end', { session_id: sid });
+                  wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'END_THOUGHT', source: 'button' });
                   transition('THINKING');
-                } else if (pendingAction) {
-                  handleApprove();
-                } else if (audioState === 'RESPONDING' || audioState === 'IDLE') {
-                  // TTS just asked a question — tap Yes instead of speaking
-                  const sid = wsClient.currentSessionId;
-                  if (sid) {
-                    wsClient.send('text_input', { session_id: sid, text: 'Yes' });
-                    transition('THINKING');
-                  }
+                } else if (awaitingCommand === 'approve_or_change' || pendingAction) {
+                  // APPROVE
+                  wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'APPROVE', source: 'button', draft_id: pendingDraftId || '' });
+                  setAwaitingCommand('none');
+                  setPendingAction(null);
+                  transition('THINKING');
                 }
               }}
-              disabled={!pendingAction && fragmentCount === 0 && audioState !== 'RESPONDING' && audioState !== 'IDLE'}
+              disabled={awaitingCommand === 'none' && !pendingAction && fragmentCount === 0}
               activeOpacity={0.8}
               data-testid="approve-btn"
             >

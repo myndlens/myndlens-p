@@ -46,6 +46,7 @@ class WSMessageType(str, Enum):
     THOUGHT_STREAM_END = "thought_stream_end" # Device → Backend: user done thinking, run full pipeline
     WA_PAIR_REQUEST = "wa_pair_request"       # Device → Backend: start WhatsApp pairing
     WA_PAIR_CODE = "wa_pair_code"             # Backend → Device: pairing code to enter in WhatsApp
+    COMMAND_INPUT = "command_input"            # Device → Backend: normalized command (APPROVE/CHANGE/DONE/HOLD/etc)
 
 
 # ---- Base Envelope ----
