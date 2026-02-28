@@ -26,13 +26,21 @@ def unregister_session(user_id: str):
 
 
 async def scheduler_loop():
-    """Main scheduler loop — runs every 60 seconds."""
+    """Main scheduler loop — runs every 60 seconds with auto-restart on failure."""
     logger.info("[SCHEDULER] Proactive scheduler started")
+    consecutive_failures = 0
     while True:
         try:
             await _tick()
+            consecutive_failures = 0
         except Exception as e:
-            logger.error("[SCHEDULER] tick error: %s", str(e)[:80])
+            consecutive_failures += 1
+            logger.error("[SCHEDULER] tick error (%d consecutive): %s", consecutive_failures, str(e)[:80])
+            if consecutive_failures >= 5:
+                logger.critical("[SCHEDULER] 5 consecutive failures — backing off to 5min interval")
+                await asyncio.sleep(300)
+                consecutive_failures = 0
+                continue
         await asyncio.sleep(60)
 
 

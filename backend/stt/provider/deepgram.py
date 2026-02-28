@@ -133,15 +133,18 @@ class DeepgramSTTProvider(STTProvider):
             loop = asyncio.get_running_loop()
             _model = get_settings().DEEPGRAM_MODEL
             _lang  = get_settings().DEEPGRAM_LANGUAGE
-            response = await loop.run_in_executor(
-                None,
-                lambda: self._client.listen.v1.media.transcribe_file(
-                    request=buffer_data,
-                    model=_model,
-                    punctuate=True,
-                    smart_format=True,
-                    language=_lang,
+            response = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: self._client.listen.v1.media.transcribe_file(
+                        request=buffer_data,
+                        model=_model,
+                        punctuate=True,
+                        smart_format=True,
+                        language=_lang,
+                    ),
                 ),
+                timeout=15.0,  # 15s timeout — prevent hanging on Deepgram outage
             )
 
             latency_ms = (time.monotonic() - start_time) * 1000

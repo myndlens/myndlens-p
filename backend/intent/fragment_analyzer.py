@@ -51,7 +51,7 @@ async def analyze_fragment(
 
     task = (
         "Extract sub-intents and dimensions from this spoken fragment.\n"
-        f"Fragment: \"{fragment_text}\"\n"
+        f"Fragment: \"{fragment_text[:500]}\"\n"
     )
     if accumulated_context:
         task += f"Previous context: \"{accumulated_context}\"\n"

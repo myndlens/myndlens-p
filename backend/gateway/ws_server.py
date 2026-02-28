@@ -68,6 +68,9 @@ _session_contexts: Dict[str, SessionContext] = {}
 _clarification_state: Dict[str, dict] = {}
 # Per-session question counter — hard cap at 3 questions per mandate
 _session_question_count: Dict[str, int] = {}
+
+# Max concurrent sessions — prevent unbounded memory growth
+MAX_CONCURRENT_SESSIONS = 500
 # Per-session auth context — stored at WS auth to allow execute_request from
 # within audio_chunk handler (permission grant path needs subscription/tenant/token)
 _session_auth: Dict[str, dict] = {}
@@ -79,6 +82,25 @@ _pending_mandates: Dict[str, dict] = {}
 _biometric_events: Dict[str, dict] = {}
 # Per-session fragment processing lock — ensures fragments are processed sequentially
 _fragment_locks: Dict[str, asyncio.Lock] = {}
+
+
+
+async def _session_cleanup_loop():
+    """Periodic cleanup of stale session maps — runs every 5 minutes."""
+    while True:
+        await asyncio.sleep(300)
+        try:
+            active_ids = set(_session_auth.keys())
+            # Clean maps for sessions that no longer have auth (disconnected)
+            for map_dict in [_session_contexts, _clarification_state, _session_question_count, _fragment_locks]:
+                stale = [k for k in map_dict if k not in active_ids]
+                for k in stale:
+                    map_dict.pop(k, None)
+            if stale:
+                logger.info("[CLEANUP] Removed %d stale session entries", len(stale))
+        except Exception as e:
+            logger.debug("[CLEANUP] error: %s", str(e)[:60])
+
 
 
 # ── Intent → Result Schema mapping (C5) ─────────────────────────────────────
@@ -258,6 +280,13 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
     5. Any EXECUTE_REQUEST checks presence freshness
     """
     await websocket.accept()
+
+    # Connection cap — prevent unbounded memory growth
+    if len(_session_auth) >= MAX_CONCURRENT_SESSIONS:
+        await websocket.close(code=1013, reason="Server at capacity")
+        logger.warning("[WS] Connection rejected — at capacity (%d sessions)", MAX_CONCURRENT_SESSIONS)
+        return
+
     session_id = None
     user_id_resolved: str | None = None
     subscription_status: str = "ACTIVE"
@@ -1020,7 +1049,8 @@ async def _handle_thought_stream_end(ws: WebSocket, session_id: str, user_id: st
 
 async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user_id: str = "") -> None:
     """Handle text input as an alternative to voice (STT fallback)."""
-    text = payload.get("text", "").strip()
+    from guardrails.sanitizer import sanitize_for_llm
+    text = sanitize_for_llm(payload.get("text", "").strip(), context="text_input")
     context_capsule = payload.get("context_capsule")  # on-device Digital Self PKG context
 
     if not text:

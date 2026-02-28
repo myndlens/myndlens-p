@@ -87,9 +87,13 @@ async def lifespan(app: FastAPI):
     # Start proactive intelligence scheduler (background task)
     from proactive.scheduler import scheduler_loop
     scheduler_task = asyncio.create_task(scheduler_loop())
+    # Start session cleanup loop (memory management)
+    from gateway.ws_server import _session_cleanup_loop
+    cleanup_task = asyncio.create_task(_session_cleanup_loop())
     logger.info("MyndLens BE ready")
     yield
     scheduler_task.cancel()
+    cleanup_task.cancel()
     await close_db()
     logger.info("MyndLens BE shutdown complete")
 

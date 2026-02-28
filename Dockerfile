@@ -1,7 +1,9 @@
 # MyndLens Backend — Production Container
 # Built by MyndLens CI, deployed by ObeGee via DAI
 
-FROM python:3.11-slim
+# Pin to specific version tag (not :latest or bare :slim) for reproducibility.
+# Update deliberately via controlled process, not drift.
+FROM python:3.11.12-slim
 
 WORKDIR /app
 

@@ -47,20 +47,23 @@ class ElevenLabsTTSProvider(TTSProvider):
 
         try:
             loop = asyncio.get_running_loop()
-            audio_iter = await loop.run_in_executor(
-                None,
-                lambda: self._client.text_to_speech.convert(
-                    voice_id=vid,
-                    text=text,
-                    model_id="eleven_turbo_v2_5",
-                    output_format="mp3_22050_32",
-                    voice_settings={
-                        "stability": 0.55,
-                        "similarity_boost": 0.80,
-                        "style": 0.35,
-                        "use_speaker_boost": True,
-                    },
+            audio_iter = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: self._client.text_to_speech.convert(
+                        voice_id=vid,
+                        text=text,
+                        model_id="eleven_turbo_v2_5",
+                        output_format="mp3_22050_32",
+                        voice_settings={
+                            "stability": 0.55,
+                            "similarity_boost": 0.80,
+                            "style": 0.35,
+                            "use_speaker_boost": True,
+                        },
+                    ),
                 ),
+                timeout=15.0,  # 15s timeout — prevent hanging on ElevenLabs outage
             )
 
             # Collect all chunks from the iterator
