@@ -381,11 +381,16 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             "data_residency":      auth_payload.data_residency,
         }
 
+        # Check for resumable mandates before sending AUTH_OK
+        from mandate.store import get_pending_for_user
+        _pending_for_resume = await get_pending_for_user(user_id_resolved) if user_id_resolved else None
+
         # Send AUTH_OK
         await _send(websocket, WSMessageType.AUTH_OK, AuthOkPayload(
             session_id=session_id,
             user_id=user_id_resolved,
             heartbeat_interval_ms=get_heartbeat_interval_ms(),
+            has_pending_mandate=_pending_for_resume is not None,
         ))
 
         # Pre-load Digital Self into session memory — zero-latency for first mandate
@@ -419,52 +424,51 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
         # ── MANDATE RESUME — check for pending mandates from a prior session ──
         # When the app backgrounds and the WS drops, the mandate persists in DB
         # (H1). On reconnect, restore the approval flow so the user can continue.
-        if user_id_resolved:
-            from mandate.store import get_pending_for_user
-            pending = await get_pending_for_user(user_id_resolved)
-            if pending and pending.get("state") == "APPROVAL_PENDING":
-                draft_id = pending["draft_id"]
-                mandate_data = pending.get("mandate_data", {})
-                cycle_id = pending.get("cycle_id", "")
+        # _pending_for_resume was already fetched before AUTH_OK to set the flag.
+        if _pending_for_resume and _pending_for_resume.get("state") == "APPROVAL_PENDING":
+            pending = _pending_for_resume
+            draft_id = pending["draft_id"]
+            mandate_data = pending.get("mandate_data", {})
+            cycle_id = pending.get("cycle_id", "")
 
-                # Re-bind mandate to the new session
-                from mandate.store import save_mandate, MandateState
-                await save_mandate(
-                    draft_id=draft_id,
-                    mandate_data=mandate_data,
-                    state=MandateState.APPROVAL_PENDING,
-                    session_id=session_id,
-                    user_id=user_id_resolved,
-                    cycle_id=cycle_id,
-                )
+            # Re-bind mandate to the new session
+            from mandate.store import save_mandate, MandateState
+            await save_mandate(
+                draft_id=draft_id,
+                mandate_data=mandate_data,
+                state=MandateState.APPROVAL_PENDING,
+                session_id=session_id,
+                user_id=user_id_resolved,
+                cycle_id=cycle_id,
+            )
 
-                # Restore clarification state so Yes/Change commands work
-                summary = mandate_data.get("mandate_summary", "")
-                original_transcript = mandate_data.get("original_transcript", "")
-                _clarification_state[session_id] = {
-                    "pending": True,
-                    "type": "permission",
-                    "original_transcript": original_transcript or summary,
-                    "question_asked": summary,
-                    "draft_id": draft_id,
-                    "_cycle_id": cycle_id,
-                }
+            # Restore clarification state so Yes/Change commands work
+            summary = mandate_data.get("mandate_summary", "")
+            original_transcript = mandate_data.get("original_transcript", "")
+            _clarification_state[session_id] = {
+                "pending": True,
+                "type": "permission",
+                "original_transcript": original_transcript or summary,
+                "question_asked": summary,
+                "draft_id": draft_id,
+                "_cycle_id": cycle_id,
+            }
 
-                # Send the mandate summary as TTS so the user can approve/change
-                resume_text = f"Welcome back. You had a pending action: {summary}. Shall I proceed?" if summary else "Welcome back. You have a pending action. Shall I proceed?"
-                await _send(websocket, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                    text=resume_text,
-                    session_id=session_id,
-                    format="text",
-                    is_mock=True,
-                    auto_record=True,
-                    is_clarification=True,
-                    ui_mode="approval",
-                ))
-                logger.info(
-                    "[MANDATE_RESUME] session=%s draft=%s state=%s — approval flow restored",
-                    session_id, draft_id, pending["state"],
-                )
+            # Send the mandate summary as TTS so the user can approve/change
+            resume_text = f"Welcome back. You had a pending action: {summary}. Shall I proceed?" if summary else "Welcome back. You have a pending action. Shall I proceed?"
+            await _send(websocket, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                text=resume_text,
+                session_id=session_id,
+                format="text",
+                is_mock=True,
+                auto_record=True,
+                is_clarification=True,
+                ui_mode="approval",
+            ))
+            logger.info(
+                "[MANDATE_RESUME] session=%s draft=%s state=%s — approval flow restored",
+                session_id, draft_id, pending["state"],
+            )
 
         # ---- Phase 2: Message Loop ----
         while True:

@@ -121,6 +121,7 @@ class AuthOkPayload(BaseModel):
     session_id: str
     user_id: str
     heartbeat_interval_ms: int
+    has_pending_mandate: bool = False
     server_ts: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
