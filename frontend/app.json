@@ -5,6 +5,7 @@
     "owner": "myndlens",
     "scheme": "myndlens",
     "version": "1.0.9",
+    "icon": "./assets/images/icon.png",
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -53,6 +54,10 @@
     "android": {
       "package": "com.myndlens.app",
       "versionCode": 17,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#a8e1ff"
+      },
       "permissions": [
         "READ_CONTACTS",
         "READ_CALENDAR",
@@ -84,6 +89,7 @@
     "ios": {
       "bundleIdentifier": "com.myndlens.app",
       "buildNumber": "13",
+      "icon": "./assets/images/icon.png",
       "infoPlist": {
         "NSContactsUsageDescription": "MyndLens uses your contacts to personalise your Digital Self and reduce how many questions it needs to ask you.",
         "NSCalendarsUsageDescription": "MyndLens reads your calendar to learn your routines and working patterns for your Digital Self.",
