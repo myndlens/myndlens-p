@@ -510,6 +510,9 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             from proactive.scheduler import unregister_session
             if user_id_resolved:
                 unregister_session(user_id_resolved)
+            # Clean self-awareness mode state
+            from guardrails.self_awareness import cleanup_mode
+            cleanup_mode(session_id)
             # Clean up execution_sessions entries for this session (prevents memory leak)
             stale_keys = [k for k, v in execution_sessions.items() if v == session_id]
             for k in stale_keys:
@@ -1329,9 +1332,9 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     if not context_capsule and session_ctx and session_ctx.raw_summary:
         context_capsule = json.dumps({"summary": session_ctx.raw_summary})
 
-    # ── STEP 0: Self-Awareness Check — answer meta-questions about MyndLens ──
-    from guardrails.self_awareness import check_self_awareness_llm
-    self_answer = await check_self_awareness_llm(transcript, _user_first_name)
+    # ── STEP 0: Self-Awareness Router — two-mode interaction model ──────────
+    from guardrails.self_awareness import route_self_awareness
+    self_answer = await route_self_awareness(session_id, transcript, _user_first_name)
     if self_answer:
         response_text = self_answer
         # Skip the entire pipeline — just speak the answer
