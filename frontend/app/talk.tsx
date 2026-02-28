@@ -566,8 +566,8 @@ export default function TalkScreen() {
         setTranscript(text);
         setPartialTranscript('');
         transition('THINKING');
-        // Add user voice input to chat history
-        if (text) setChatMessages(prev => [...prev, { role: 'user', text, ts: Date.now() }]);
+        // Don't add to chat here — fragment_ack already adds each fragment
+        // Adding again from transcript_final causes duplicate messages
       }),
       wsClient.on('draft_update', (env: WSEnvelope) => {
         const actionClass = env.payload.action_class || '';
@@ -1282,7 +1282,7 @@ export default function TalkScreen() {
                   value={textInput}
                   onChangeText={setTextInput}
                   placeholder="Type a command..."
-                  placeholderTextColor="#444455"
+                  placeholderTextColor="#888899"
                   returnKeyType="send"
                   onSubmitEditing={() => {
                     if (textInput.trim()) {
