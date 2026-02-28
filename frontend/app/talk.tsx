@@ -573,10 +573,10 @@ export default function TalkScreen() {
       }),
       wsClient.on('draft_update', (env: WSEnvelope) => {
         const actionClass = env.payload.action_class || '';
-        const confidence = env.payload.confidence || 0;
         const draftId = env.payload.draft_id || '';
         const hypothesis = env.payload.hypothesis || '';
-        if (confidence > 0.6 && actionClass !== 'DRAFT_ONLY') {
+        // Always set pending — server decides when approval is needed, not confidence threshold
+        if (draftId) {
           setPendingAction(_actionLabel(actionClass, hypothesis));
           setPendingDraftId(draftId);
         }
@@ -671,7 +671,7 @@ export default function TalkScreen() {
           router.push('/softblock');
         }
         setExecuteBlocked(env.payload.reason);
-        setPendingAction(null);
+        // Don't clear pendingAction here — let the user retry via Change button
       }),
       wsClient.on('session_terminated', async () => {
         // Clean up all active state before navigating away
