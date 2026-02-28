@@ -232,7 +232,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
     setPhase('building');
     const totalStages = STAGES.filter(s => {
 
-      if (s.optional && !includeEmail) return false;
+      if (s.id === 'email' && !includeEmail) return false;
       return true;
     }).length;
 
@@ -343,9 +343,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
       await delay(300);
       advance('calendar', importResult.calendar > 0 ? 'done' : 'empty');
 
-      // Stage: SMS removed — READ_SMS is a restricted Android permission
-      // (only grantable to the default SMS app). Nothing to do here.
-      advance('sms', 'skipped');
+      // Stage: SMS removed — READ_SMS is restricted. No stage to advance.
 
       // Stage: email
       if (includeEmail) {
@@ -435,7 +433,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
 
       // Trigger delta sync to backend after successful build
       try {
-        const { syncPKGToBackend } = require('../../digital-self/sync');
+        const { syncPKGToBackend } = require('../digital-self/sync');
         const { getItem } = require('../../src/utils/storage');
         const userId = (await getItem('myndlens_user_id')) ?? 'local';
         await syncPKGToBackend(userId, true); // force=true for first full sync
@@ -648,9 +646,8 @@ export default function DigitalSelfStep({ onComplete }: Props) {
                   }
                 }
               }
-              // API check failed or returned non-connected — still advance
-              // (user affirmed they paired; DS build will re-check)
-              await setItem('whatsapp_channel_connected', 'true');
+              // API check failed or returned non-connected — set pending, NOT connected
+              await setItem('whatsapp_pairing_pending', 'true');
             } catch { /* non-critical */ }
             // Not connected — proceed anyway
             setPhase('source');
@@ -753,7 +750,7 @@ export default function DigitalSelfStep({ onComplete }: Props) {
   if (phase === 'building') {
     const activeStages = STAGES.filter(s => {
 
-      if (s.optional && !includeEmail) return false;
+      if (s.id === 'email' && !includeEmail) return false;
       return true;
     });
 

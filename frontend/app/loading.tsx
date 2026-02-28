@@ -115,12 +115,18 @@ export default function LoadingScreen() {
                 if (d.status === 'done' && d.contacts?.length > 0) {
                   // Import completed contacts into PKG
                   const { registerPerson } = require('../src/digital-self/pkg');
+                  let imported = 0;
                   for (const c of d.contacts.filter((x: any) => x.importance !== 'low').slice(0, 200)) {
-                    await registerPerson(userId2, {
-                      name: c.name, phone: c.phone || '', company: '', role: '',
-                      relationship: 'personal', importance: c.importance,
-                      preferred_channel: 'whatsapp', score: c.score, import_source: 'whatsapp_live',
-                    });
+                    try {
+                      await registerPerson(userId2, c.name || 'Unknown', {
+                        phone: c.phone || '', company: '', role: '',
+                        relationship: 'personal', importance: c.importance,
+                        preferred_channel: 'whatsapp', score: c.score,
+                      }, 'whatsapp_live');
+                      imported++;
+                    } catch (e: any) {
+                      console.warn('[WA-BG] registerPerson failed for', c.name, e?.message);
+                    }
                   }
                   await setItem('whatsapp_ds_imported', 'true');
                   // Re-sync DS capsule to backend now that it's enriched
@@ -129,7 +135,7 @@ export default function LoadingScreen() {
                   if (capsule2.summary) {
                     wsClient.send('context_sync' as any, { summary: capsule2.summary });
                   }
-                  console.log(`[WA-BG] Imported ${d.contacts.length} WhatsApp contacts into PKG`);
+                  console.log(`[WA-BG] Imported ${imported}/${d.contacts.length} WhatsApp contacts into PKG`);
                 } else if (d.status === 'running') {
                   // Still running — poll again in 30s
                   setTimeout(pollWA, 30_000);
