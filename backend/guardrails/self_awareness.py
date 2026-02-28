@@ -10,7 +10,6 @@ import time
 import logging
 from typing import Dict, Optional
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 

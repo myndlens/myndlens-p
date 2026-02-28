@@ -10,7 +10,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 
 from config.settings import get_settings
 from config.feature_flags import is_mock_llm
@@ -67,7 +67,7 @@ async def analyze_fragment(
 
     try:
         from prompting.llm_gateway import call_llm
-        from prompting.orchestrator import PromptOrchestrator, PromptArtifact
+        from prompting.orchestrator import PromptOrchestrator
         from prompting.types import PromptContext, PromptPurpose, PromptMode
 
         orchestrator = PromptOrchestrator()

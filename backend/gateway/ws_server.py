@@ -53,7 +53,7 @@ from transcript.storage import save_transcript
 
 from intent.gap_filler import SessionContext, parse_capsule_summary, enrich_transcript
 from gateway.conversation_state import (
-    get_or_create_conversation, reset_conversation, cleanup_conversation,
+    get_or_create_conversation, cleanup_conversation,
 )
 
 logger = logging.getLogger(__name__)
