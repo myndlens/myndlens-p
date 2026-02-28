@@ -1068,16 +1068,6 @@ export default function TalkScreen() {
                       <Text style={styles.pipelineIdleSubtext}>Tap the mic to instruct me.</Text>
                     </View>
                   </View>
-                  {waNotPaired && (
-                    <View style={{ marginTop: 10, backgroundColor: 'rgba(37,211,102,0.08)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(37,211,102,0.25)', width: '100%' }}>
-                      <Text style={{ color: '#25D366', fontSize: 12, fontWeight: '700', marginBottom: 3 }}>
-                        {'\u{1F4AC}'}{'  '}Connect WhatsApp for full capability
-                      </Text>
-                      <Text style={{ color: '#555568', fontSize: 12, lineHeight: 17 }}>
-                        Pair at obegee.co.uk{'\u2192'}Integrations to enable your OpenClaw WhatsApp channel and enrich your Digital Self.
-                      </Text>
-                    </View>
-                  )}
                 </>
               ) : (
                 <View style={styles.activityFeed}>
@@ -1112,6 +1102,18 @@ export default function TalkScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* WhatsApp nudge — visible when WA not linked and no active pipeline */}
+        {waNotPaired && audioState === 'IDLE' && pipelineStageIndex < 0 && (
+          <View style={{ marginHorizontal: 20, marginTop: 8, backgroundColor: 'rgba(37,211,102,0.08)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(37,211,102,0.25)' }}>
+            <Text style={{ color: '#25D366', fontSize: 12, fontWeight: '700', marginBottom: 3 }}>
+              Connect WhatsApp for full capability
+            </Text>
+            <Text style={{ color: '#555568', fontSize: 12, lineHeight: 17 }}>
+              Go to obegee.co.uk → Integrations to link WhatsApp and enrich your Digital Self.
+            </Text>
+          </View>
+        )}
 
         {/* Disconnected banner — visible when WS is not authenticated */}
         {connectionStatus === 'disconnected' && (
