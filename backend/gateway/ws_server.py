@@ -71,6 +71,8 @@ _session_question_count: Dict[str, int] = {}
 
 # Max concurrent sessions — prevent unbounded memory growth
 MAX_CONCURRENT_SESSIONS = 500
+# Track ALL open sockets (including pre-auth) to prevent resource exhaustion
+_open_connections = 0
 # Per-session auth context — stored at WS auth to allow execute_request from
 # within audio_chunk handler (permission grant path needs subscription/tenant/token)
 _session_auth: Dict[str, dict] = {}
@@ -92,12 +94,14 @@ async def _session_cleanup_loop():
         try:
             active_ids = set(_session_auth.keys())
             # Clean maps for sessions that no longer have auth (disconnected)
+            total_stale = 0
             for map_dict in [_session_contexts, _clarification_state, _session_question_count, _fragment_locks]:
                 stale = [k for k in map_dict if k not in active_ids]
                 for k in stale:
                     map_dict.pop(k, None)
-            if stale:
-                logger.info("[CLEANUP] Removed %d stale session entries", len(stale))
+                total_stale += len(stale)
+            if total_stale:
+                logger.info("[CLEANUP] Removed %d stale session entries", total_stale)
         except Exception as e:
             logger.debug("[CLEANUP] error: %s", str(e)[:60])
 
@@ -281,10 +285,13 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
     """
     await websocket.accept()
 
-    # Connection cap — prevent unbounded memory growth
-    if len(_session_auth) >= MAX_CONCURRENT_SESSIONS:
+    # Connection cap — count ALL open sockets (including pre-auth)
+    global _open_connections
+    _open_connections += 1
+    if _open_connections > MAX_CONCURRENT_SESSIONS:
+        _open_connections -= 1
         await websocket.close(code=1013, reason="Server at capacity")
-        logger.warning("[WS] Connection rejected — at capacity (%d sessions)", MAX_CONCURRENT_SESSIONS)
+        logger.warning("[WS] Connection rejected — at capacity (%d open)", _open_connections)
         return
 
     session_id = None
@@ -483,6 +490,8 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
     except Exception as e:
         logger.error("WS error: session=%s error=%s", session_id, str(e), exc_info=True)
     finally:
+        # Decrement global connection counter
+        _open_connections = max(0, _open_connections - 1)
         # Cleanup all per-session in-memory state
         if session_id:
             active_connections.pop(session_id, None)
@@ -1084,13 +1093,8 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
             }))
         logger.info("[STT_EMPTY] session=%s — sent recovery prompt", session_id)
         return
-    # Guard: reject oversized inputs (prevents DoS through LLM/TTS cost)
-    if len(text) > 2000:
-        await _send(ws, WSMessageType.ERROR, ErrorPayload(
-            message="Input too long. Maximum 2000 characters.",
-            code="INPUT_TOO_LONG",
-        ))
-        return
+    # Note: oversized inputs are silently truncated to 2000 chars by sanitize_for_llm().
+    # This is intentional — we accept what the user said, just cap the LLM context length.
 
     # ── Check if this is a clarification response ──
     clarify = _clarification_state.get(session_id)

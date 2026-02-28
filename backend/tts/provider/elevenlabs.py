@@ -46,9 +46,10 @@ class ElevenLabsTTSProvider(TTSProvider):
         start = time.monotonic()
 
         try:
-            loop = asyncio.get_running_loop()
-            audio_iter = await asyncio.wait_for(
-                loop.run_in_executor(
+            # Wrap entire convert + byte collection in timeout
+            async def _tts_convert():
+                loop = asyncio.get_running_loop()
+                audio_iter = await loop.run_in_executor(
                     None,
                     lambda: self._client.text_to_speech.convert(
                         voice_id=vid,
@@ -62,12 +63,15 @@ class ElevenLabsTTSProvider(TTSProvider):
                             "use_speaker_boost": True,
                         },
                     ),
-                ),
-                timeout=15.0,  # 15s timeout — prevent hanging on ElevenLabs outage
+                )
+                return b"".join(audio_iter)
+
+            audio_bytes = await asyncio.wait_for(
+                _tts_convert(),
+                timeout=15.0,  # 15s covers convert + stream collection
             )
 
             # Collect all chunks from the iterator
-            audio_bytes = b"".join(audio_iter)
             latency_ms = (time.monotonic() - start) * 1000
 
             logger.info(

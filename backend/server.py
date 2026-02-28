@@ -94,6 +94,14 @@ async def lifespan(app: FastAPI):
     yield
     scheduler_task.cancel()
     cleanup_task.cancel()
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
     await close_db()
     logger.info("MyndLens BE shutdown complete")
 
