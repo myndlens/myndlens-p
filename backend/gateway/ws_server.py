@@ -1330,8 +1330,8 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         context_capsule = json.dumps({"summary": session_ctx.raw_summary})
 
     # ── STEP 0: Self-Awareness Check — answer meta-questions about MyndLens ──
-    from guardrails.self_awareness import check_self_awareness
-    self_answer = check_self_awareness(transcript, _user_first_name)
+    from guardrails.self_awareness import check_self_awareness_llm
+    self_answer = await check_self_awareness_llm(transcript, _user_first_name)
     if self_answer:
         response_text = self_answer
         # Skip the entire pipeline — just speak the answer

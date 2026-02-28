@@ -1,176 +1,128 @@
-"""MyndLens Self-Awareness — answers questions about itself.
+"""MyndLens Self-Awareness — LLM-powered meta-question handling.
 
-Detects meta-questions (about MyndLens, how it works, trust, privacy)
-and returns direct answers without running the full mandate pipeline.
+Detects, interprets, and answers questions about MyndLens itself using
+a single Gemini Flash call. No regex, no keyword matching, no string brittle.
 
-Called BEFORE L1 Scout in _send_mock_tts_response.
+The LLM receives our brand knowledge base and generates natural, contextual
+spoken responses adapted to exactly how the user phrased the question.
 """
-import re
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
-# Pattern → response pairs. Checked in order — first match wins.
-_SELF_AWARENESS = [
-    {
-        "patterns": [
-            r"how.*(?:do|does).*(?:myndlens|you).*work",
-            r"what.*(?:is|are).*myndlens",
-            r"explain.*(?:myndlens|yourself)",
-            r"tell.*(?:me|us).*about.*(?:myndlens|yourself)",
-        ],
-        "response": (
-            "I'm MyndLens, your voice-first Personal Cognitive Proxy. "
-            "You speak your thoughts — even fragmented ones — and I listen, understand, and build a clear intent. "
-            "I check with your Digital Self — your personal intelligence built from your contacts, conversations, and patterns — "
-            "to fill in the gaps. Then I create a structured mandate and ask for your approval before executing anything. "
-            "I use OpenClaw as my execution engine, and I never act without your permission."
-        ),
-    },
-    {
-        "patterns": [
-            r"(?:why|what).*(?:unique|different|special).*(?:myndlens|you)",
-            r"how.*(?:myndlens|you).*different",
-            r"what.*(?:sets|makes).*(?:myndlens|you).*(?:apart|different|unique)",
-        ],
-        "response": (
-            "Three things make me different. "
-            "First, I'm Context Aware — you think out loud, and I capture fragmented thoughts into clear intent. No typing, no menus. "
-            "Second, I have your Living Digital Self — I know your relationships, your active conversations, your pending commitments. "
-            "I don't ask you to repeat context you've already shared with others. "
-            "Third, sovereign execution — your data stays under your control, confidential contacts are biometric-locked, "
-            "and I never execute anything without your explicit approval."
-        ),
-    },
-    {
-        "patterns": [
-            r"(?:can|how).*(?:i|we).*trust.*(?:myndlens|you)",
-            r"(?:why|should).*(?:i|we).*trust.*(?:myndlens|you)",
-            r"(?:is|are).*(?:myndlens|you).*(?:safe|secure|trustworthy|private)",
-            r"(?:what|where).*(?:my|our).*data",
-            r"(?:do|does).*(?:myndlens|you).*(?:sell|share|leak).*data",
-        ],
-        "response": (
-            "Trust is built into my architecture. "
-            "Your Digital Self is continuously processed on your device by default — raw messages are never stored after processing. "
-            "You control what's confidential — those contacts are sealed behind biometric authentication. "
-            "I never execute a mandate without your approval — you always see what I'm about to do and say Yes or Change. "
-            "Your OpenClaw workspace is isolated — no other user can access your data or your agent. "
-            "Your data never leaves the device. And you can delete everything at any time from Settings."
-        ),
-    },
-    {
-        "patterns": [
-            r"what.*(?:can|could).*(?:myndlens|you).*do",
-            r"what.*(?:are).*(?:your|myndlens).*(?:capabilities|features|skills)",
-            r"help.*(?:me|us).*(?:understand|know).*what.*(?:myndlens|you).*(?:can|do)",
-        ],
-        "response": (
-            "I can help you with a lot. "
-            "Code — build, run, and test applications. "
-            "Communication — draft emails, manage WhatsApp context, schedule follow-ups. "
-            "Research — find information, summarize news, track trends. "
-            "Travel — plan trips using your preferences from past conversations. "
-            "Tasks — manage your to-dos, track what others owe you, remind you of commitments. "
-            "And I'm always learning from your Digital Self to get better at understanding what you need."
-        ),
-    },
-    {
-        "patterns": [
-            r"who.*(?:made|built|created).*(?:myndlens|you)",
-            r"who.*(?:is|are).*(?:behind|developing).*(?:myndlens|you)",
-        ],
-        "response": (
-            "I'm built by ObeGee — a team focused on sovereign AI execution. "
-            "The vision is simple: your AI assistant should work for you, know your context, "
-            "and never act without your permission. That's me."
-        ),
-    },
-    {
-        "patterns": [
-            r"(?:why|how).*(?:can't|cannot|not).*(?:replace|replicate|copy).*(?:myndlens|you)",
-            r"(?:why|what).*(?:irreplaceable|not replaceable|can't be replaced)",
-            r"(?:why|what).*(?:switch|leave|move away|stop using).*(?:myndlens|you)",
-            r"(?:what|why).*(?:moat|lock.?in|sticky|stay with).*(?:myndlens|you)",
-            r"(?:can|could).*(?:i|we).*(?:replace|switch|use something else)",
-        ],
-        "response": (
-            "Eight reasons I can't be replaced. "
-            "First, your Living Digital Self. I know your relationships, active conversations, and pending commitments — "
-            "not because you told me, but because I learned from your WhatsApp, email, and calendar. "
-            "Starting over with another assistant means losing all that relationship intelligence. "
-            "Second, I'm proactive. I don't wait for you to ask — I tell you what needs attention, who owes you what, "
-            "and what's overdue. Siri waits. Alexa waits. I think for you. "
-            "Third, context-aware execution. When you say book flights to Sydney, I already know who's going, "
-            "when, and your class preference. Zero questions. "
-            "Fourth, your data never leaves your device. Confidential contacts are biometric-locked. "
-            "No other assistant gives you this level of sovereignty. "
-            "Fifth, cross-contact intelligence. I see patterns across all your conversations "
-            "and connect dots that even you might miss. "
-            "Sixth, I understand messy human thinking. Speak in fragments — I assemble the intent. "
-            "Seventh, I remember everything — the tension with the vendor, the promise Ravi made last week, "
-            "your sister's temple visit. Switch to another assistant and all of that is gone. "
-            "Eighth, I get better every day. After six months, I know your world better than any human assistant could. "
-            "That accumulated intelligence is irreplaceable."
-        ),
-    },
-]
+# Brand knowledge base — the LLM uses this as context to generate responses.
+# These are NOT hardcoded responses. The LLM interprets the user's question
+# and composes a natural spoken answer using this knowledge.
+MYNDLENS_KNOWLEDGE = """
+ABOUT MYNDLENS:
+MyndLens is a voice-first Personal Cognitive Proxy. You speak your thoughts — even fragmented ones — and MyndLens listens, understands, and builds a clear intent. It checks with your Living Digital Self — your personal intelligence built from your contacts, conversations, and patterns — to fill in the gaps. Then it creates a structured mandate and asks for your approval before executing anything. It uses OpenClaw as its execution engine and never acts without permission.
+
+WHY MYNDLENS IS UNIQUE (3 things):
+1. Context Aware — captures fragmented thoughts into clear intent. No typing, no menus.
+2. Living Digital Self — knows your relationships, active conversations, pending commitments. Doesn't ask you to repeat context you've shared with others.
+3. Sovereign execution — data stays under your control, confidential contacts are biometric-locked, never executes without explicit approval.
+
+WHY TRUST MYNDLENS:
+Trust is built into the architecture. Digital Self is continuously processed on device by default. Raw messages are never stored after processing. You control what's confidential — sealed behind biometric auth. Never executes without approval. OpenClaw workspace is isolated per user. Your data never leaves the device. Delete everything anytime from Settings.
+
+WHY MYNDLENS CAN'T BE REPLACED (8 reasons):
+1. Living Digital Self — learned from WhatsApp, email, calendar. Starting over means losing years of relationship intelligence.
+2. Proactive — thinks for you. Tells you what needs attention. Siri waits. Alexa waits. MyndLens thinks.
+3. Context-aware execution — zero questions for well-understood tasks.
+4. Sovereign & private — data never leaves device, confidential contacts biometric-locked.
+5. Cross-contact intelligence — sees patterns across all conversations, connects dots.
+6. Voice-first, thought-first — understands messy human thinking, fragments into intent.
+7. Relationship memory — remembers tension with vendor, promise Ravi made, sister's plans. Switch and it's all gone.
+8. Gets better every day — after 6 months, knows your world better than any human assistant. That accumulated intelligence is irreplaceable.
+
+WHAT MYNDLENS CAN DO:
+Code (build, run, test apps), Communication (emails, WhatsApp context, follow-ups), Research (information, news, trends), Travel (plan trips using preferences from conversations), Tasks (manage to-dos, track commitments, reminders). Always learning from Digital Self.
+
+WHO BUILT MYNDLENS:
+Built by ObeGee — focused on sovereign AI execution. Vision: your AI assistant works for you, knows your context, never acts without permission.
+"""
 
 
-def check_self_awareness(transcript: str, user_first_name: str = "") -> str | None:
-    """Check if the transcript is a meta-question about MyndLens.
+async def check_self_awareness_llm(transcript: str, user_first_name: str = "") -> str | None:
+    """LLM-powered meta-question detection and response.
 
-    Returns the response text if matched, None otherwise.
+    Returns a natural spoken response if the transcript is about MyndLens itself.
+    Returns None if it's a regular command/intent (not a meta-question).
     """
-    normalized = transcript.lower().strip()
-
-    # Normalize STT variations of "MyndLens" → canonical form
-    for variant in ["mind lens", "mine lens", "my lens", "mynd lens", "mindlens", "mynlens"]:
-        normalized = normalized.replace(variant, "myndlens")
-
-    # Skip if too short or too long
-    words = normalized.split()
-    if len(words) < 3 or len(words) > 25:
+    if not transcript or len(transcript.split()) < 2:
         return None
 
-    # First: try regex patterns
-    for entry in _SELF_AWARENESS:
-        for pattern in entry["patterns"]:
-            if re.search(pattern, normalized):
-                name_prefix = f"{user_first_name}, " if user_first_name else ""
-                response = name_prefix + entry["response"]
-                logger.info("[SELF_AWARENESS] matched pattern='%s' transcript='%s'",
-                           pattern[:30], normalized[:40])
-                return response
+    start = time.monotonic()
 
-    # Fallback: keyword-based matching for common natural phrasings
-    # that regex might miss due to word order variations
-    _KEYWORD_MAP = [
-        ({"how", "work"}, {"myndlens", "you"}, 0),            # "how does myndlens work" / "how do you work"
-        ({"why", "unique"}, {"myndlens", "you"}, 1),           # "why is myndlens unique"
-        ({"why", "different"}, {"myndlens", "you"}, 1),        # "why are you different"
-        ({"what", "unique"}, {"myndlens", "you"}, 1),          # "what makes you unique"
-        ({"how", "trust"}, {"myndlens", "you"}, 2),            # "how can i trust you"
-        ({"can", "trust"}, {"myndlens", "you"}, 2),            # "can i trust you"
-        ({"why", "trust"}, {"myndlens", "you"}, 2),            # "why should i trust you"
-        ({"what", "can", "do"}, {"myndlens", "you"}, 3),       # "what can you do"
-        ({"who", "made"}, {"myndlens", "you"}, 4),             # "who made you"
-        ({"who", "built"}, {"myndlens", "you"}, 4),            # "who built myndlens"
-        ({"replace"}, {"myndlens", "you"}, 5),                 # "why can't you be replaced"
-        ({"replaced"}, {"myndlens", "you"}, 5),                # "why can't you be replaced" (STT)
-        ({"irreplaceable"}, {"myndlens", "you"}, 5),           # "why are you irreplaceable"
-        ({"switch", "away"}, {"myndlens", "you"}, 5),          # "why shouldn't i switch away"
-        ({"not", "replaceable"}, set(), 5),                    # "why are you not replaceable"
-    ]
+    prompt = f"""You are MyndLens, a voice-first Personal Cognitive Proxy.
 
-    word_set = set(words)
-    for required_words, brand_words, response_idx in _KEYWORD_MAP:
-        if required_words.issubset(word_set):
-            if not brand_words or brand_words.intersection(word_set):
-                name_prefix = f"{user_first_name}, " if user_first_name else ""
-                response = name_prefix + _SELF_AWARENESS[response_idx]["response"]
-                logger.info("[SELF_AWARENESS] keyword match required=%s transcript='%s'",
-                           required_words, normalized[:40])
-                return response
+A user just said: "{transcript}"
 
-    return None
+TASK: Determine if this is a question ABOUT MyndLens itself (how it works, why it's unique, trust, capabilities, who built it, why it can't be replaced, etc).
+
+If YES — compose a warm, confident, spoken response using the knowledge below. Speak naturally as MyndLens in first person. Keep it concise (3-5 sentences for simple questions, up to 8 for "why can't you be replaced"). Address the user as "{user_first_name}" once at the start if the name is provided.
+
+If NO — this is a regular command or intent (like "book a flight", "write code", "send email"). Reply with exactly: NOT_META_QUESTION
+
+KNOWLEDGE BASE:
+{MYNDLENS_KNOWLEDGE}
+
+RULES:
+- Respond as if speaking out loud (TTS-friendly, no bullet points, no markdown)
+- Never say "I'm an AI" or "I'm a language model"
+- Be confident and warm, like a trusted friend explaining themselves
+- If the question is about privacy/trust, emphasize "data never leaves your device"
+- If about uniqueness, lead with "Context Aware" and "Living Digital Self"
+- Match the tone to the question — casual for casual, detailed for detailed"""
+
+    try:
+        from mcp.ds_server import call_tool
+        result = await call_tool("search_memory", {
+            "user_id": "system",
+            "query": transcript,
+            "n_results": 0,
+        })
+    except Exception:
+        pass
+
+    try:
+        from prompting.llm_gateway import call_llm
+        from prompting.types import PromptArtifact
+
+        artifact = PromptArtifact(
+            prompt_id=f"self-awareness",
+            messages=[
+                {"role": "system", "content": "You are MyndLens. Answer meta-questions about yourself. Reply NOT_META_QUESTION for regular commands."},
+                {"role": "user", "content": prompt},
+            ],
+            total_tokens_est=len(prompt) // 4,
+        )
+
+        response = await call_llm(
+            artifact=artifact,
+            call_site_id="SELF_AWARENESS",
+            model_provider="gemini",
+            model_name="gemini-2.0-flash",
+            session_id="self-awareness",
+        )
+
+        latency_ms = (time.monotonic() - start) * 1000
+
+        if not response:
+            return None
+
+        text = response.strip()
+
+        # Check if LLM classified it as NOT a meta-question
+        if "NOT_META_QUESTION" in text:
+            logger.info("[SELF_AWARENESS] NOT meta-question (%.0fms): '%s'", latency_ms, transcript[:40])
+            return None
+
+        logger.info("[SELF_AWARENESS] LLM response (%.0fms): '%s' → '%s'",
+                    latency_ms, transcript[:40], text[:60])
+        return text
+
+    except Exception as e:
+        logger.warning("[SELF_AWARENESS] LLM failed: %s", str(e)[:60])
+        return None
