@@ -272,8 +272,10 @@ export default function TalkScreen() {
 
         const obegeeUrl = process.env.EXPO_PUBLIC_OBEGEE_URL || 'https://obegee.co.uk';
         setDsSyncStatus('syncing');
+        let pollCount = 0;
 
         timer = setInterval(async () => {
+          pollCount++;
           try {
             const r = await fetch(`${obegeeUrl}/api/whatsapp/sync-progress/${tenantId}`, {
               headers: { Authorization: `Bearer ${token}` },
@@ -285,7 +287,15 @@ export default function TalkScreen() {
                 await storeItem('whatsapp_ds_imported', 'true');
                 if (timer) clearInterval(timer);
                 setTimeout(() => setDsSyncStatus(null), 5000);
+              } else if (d.status === 'not_started' && pollCount >= 3) {
+                // No sync job running after 3 polls — stop showing banner
+                setDsSyncStatus(null);
+                if (timer) clearInterval(timer);
               }
+            } else if (r.status === 401 || r.status === 403) {
+              // Auth issue — stop polling
+              setDsSyncStatus(null);
+              if (timer) clearInterval(timer);
             }
           } catch { /* silent poll */ }
         }, 15000);
