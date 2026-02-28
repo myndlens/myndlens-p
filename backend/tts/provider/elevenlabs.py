@@ -13,8 +13,8 @@ from tts.provider.interface import TTSProvider, TTSResult
 
 logger = logging.getLogger(__name__)
 
-# Default voice: "Rachel" - a popular ElevenLabs voice
-DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"
+# Default voice: configured for MyndLens
+DEFAULT_VOICE_ID = "i4CzbCVWoqvD0P1QJCUL"
 
 
 class ElevenLabsTTSProvider(TTSProvider):
