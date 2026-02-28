@@ -13,6 +13,7 @@ EXECUTION GUARDRAIL (Patch 5 / §3.2):
   violating it requires an ADR.
 """
 import asyncio
+import os
 import base64
 import json
 import logging
@@ -1214,7 +1215,7 @@ async def _handle_wa_pair_request(ws: WebSocket, session_id: str, payload: dict,
 
             # Start new pairing
             resp = await client.post(
-                f"http://143.198.241.199:8081/whatsapp/start-pairing",
+                "http://143.198.241.199:8081/whatsapp/start-pairing",
                 headers={"X-API-Key": pairing_key, "Content-Type": "application/json"},
                 json={"tenant_id": tenant_id, "phone_number": phone},
             )

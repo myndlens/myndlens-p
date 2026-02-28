@@ -5,8 +5,8 @@ Per-user timezone-aware scheduling for morning briefings.
 """
 import logging
 import asyncio
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Set
+from datetime import datetime, timezone
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 

@@ -24,7 +24,6 @@ Confidentiality:
 import logging
 from typing import Any, Dict, List, Optional
 
-from core.database import get_db
 
 logger = logging.getLogger(__name__)
 

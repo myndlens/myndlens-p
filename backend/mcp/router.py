@@ -8,7 +8,7 @@ MyndLens engines use these endpoints to access Digital Self data
 during mandate processing (L1 Scout, Gap Filler, Dimensions, etc).
 """
 import logging
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Any, Dict, Optional
 

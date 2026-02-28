@@ -13,8 +13,7 @@ Nudges are queued per-user and delivered via:
 The scheduler runs periodically (configurable) on the MyndLens backend.
 """
 import logging
-import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
