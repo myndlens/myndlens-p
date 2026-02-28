@@ -707,6 +707,18 @@ async def _handle_execute_request(
                     session_id, len(skill_names), execution_strategy, skill_names)
 
         # ── QC Sentry — adversarial check ─────────────────────────────────────
+        # Compute real skill risk from selected skills
+        HIGH_RISK_SKILLS = {"shell", "terminal", "ssh", "admin", "finance", "payment", "transfer", "delete"}
+        MED_RISK_SKILLS = {"email", "calendar", "file", "web", "browser", "deploy"}
+        skill_risk = "low"
+        for sn in skill_names:
+            sn_lower = sn.lower()
+            if any(h in sn_lower for h in HIGH_RISK_SKILLS):
+                skill_risk = "high"
+                break
+            if any(m in sn_lower for m in MED_RISK_SKILLS):
+                skill_risk = "medium"
+
         from qc.sentry import run_qc_sentry
         qc = await run_qc_sentry(
             session_id=session_id,
@@ -715,7 +727,7 @@ async def _handle_execute_request(
             intent=top.intent,
             intent_summary=top.hypothesis,
             persona_summary=session_ctx.raw_summary if session_ctx else "",
-            skill_risk="low",
+            skill_risk=skill_risk,
             skill_names=skill_names,
         )
         if not qc.overall_pass:

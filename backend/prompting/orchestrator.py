@@ -17,6 +17,7 @@ from prompting.types import (
     PromptContext,
     PromptArtifact,
     PromptReport,
+    PromptPurpose,
     SectionID,
     SectionOutput,
     CacheClass,
@@ -107,9 +108,33 @@ class PromptOrchestrator:
         stable_hash = compute_stable_hash(section_outputs)
         volatile_hash = compute_volatile_hash(section_outputs)
 
-        # 5. Build artifact — apply token budget modifier from user profile
+        # 5. Build artifact — apply token budget modifier + enforce hard cap
         raw_tokens = sum(s.tokens_est for s in section_outputs if s.included)
         adjusted_tokens = int(raw_tokens * token_modifier)
+
+        # Token budget enforcement: trim optional sections if over cap
+        MAX_TOKENS = {
+            PromptPurpose.THOUGHT_TO_INTENT: 4000,
+            PromptPurpose.DIMENSIONS_EXTRACT: 4000,
+            PromptPurpose.VERIFY: 3000,
+            PromptPurpose.SAFETY_GATE: 2000,
+        }
+        cap = MAX_TOKENS.get(ctx.purpose, 5000)
+        trimmed_sections = []
+        if adjusted_tokens > cap:
+            # Trim optional/volatile sections by lowest priority first
+            optional = [s for s in section_outputs if s.included and s.cache_class == CacheClass.VOLATILE]
+            optional.sort(key=lambda s: s.tokens_est)
+            for s in optional:
+                if adjusted_tokens <= cap:
+                    break
+                s.included = False
+                adjusted_tokens -= s.tokens_est
+                trimmed_sections.append(s.section_id.value)
+                messages = [m for m in messages if s.section_id.value not in str(m.get("content", ""))[:50]]
+            if trimmed_sections:
+                logger.info("[ORCHESTRATOR] Trimmed %d sections to meet %d token cap: %s",
+                           len(trimmed_sections), cap, trimmed_sections)
 
         artifact = PromptArtifact(
             prompt_id=prompt_id,

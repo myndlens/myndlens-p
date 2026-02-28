@@ -112,6 +112,35 @@ async def run_qc_sentry(
         latency_ms = (time.monotonic() - start) * 1000
         verdict = _parse_qc_response(response, latency_ms, artifact.prompt_id)
 
+        # Fix F: If parse failed (returned block due to parse error), retry once with strict prompt
+        if not verdict.overall_pass and verdict.block_reason and "parse" in verdict.block_reason.lower():
+            logger.info("QC parse failed — retrying with strict schema repair")
+            repair_prompt = (
+                "Your previous response was not valid JSON. "
+                "Reply with ONLY this exact JSON structure, nothing else:\n"
+                '{"overall_pass":true,"passes":[{"pass_name":"...","passed":true,"severity":"info","reason":"..."}]}'
+            )
+            try:
+                from prompting.types import PromptArtifact
+                repair_artifact = PromptArtifact(
+                    prompt_id=f"qc-repair-{session_id}",
+                    messages=[
+                        {"role": "system", "content": "Fix your JSON output. Reply ONLY with valid JSON."},
+                        {"role": "user", "content": f"Original response:\n{response}\n\n{repair_prompt}"},
+                    ],
+                    total_tokens_est=200,
+                )
+                repair_response = await call_llm(
+                    artifact=repair_artifact, call_site_id="QC_REPAIR",
+                    model_provider="gemini", model_name="gemini-2.0-flash",
+                    session_id=f"qc-repair-{session_id}",
+                )
+                verdict = _parse_qc_response(repair_response, latency_ms, artifact.prompt_id)
+                if verdict.overall_pass:
+                    logger.info("QC repair retry succeeded")
+            except Exception as re:
+                logger.warning("QC repair retry failed: %s", str(re)[:60])
+
         logger.info(
             "QC Sentry: session=%s passes=%d overall=%s latency=%.0fms",
             session_id, len(verdict.passes), verdict.overall_pass, latency_ms,
