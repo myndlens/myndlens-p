@@ -461,6 +461,9 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             elif msg_type == WSMessageType.COMMAND_INPUT.value:
                 await _handle_command_input(websocket, session_id, payload, user_id=user_id_resolved or "")
 
+            elif msg_type == WSMessageType.WA_PAIR_REQUEST.value:
+                await _handle_wa_pair_request(websocket, session_id, payload, user_id=user_id_resolved or "")
+
             elif msg_type == "context_sync":
                 # Device sends full PKG context capsule immediately after auth_ok
                 await _handle_context_sync(session_id, user_id_resolved or "", payload)
@@ -1180,6 +1183,82 @@ async def _handle_thought_stream_end(ws: WebSocket, session_id: str, user_id: st
     # and then runs _send_mock_tts_response with the FULL combined transcript
     await _handle_text_input(ws, session_id, {"text": combined, "context_capsule": context_capsule}, user_id=user_id)
 
+
+
+
+async def _handle_wa_pair_request(ws: WebSocket, session_id: str, payload: dict, user_id: str = "") -> None:
+    """Handle WhatsApp pairing request from app — trigger pairing and push code back."""
+    phone = payload.get("phone_number", "")
+    tenant_id = payload.get("tenant_id", "")
+
+    if not phone or not tenant_id:
+        await ws.send_text(_make_envelope(WSMessageType.WA_PAIR_CODE, {
+            "session_id": session_id, "status": "error", "error": "phone_number and tenant_id required",
+        }))
+        return
+
+    logger.info("[WA_PAIR] session=%s tenant=%s phone=%s", session_id, tenant_id, phone[:6] + "***")
+
+    try:
+        import httpx
+        obegee_url = os.environ.get("OBEGEE_API_URL", "http://obegee-backend:8001")
+        pairing_key = os.environ.get("WHATSAPP_PAIRING_API_KEY", "")
+
+        # Start pairing via ObeGee → runtime server
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # First disconnect old session if exists
+            await client.post(
+                f"{obegee_url}/api/whatsapp/disconnect/{tenant_id}",
+                headers={"X-API-Key": pairing_key},
+            )
+
+            # Start new pairing
+            resp = await client.post(
+                f"http://143.198.241.199:8081/whatsapp/start-pairing",
+                headers={"X-API-Key": pairing_key, "Content-Type": "application/json"},
+                json={"tenant_id": tenant_id, "phone_number": phone},
+            )
+
+            if not resp.is_success:
+                await ws.send_text(_make_envelope(WSMessageType.WA_PAIR_CODE, {
+                    "session_id": session_id, "status": "error", "error": f"Pairing service error: {resp.status_code}",
+                }))
+                return
+
+        # Poll for pairing code (up to 15s)
+        for _ in range(5):
+            await asyncio.sleep(3)
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                poll = await client.get(
+                    f"http://143.198.241.199:8081/whatsapp/pairing-status/{tenant_id}",
+                    headers={"X-API-Key": pairing_key},
+                )
+                if poll.is_success:
+                    data = poll.json()
+                    code = data.get("pairing_code")
+                    if code:
+                        await ws.send_text(_make_envelope(WSMessageType.WA_PAIR_CODE, {
+                            "session_id": session_id, "status": "code_ready",
+                            "pairing_code": code,
+                            "instructions": f"Enter {code} in WhatsApp → Settings → Linked Devices → Link with Phone Number",
+                        }))
+                        logger.info("[WA_PAIR] Code pushed to app: %s", code)
+                        return
+                    if data.get("status") == "failed":
+                        await ws.send_text(_make_envelope(WSMessageType.WA_PAIR_CODE, {
+                            "session_id": session_id, "status": "error", "error": data.get("error", "Pairing failed"),
+                        }))
+                        return
+
+        await ws.send_text(_make_envelope(WSMessageType.WA_PAIR_CODE, {
+            "session_id": session_id, "status": "error", "error": "Pairing code not generated in time. Try again.",
+        }))
+
+    except Exception as e:
+        logger.error("[WA_PAIR] error: %s", str(e)[:80])
+        await ws.send_text(_make_envelope(WSMessageType.WA_PAIR_CODE, {
+            "session_id": session_id, "status": "error", "error": "Connection error. Try again.",
+        }))
 
 
 async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, user_id: str = "") -> None:

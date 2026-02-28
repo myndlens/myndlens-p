@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
+  Alert,
   Platform,
   KeyboardAvoidingView,
   Keyboard,
@@ -575,6 +576,19 @@ export default function TalkScreen() {
           success: true,
           method: 'auto_approved',
         });
+      }),
+      // WhatsApp pairing code pushed from backend
+      wsClient.on('wa_pair_code' as WSMessageType, (env: WSEnvelope) => {
+        const { status, pairing_code, instructions, error: waError } = env.payload;
+        if (status === 'code_ready' && pairing_code) {
+          Alert.alert(
+            'WhatsApp Pairing Code',
+            `${pairing_code}\n\n${instructions || 'Enter this code in WhatsApp → Linked Devices → Link with Phone Number'}`,
+            [{ text: 'OK' }],
+          );
+        } else if (waError) {
+          Alert.alert('WhatsApp Pairing', waError);
+        }
       }),
       wsClient.on('transcript_final', (env: WSEnvelope) => {
         const text = env.payload.text || '';
