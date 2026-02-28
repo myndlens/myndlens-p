@@ -224,6 +224,8 @@ export default function TalkScreen() {
   const [dsSyncStatus, setDsSyncStatus] = useState<string | null>(null); // 'syncing' | 'done' | null
   const [fragmentCount, setFragmentCount] = useState(0);  // pulsing dot counter
   const thoughtStreamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);  // 12s stream end timer
+  const lastTtsRef = useRef('');
+  const lastTtsTimeRef = useRef(0);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = React.useState<Array<{
     role: 'user' | 'assistant' | 'result';
@@ -594,6 +596,13 @@ export default function TalkScreen() {
           setPendingAction('approve');
         }
         setTtsText(text);
+        // Dedup: skip if this exact text was just played (prevents double TTS)
+        if (text === lastTtsRef.current && Date.now() - lastTtsTimeRef.current < 5000) {
+          console.log('[Talk] Skipping duplicate TTS:', text.substring(0, 30));
+          return;
+        }
+        lastTtsRef.current = text;
+        lastTtsTimeRef.current = Date.now();
         transition('RESPONDING');
         setIsSpeaking(true);
         // Add MyndLens response to chat history
