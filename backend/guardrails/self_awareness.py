@@ -124,11 +124,16 @@ def check_self_awareness(transcript: str, user_first_name: str = "") -> str | No
     """
     normalized = transcript.lower().strip()
 
-    # Skip if too short or too long (meta-questions are typically 3-15 words)
+    # Normalize STT variations of "MyndLens" → canonical form
+    for variant in ["mind lens", "mine lens", "my lens", "mynd lens", "mindlens", "mynlens"]:
+        normalized = normalized.replace(variant, "myndlens")
+
+    # Skip if too short or too long
     words = normalized.split()
-    if len(words) < 2 or len(words) > 25:
+    if len(words) < 3 or len(words) > 25:
         return None
 
+    # First: try regex patterns
     for entry in _SELF_AWARENESS:
         for pattern in entry["patterns"]:
             if re.search(pattern, normalized):
@@ -136,6 +141,36 @@ def check_self_awareness(transcript: str, user_first_name: str = "") -> str | No
                 response = name_prefix + entry["response"]
                 logger.info("[SELF_AWARENESS] matched pattern='%s' transcript='%s'",
                            pattern[:30], normalized[:40])
+                return response
+
+    # Fallback: keyword-based matching for common natural phrasings
+    # that regex might miss due to word order variations
+    _KEYWORD_MAP = [
+        ({"how", "work"}, {"myndlens", "you"}, 0),            # "how does myndlens work" / "how do you work"
+        ({"why", "unique"}, {"myndlens", "you"}, 1),           # "why is myndlens unique"
+        ({"why", "different"}, {"myndlens", "you"}, 1),        # "why are you different"
+        ({"what", "unique"}, {"myndlens", "you"}, 1),          # "what makes you unique"
+        ({"how", "trust"}, {"myndlens", "you"}, 2),            # "how can i trust you"
+        ({"can", "trust"}, {"myndlens", "you"}, 2),            # "can i trust you"
+        ({"why", "trust"}, {"myndlens", "you"}, 2),            # "why should i trust you"
+        ({"what", "can", "do"}, {"myndlens", "you"}, 3),       # "what can you do"
+        ({"who", "made"}, {"myndlens", "you"}, 4),             # "who made you"
+        ({"who", "built"}, {"myndlens", "you"}, 4),            # "who built myndlens"
+        ({"replace"}, {"myndlens", "you"}, 5),                 # "why can't you be replaced"
+        ({"replaced"}, {"myndlens", "you"}, 5),                # "why can't you be replaced" (STT)
+        ({"irreplaceable"}, {"myndlens", "you"}, 5),           # "why are you irreplaceable"
+        ({"switch", "away"}, {"myndlens", "you"}, 5),          # "why shouldn't i switch away"
+        ({"not", "replaceable"}, set(), 5),                    # "why are you not replaceable"
+    ]
+
+    word_set = set(words)
+    for required_words, brand_words, response_idx in _KEYWORD_MAP:
+        if required_words.issubset(word_set):
+            if not brand_words or brand_words.intersection(word_set):
+                name_prefix = f"{user_first_name}, " if user_first_name else ""
+                response = name_prefix + _SELF_AWARENESS[response_idx]["response"]
+                logger.info("[SELF_AWARENESS] keyword match required=%s transcript='%s'",
+                           required_words, normalized[:40])
                 return response
 
     return None
