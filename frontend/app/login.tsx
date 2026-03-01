@@ -69,6 +69,7 @@ export default function LoginScreen() {
         setItem('myndlens_user_id', data.user_id),
         setItem('myndlens_tenant_id', data.tenant_id),
         setItem('myndlens_user_name', data.user_name || ''),
+        setItem('myndlens_workspace_slug', data.workspace_slug || ''),
       ]);
       setAuth(data.user_id, '');
       router.replace('/loading');
