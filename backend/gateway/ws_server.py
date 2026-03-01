@@ -937,7 +937,7 @@ async def _handle_execute_request(
         # Acknowledge execution with TTS — male voice confirms dispatch
         ack_text = "OpenClaw executing User Mandate Now"
         _tts_ack_provider = get_tts_provider()
-        tts_ack = await _tts_ack_provider.synthesize(ack_text, voice_id="wWWn96OtTHu1sn8SRGEr")
+        tts_ack = await _tts_ack_provider.synthesize(ack_text, voice_id="ZthjuvLPty3kTMaNKVKb")
         if tts_ack.audio_bytes and not tts_ack.is_mock:
             await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
                 text=ack_text,
