@@ -9,7 +9,7 @@ import time
 import jwt
 from datetime import datetime, timezone, timedelta
 
-BACKEND_URL = "https://openclaw-tenant.preview.emergentagent.com"
+BACKEND_URL = "https://sovereign-exec-qa.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 def test_health():

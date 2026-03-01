@@ -12,7 +12,7 @@ import pytest
 import requests
 import uuid
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://openclaw-tenant.preview.emergentagent.com')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://sovereign-exec-qa.preview.emergentagent.com')
 
 
 class TestPhase0Health:

@@ -627,7 +627,7 @@ class TestIntegrationPipeline:
 
         API_URL = os.environ.get(
             "EXPO_PUBLIC_BACKEND_URL",
-            "https://openclaw-tenant.preview.emergentagent.com"
+            "https://sovereign-exec-qa.preview.emergentagent.com"
         )
         WS_URL = API_URL.replace("https://", "wss://").replace("http://", "ws://") + "/api/ws"
 
@@ -943,7 +943,7 @@ class TestIntegrationPipeline:
         import requests
         API_URL = os.environ.get(
             "EXPO_PUBLIC_BACKEND_URL",
-            "https://openclaw-tenant.preview.emergentagent.com"
+            "https://sovereign-exec-qa.preview.emergentagent.com"
         )
         resp = requests.get(f"{API_URL}/api/health", timeout=10)
         assert resp.status_code == 200

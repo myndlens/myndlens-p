@@ -11,7 +11,7 @@ import math
 import struct
 
 # Backend URL
-BACKEND_URL = "https://openclaw-tenant.preview.emergentagent.com"
+BACKEND_URL = "https://sovereign-exec-qa.preview.emergentagent.com"
 
 def test_health():
     """Test health endpoint"""

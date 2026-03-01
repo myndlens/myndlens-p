@@ -36,6 +36,8 @@ _COMMANDS = {
     # RESUME is button-only (no voice trigger) — removed from commands
     "cancel": "CANCEL", "stop": "CANCEL", "forget it": "CANCEL", "never mind": "CANCEL",
     "kill": "KILL", "abort": "KILL",
+    "done": "END_THOUGHT", "i am done": "END_THOUGHT", "i'm done": "END_THOUGHT",
+    "that's it": "END_THOUGHT", "that is it": "END_THOUGHT", "go ahead": "END_THOUGHT",
 }
 
 # Noise patterns — too short, filler words, non-speech

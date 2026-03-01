@@ -1172,6 +1172,12 @@ async def _process_fragment(ws: WebSocket, session_id: str, user_id: str = "") -
                     "session_id": session_id, "status": "cancelled",
                     "sub_intents": [], "checklist_progress": 0,
                 }))
+            elif cmd == "END_THOUGHT":
+                # Voice "done" / "i am done" — trigger thought stream end
+                logger.info("[FRAGMENT:END_THOUGHT] session=%s — voice done command detected", session_id)
+                transcript_assembler.cleanup(session_id)
+                await _handle_thought_stream_end(ws, session_id, user_id)
+                return
             transcript_assembler.cleanup(session_id)
             return
 
@@ -1452,7 +1458,7 @@ async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, u
     elif command == "END_THOUGHT":
         logger.info("[COMMAND:END_THOUGHT] session=%s phase=%s fragments=%d",
                      session_id, conv.phase, len(conv.fragments))
-        if conv.phase in ("ACTIVE_CAPTURE", "LISTENING"):
+        if conv.phase in ("ACTIVE_CAPTURE", "LISTENING", "ACCUMULATING"):
             conv.phase = "PROCESSING"
             combined = conv.get_combined_transcript()
             logger.info("[COMMAND:END_THOUGHT] session=%s combined='%s'",

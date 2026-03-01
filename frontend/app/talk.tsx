@@ -380,6 +380,7 @@ export default function TalkScreen() {
   const pendingDraftIdRef = useRef<string | null>(null);
   const recordingStartedAt = useRef<number>(0);  // track when recording began
   const micBusy = useRef(false);  // prevent re-entry into handleMic during TTS greeting
+  const doneRequested = useRef(false);  // prevents captureNextFragment from overriding THINKING on Done
   // Keep refs in sync with state for AppState closure access
   useEffect(() => { completedStagesRef.current = completedStages; }, [completedStages]);
   useEffect(() => { pipelineStageIndexRef.current = pipelineStageIndex; }, [pipelineStageIndex]);
@@ -748,7 +749,13 @@ export default function TalkScreen() {
           transition('RESPONDING');
           setIsSpeaking(true);
           TTS.speak(greeting, {
-            onComplete: () => { setIsSpeaking(false); transition('IDLE'); },
+            onComplete: () => {
+              setIsSpeaking(false);
+              // Only transition to IDLE if still in RESPONDING (barge-in may have advanced state)
+              if (audioStateRef.current === 'RESPONDING') {
+                transition('IDLE');
+              }
+            },
           });
         } catch { /* non-critical */ }
       }),
@@ -1016,6 +1023,13 @@ export default function TalkScreen() {
             return;
           }
 
+          // Guard: if Done was requested, stop immediately
+          if (doneRequested.current) {
+            console.log('[Talk] Done requested — stopping fragment capture loop');
+            doneRequested.current = false;
+            return;
+          }
+
           // Guard: only restart if still in capture mode (user may have tapped Done)
           const curState = audioStateRef.current;
           if (curState !== 'CAPTURING' && curState !== 'ACCUMULATING' && curState !== 'LISTENING') {
@@ -1026,6 +1040,13 @@ export default function TalkScreen() {
           // Immediately restart for next fragment — no gap in capture
           captureNextFragment().catch(() => {});
         } else {
+          // stopAndGetAudio returned null — recording was already stopped
+          // If Done button triggered this, doneRequested is set — do NOT override THINKING
+          if (doneRequested.current) {
+            console.log('[Talk] stopAndGetAudio null — Done was requested, not overriding state');
+            doneRequested.current = false;
+            return;
+          }
           console.warn('[Talk] stopAndGetAudio null or no session — resetting to IDLE');
           transition('IDLE');
         }
@@ -1057,6 +1078,7 @@ export default function TalkScreen() {
       setPipelineProgress(0);
       setPendingAction(null);
       setFragmentCount(0);
+      doneRequested.current = false;  // Reset done flag for new session
       setChatMessages([]);  // Clear chat for fresh session
       setExecutionLogs([]);  // Clear execution logs for fresh session
       if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
@@ -1437,9 +1459,10 @@ export default function TalkScreen() {
                   // END_THOUGHT
                   console.log('[BTN:DONE] sending END_THOUGHT');
                   if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
+                  doneRequested.current = true;  // Prevent captureNextFragment from overriding THINKING
+                  transition('THINKING');  // Transition FIRST — before stopRecording triggers VAD callback
                   stopRecording().catch(() => {});
                   wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'END_THOUGHT', source: 'button' });
-                  transition('THINKING');
                 } else if (awaitingCommand === 'approve_or_change' || pendingAction) {
                   // APPROVE
                   console.log('[BTN:YES] sending APPROVE draft=%s', pendingDraftId);

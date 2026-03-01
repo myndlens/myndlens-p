@@ -12,7 +12,7 @@ import aiohttp
 import websockets
 
 # Backend URL configuration
-BACKEND_URL = "https://openclaw-tenant.preview.emergentagent.com"
+BACKEND_URL = "https://sovereign-exec-qa.preview.emergentagent.com"
 WS_URL = "wss://voice-assistant-dev.preview.emergentagent.com/api/ws"
 API_BASE = f"{BACKEND_URL}/api"
 
