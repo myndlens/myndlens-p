@@ -346,14 +346,24 @@ async def delivery_webhook(
         },
     )
 
-    # Speak the result — voice-first: result is delivered via TTS not text
-    if payload.status == "COMPLETED" and payload.summary:
+    # Speak a brief confirmation — never read raw JSON/results aloud
+    if payload.status == "COMPLETED":
         try:
             from tts.orchestrator import get_tts_provider
             import base64 as _b64
+
+            # Resolve the user's first name from session context
+            from gateway.ws_server import execution_sessions, _session_contexts
+            _sid = execution_sessions.get(payload.execution_id)
+            _ctx = _session_contexts.get(_sid) if _sid else None
+            first_name = (_ctx.user_name.split()[0] if _ctx and _ctx.user_name else "")
+
+            if first_name:
+                speakable = f"Hi {first_name}, results are in Chat."
+            else:
+                speakable = "Results are in Chat."
+
             tts = get_tts_provider()
-            # Trim to a speakable length — avoid reading massive code outputs verbatim
-            speakable = payload.summary.strip()[:400]
             result = await tts.synthesize(speakable)
             if result.audio_bytes and not result.is_mock:
                 tts_payload = {
