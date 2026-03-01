@@ -934,10 +934,10 @@ async def _handle_execute_request(
             await transition_state(req.draft_id, MandateState.DISPATCHED)
         await delete_mandate(req.draft_id)
 
-        # Acknowledge execution with TTS — confirms mandate accepted
-        ack_text = f"On it. {top.hypothesis[:80]}."
+        # Acknowledge execution with TTS — male voice confirms dispatch
+        ack_text = "OpenClaw executing User Mandate Now"
         _tts_ack_provider = get_tts_provider()
-        tts_ack = await _tts_ack_provider.synthesize(ack_text)
+        tts_ack = await _tts_ack_provider.synthesize(ack_text, voice_id="wWWn96OtTHu1sn8SRGEr")
         if tts_ack.audio_bytes and not tts_ack.is_mock:
             await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
                 text=ack_text,
