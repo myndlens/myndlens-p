@@ -280,8 +280,27 @@ const ResultCard = ({ msg }: { msg: { text: string; result_type?: string; struct
         </View>
       );
     }
-    default:
+    default: {
+      // Try to extract structured content from raw text (may contain markdown JSON)
+      const parsed = (() => {
+        try {
+          const stripped = msg.text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+          if (stripped.startsWith('{')) return JSON.parse(stripped);
+        } catch { /* not JSON */ }
+        return null;
+      })();
+      if (parsed?.summary || parsed?.details || s.summary || s.details) {
+        const sum = s.summary || parsed?.summary;
+        const det = s.details || parsed?.details;
+        return (
+          <View style={{ gap: 4 }}>
+            {sum ? <Text style={cardStyles.reportSummary}>{sum}</Text> : null}
+            {det ? <Text style={{ color: '#C8D0C0', fontSize: 13, lineHeight: 19 }}>{det}</Text> : null}
+          </View>
+        );
+      }
       return <Text style={{ color: '#C0E0D0', fontSize: 14, lineHeight: 20 }}>{msg.text}</Text>;
+    }
   }
 };
 
@@ -819,7 +838,10 @@ export default function TalkScreen() {
         }
         const onComplete = () => {
           setIsSpeaking(false);
-          transition('IDLE');
+          // Only transition to IDLE if still in RESPONDING (barge-in may have already advanced state)
+          if (audioStateRef.current === 'RESPONDING') {
+            transition('IDLE');
+          }
           // Auto-start recording after mandate summary ("Shall I proceed?")
           // Skip greeting — user is in context, they know to say Yes/No directly
           if (autoRecord) {
