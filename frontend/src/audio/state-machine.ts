@@ -27,7 +27,7 @@ export type AudioState =
 const VALID_TRANSITIONS: Record<AudioState, AudioState[]> = {
   IDLE:          ['LISTENING'],
   LISTENING:     ['CAPTURING', 'IDLE'],
-  CAPTURING:     ['COMMITTING', 'ACCUMULATING', 'IDLE', 'RESPONDING'],
+  CAPTURING:     ['COMMITTING', 'ACCUMULATING', 'IDLE'],
   COMMITTING:    ['THINKING', 'IDLE'],
   ACCUMULATING:  ['CAPTURING', 'THINKING', 'IDLE'],  // CAPTURING=next fragment, THINKING=stream end
   THINKING:      ['RESPONDING', 'IDLE', 'LISTENING'],
