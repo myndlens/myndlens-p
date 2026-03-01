@@ -933,9 +933,13 @@ export default function TalkScreen() {
         if (status === 'done' && idx >= 0 && idx < PIPELINE_STAGES.length) {
           const label = PIPELINE_STAGES[idx].label;
           setCompletedStages(prev => prev.includes(label) ? prev : [...prev, label]);
-          // When any stage completes, clear the active spinner for that stage
           setPipelineSubStatus('');
-          setPipelineStageIndex(-1); // No active stage — completed list shows checkmarks
+          // Auto-advance to next stage (keeps progress feeling alive)
+          if (idx < 9) {
+            setPipelineStageIndex(idx + 1);
+          } else {
+            setPipelineStageIndex(-1);
+          }
           if (idx >= 9) {
             // Replace all pipeline stages with a single "Results delivered to Chat"
             setCompletedStages(['Results delivered to Chat']);
@@ -1288,13 +1292,19 @@ export default function TalkScreen() {
                 </>
               ) : (
                 <View style={styles.activityFeed}>
-                  {/* Completed stages — last 4 only (sliding window keeps layout stable) */}
-                  {completedStages.slice(-4).map((label, i) => (
-                    <View key={i} style={styles.activityDone}>
-                      <Text style={styles.activityDoneTick}>{'\u2713'}</Text>
-                      <Text style={styles.activityDoneLabel}>{label}</Text>
-                    </View>
-                  ))}
+                  {/* Completed stages — scrollable, no scrollbar, auto-scrolls to latest */}
+                  <ScrollView
+                    style={styles.activityScrollBox}
+                    showsVerticalScrollIndicator={false}
+                    ref={(ref) => { if (ref) setTimeout(() => ref.scrollToEnd({ animated: true }), 50); }}
+                  >
+                    {completedStages.map((label, i) => (
+                      <View key={i} style={styles.activityDone}>
+                        <Text style={styles.activityDoneTick}>{'\u2713'}</Text>
+                        <Text style={styles.activityDoneLabel}>{label}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
                   {/* Current active stage */}
                   {activeStage && (
                     <View style={styles.activityActive}>
@@ -1637,7 +1647,8 @@ const styles = StyleSheet.create({
   pipelineSpinner: { marginBottom: 12 },
 
   // Sequential live activity feed
-  activityFeed: { width: '100%', paddingVertical: 4, maxHeight: 120 },
+  activityFeed: { width: '100%', paddingVertical: 4, maxHeight: 160 },
+  activityScrollBox: { maxHeight: 100 },
   activityDone: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5 },
   activityDoneTick: { color: '#4CAF50', fontSize: 13, marginRight: 10, fontWeight: '700' },
   activityDoneLabel: { color: '#555568', fontSize: 13, fontWeight: '500' },
