@@ -744,7 +744,7 @@ export default function TalkScreen() {
           const label = PIPELINE_STAGES[idx].label;
           setCompletedStages(prev => prev.includes(label) ? prev : [...prev, label]);
           if (idx >= 9 && sub) {
-            setPipelineSubStatus(sub.substring(0, 200));
+            setPipelineSubStatus('');  // Clear — results go to chat only, not pipeline UI
             setPendingAction(null);  // D6: results delivered — no pending approval/kill
             setChatMessages(prev => [...prev, {
               role: 'result',
@@ -758,7 +758,9 @@ export default function TalkScreen() {
           }
         } else if (status === 'active') {
           setPipelineStageIndex(idx);
-          setPipelineSubStatus(sub);
+          // Only show short progress text — filter out raw JSON/results that leak from execution stages
+          const isSafe = sub && sub.length < 120 && !sub.startsWith('{') && !sub.startsWith('```');
+          setPipelineSubStatus(isSafe ? sub : '');
           setPipelineProgress(prog);
         }
       }),
