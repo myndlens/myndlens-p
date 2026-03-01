@@ -78,7 +78,13 @@ export class MyndLensWSClient {
       // event that onclose would normally dispatch. This close is part of a
       // controlled reconnect, not an unexpected session loss.
       this._suppressNextClose = true;
-      this.disconnect();
+      // If old socket is already closed, onclose won't fire — reset flag now
+      if (this.ws.readyState === WebSocket.CLOSED || this.ws.readyState === WebSocket.CLOSING) {
+        this._suppressNextClose = false;
+        this._cleanup();
+      } else {
+        this.disconnect();
+      }
     }
 
     return new Promise(async (resolve, reject) => {

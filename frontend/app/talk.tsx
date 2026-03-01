@@ -396,6 +396,7 @@ export default function TalkScreen() {
   // from navigating to /loading while the user is in Settings or another screen.
   const isScreenFocused = useRef(true);
   const appInBackground = useRef(false);
+  const isReconnecting = useRef(false);
   useFocusEffect(useCallback(() => {
     isScreenFocused.current = true;
     Keyboard.dismiss(); // Reset keyboard state when returning from other screens
@@ -585,6 +586,7 @@ export default function TalkScreen() {
           // Just reconnect quietly. The user stays on the Talk screen.
           console.log('[Talk] WS disconnected during background — reconnecting silently');
           setConnectionStatus('connecting');
+          isReconnecting.current = true;
           try {
             const { getItem } = require('../src/utils/storage');
             const token = await getItem('myndlens_auth_token');
@@ -597,6 +599,8 @@ export default function TalkScreen() {
           } catch (e) {
             console.log('[Talk] Silent reconnect failed, going to loading:', e);
             router.replace('/loading');
+          } finally {
+            isReconnecting.current = false;
           }
         }
       }
@@ -872,7 +876,7 @@ export default function TalkScreen() {
         // Only navigate if this screen is focused AND the app is in the foreground.
         // Navigating while backgrounded causes the race condition where loading.tsx
         // mounts, reconnects, routes to talk — and then a stale event fires again.
-        if (isScreenFocused.current && !appInBackground.current) {
+        if (isScreenFocused.current && !appInBackground.current && !isReconnecting.current) {
           router.replace('/loading');
         }
       }),
