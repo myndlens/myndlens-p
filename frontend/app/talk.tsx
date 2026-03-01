@@ -560,6 +560,7 @@ export default function TalkScreen() {
       if (nextState === 'background' || nextState === 'inactive') {
         // ── Going to background ──────────────────────────────────────────────
         appInBackground.current = true;
+        micBusy.current = false;  // Prevent stuck flag on foreground return
         const state = audioStateRef.current;
         if (state === 'CAPTURING' || state === 'LISTENING') {
           await stopRecording().catch(() => {});
@@ -596,6 +597,7 @@ export default function TalkScreen() {
       } else if (nextState === 'active') {
         // ── Returning to foreground ──────────────────────────────────────────
         appInBackground.current = false;
+        micBusy.current = false;  // Ensure clean state for mic button
         const now = Date.now();
 
         // Guard: ignore transient background/active cycles caused by audio
@@ -838,45 +840,43 @@ export default function TalkScreen() {
         }
         const onComplete = () => {
           setIsSpeaking(false);
-          // Only transition to IDLE if still in RESPONDING (barge-in may have already advanced state)
+          // Only transition to IDLE and run autoRecord if still in RESPONDING
+          // (barge-in or background may have already advanced state)
           if (audioStateRef.current === 'RESPONDING') {
             transition('IDLE');
-          }
-          // Auto-start recording after mandate summary ("Shall I proceed?")
-          // Skip greeting — user is in context, they know to say Yes/No directly
-          if (autoRecord) {
-            setTimeout(async () => {
-              const sid = wsClient.currentSessionId;
-              if (!sid) return;
-              transition('LISTENING');
-              transition('CAPTURING');
-              captureSessionStart.current = Date.now();
-              recordingStartedAt.current = Date.now();
-              await startRecording(
-                async () => {
-                  // Duration guard: ignore VAD triggers < 1s (noise/echo)
-                  const dur = Date.now() - recordingStartedAt.current;
-                  if (dur < 1000) {
-                    console.log('[Talk] Auto-record VAD noise ignored (< 1s), continuing');
-                    return;
-                  }
-                  const audioBase64r = await stopAndGetAudio();
-                  const sid2 = wsClient.currentSessionId;
-                  if (audioBase64r && sid2) {
-                    wsClient.send('audio_chunk', {
-                      session_id: sid2, audio: audioBase64r,
-                      seq: 1, timestamp: Date.now(), duration_ms: dur,
-                    });
-                    wsClient.send('cancel', { session_id: sid2, reason: 'vad_end_of_utterance' });
-                    transition('COMMITTING');
-                    transition('THINKING');
-                  } else {
-                    transition('IDLE');
-                  }
-                },
-                (rms: number) => setLiveEnergy(rms),
-              );
-            }, 800);
+            if (autoRecord) {
+              setTimeout(async () => {
+                const sid = wsClient.currentSessionId;
+                if (!sid) return;
+                transition('LISTENING');
+                transition('CAPTURING');
+                captureSessionStart.current = Date.now();
+                recordingStartedAt.current = Date.now();
+                await startRecording(
+                  async () => {
+                    const dur = Date.now() - recordingStartedAt.current;
+                    if (dur < 1000) {
+                      console.log('[Talk] Auto-record VAD noise ignored (< 1s), continuing');
+                      return;
+                    }
+                    const audioBase64r = await stopAndGetAudio();
+                    const sid2 = wsClient.currentSessionId;
+                    if (audioBase64r && sid2) {
+                      wsClient.send('audio_chunk', {
+                        session_id: sid2, audio: audioBase64r,
+                        seq: 1, timestamp: Date.now(), duration_ms: dur,
+                      });
+                      wsClient.send('cancel', { session_id: sid2, reason: 'vad_end_of_utterance' });
+                      transition('COMMITTING');
+                      transition('THINKING');
+                    } else {
+                      transition('IDLE');
+                    }
+                  },
+                  (rms: number) => setLiveEnergy(rms),
+                );
+              }, 800);
+            }
           }
         };
         // Play real ElevenLabs audio if available, else fall back to device TTS
@@ -1004,6 +1004,13 @@ export default function TalkScreen() {
             return;
           }
 
+          // Guard: only restart if still in capture mode (user may have tapped Done)
+          const curState = audioStateRef.current;
+          if (curState !== 'CAPTURING' && curState !== 'ACCUMULATING' && curState !== 'LISTENING') {
+            console.log('[Talk] State changed to', curState, '— stopping fragment capture loop');
+            return;
+          }
+
           // Immediately restart for next fragment — no gap in capture
           captureNextFragment().catch(() => {});
         } else {
@@ -1038,6 +1045,7 @@ export default function TalkScreen() {
       setPipelineProgress(0);
       setPendingAction(null);
       setFragmentCount(0);
+      setChatMessages([]);  // Clear chat for fresh session
       if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
       // Gate: DS setup check
       try {

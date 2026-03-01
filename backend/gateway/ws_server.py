@@ -1293,6 +1293,12 @@ async def _handle_thought_stream_end(ws: WebSocket, session_id: str, user_id: st
     # and then runs _send_mock_tts_response with the FULL combined transcript
     await _handle_text_input(ws, session_id, {"text": combined, "context_capsule": context_capsule}, user_id=user_id)
 
+    # Reset conversation state so next mandate starts fresh (unless in clarification loop)
+    if not _clarification_state.get(session_id, {}).get("pending"):
+        conv.reset()
+        if hasattr(conv, '_intent_ready_sent'):
+            conv._intent_ready_sent = False
+
 
 
 
