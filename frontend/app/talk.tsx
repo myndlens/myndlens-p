@@ -743,18 +743,25 @@ export default function TalkScreen() {
         if (status === 'done' && idx >= 0 && idx < PIPELINE_STAGES.length) {
           const label = PIPELINE_STAGES[idx].label;
           setCompletedStages(prev => prev.includes(label) ? prev : [...prev, label]);
-          if (idx >= 9 && sub) {
-            setPipelineSubStatus('');  // Clear — results go to chat only, not pipeline UI
+          // When execution stage (8) completes, clear the executing spinner
+          if (idx === 8) {
+            setPipelineSubStatus('');
+          }
+          if (idx >= 9) {
+            setPipelineSubStatus('');
+            setPipelineStageIndex(-1); // Reset — no active stage after results delivered
             setPendingAction(null);  // D6: results delivered — no pending approval/kill
-            setChatMessages(prev => [...prev, {
-              role: 'result',
-              text: sub,
-              result_type: resultType,
-              structured: structured || undefined,
-              ts: Date.now(),
-            }]);
-            setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
-            if (displayInChat) setChatOpen(true);
+            if (sub) {
+              setChatMessages(prev => [...prev, {
+                role: 'result',
+                text: sub,
+                result_type: resultType,
+                structured: structured || undefined,
+                ts: Date.now(),
+              }]);
+              setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+              if (displayInChat) setChatOpen(true);
+            }
           }
         } else if (status === 'active') {
           setPipelineStageIndex(idx);
