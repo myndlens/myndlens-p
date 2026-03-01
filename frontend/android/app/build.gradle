@@ -92,8 +92,8 @@ android {
         applicationId 'com.myndlens.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 18
-        versionName "1.0.14"
+        versionCode 19
+        versionName "1.0.15"
         archivesBaseName = "MyndLens-v${versionName}-build${versionCode}"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
