@@ -743,13 +743,10 @@ export default function TalkScreen() {
         if (status === 'done' && idx >= 0 && idx < PIPELINE_STAGES.length) {
           const label = PIPELINE_STAGES[idx].label;
           setCompletedStages(prev => prev.includes(label) ? prev : [...prev, label]);
-          // When execution stage (8) completes, clear the executing spinner
-          if (idx === 8) {
-            setPipelineSubStatus('');
-          }
+          // When any stage completes, clear the active spinner for that stage
+          setPipelineSubStatus('');
+          setPipelineStageIndex(-1); // No active stage — completed list shows checkmarks
           if (idx >= 9) {
-            setPipelineSubStatus('');
-            setPipelineStageIndex(-1); // Reset — no active stage after results delivered
             setPendingAction(null);  // D6: results delivered — no pending approval/kill
             if (sub) {
               setChatMessages(prev => [...prev, {
