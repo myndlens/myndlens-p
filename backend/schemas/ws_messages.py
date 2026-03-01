@@ -153,6 +153,7 @@ class TTSAudioPayload(BaseModel):
     auto_record: bool = False    # True = mic opens automatically after TTS completes
     is_clarification: bool = False  # True = this is a clarification question
     ui_mode: Optional[str] = None  # "change_capture" | "approval" | None
+    skip_chat: bool = False      # True = don't add this TTS text to chat history
 
 
 class ExecuteBlockedPayload(BaseModel):

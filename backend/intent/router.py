@@ -26,11 +26,14 @@ class RouteDecision:
 
 
 # Command phrases — deterministic, no LLM needed
+# HOLD requires "myndlens" prefix to avoid false positives ("wait for the bus")
+# STT may transcribe "MyndLens" as "mind lens", "mynd lens", "mindlens", etc.
 _COMMANDS = {
-    "hold": "HOLD", "hold on": "HOLD", "wait": "HOLD", "pause": "HOLD",
-    "one moment": "HOLD", "one sec": "HOLD", "hang on": "HOLD",
-    "resume": "RESUME", "continue": "RESUME", "go on": "RESUME",
-    "i'm back": "RESUME", "im back": "RESUME", "back": "RESUME",
+    "myndlens hold": "HOLD", "myndlens wait": "HOLD", "myndlens pause": "HOLD",
+    "mind lens hold": "HOLD", "mind lens wait": "HOLD", "mind lens pause": "HOLD",
+    "mindlens hold": "HOLD", "mindlens wait": "HOLD", "mindlens pause": "HOLD",
+    "mynd lens hold": "HOLD", "mynd lens wait": "HOLD", "mynd lens pause": "HOLD",
+    # RESUME is button-only (no voice trigger) — removed from commands
     "cancel": "CANCEL", "stop": "CANCEL", "forget it": "CANCEL", "never mind": "CANCEL",
     "kill": "KILL", "abort": "KILL",
 }

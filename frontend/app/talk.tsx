@@ -369,7 +369,7 @@ export default function TalkScreen() {
   const [waNotPaired, setWaNotPaired]   = useState(false);
   const [dsSyncStatus, setDsSyncStatus] = useState<string | null>(null); // 'syncing' | 'done' | null
   const [fragmentCount, setFragmentCount] = useState(0);  // pulsing dot counter
-  const thoughtStreamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);  // 12s stream end timer
+  const thoughtStreamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);  // legacy ref — kept for cleanup in hold/done paths
   const lastTtsRef = useRef('');
   const lastTtsTimeRef = useRef(0);
   const [chatOpen, setChatOpen] = useState(false);
@@ -546,6 +546,19 @@ export default function TalkScreen() {
           await stopRecording().catch(() => {});
           transition('IDLE');
         }
+        if (state === 'HOLDING') {
+          // Preserve hold state across background — just save it
+          try {
+            const { setItem } = require('../src/utils/storage');
+            await setItem('pipeline_resume_state', JSON.stringify({
+              completedStages: completedStagesRef.current,
+              pipelineStageIndex: pipelineStageIndexRef.current,
+              pendingDraftId: pendingDraftIdRef.current,
+              isHeld: true,
+              fragmentCount: fragmentCount,
+            }));
+          } catch { /* non-critical */ }
+        }
         if (state === 'RESPONDING') {
           await TTS.stop().catch(() => {});
         }
@@ -630,6 +643,9 @@ export default function TalkScreen() {
       );
       pulse.start();
       return () => pulse.stop();
+    } else if (audioState === 'HOLDING') {
+      // Paused — static slightly dim
+      micAnim.setValue(0.9);
     } else if (audioState === 'RESPONDING') {
       const glow = Animated.loop(
         Animated.sequence([
@@ -716,12 +732,17 @@ export default function TalkScreen() {
       }),
       wsClient.on('transcript_partial', (env: WSEnvelope) => setPartialTranscript(env.payload.text || '')),
       wsClient.on('fragment_ack' as WSMessageType, (env: WSEnvelope) => {
-        // Path A — Capture Cycle: fragment processed (informational only)
-        // Recording already restarted immediately — this just updates UI
-        const { fragment_text, sub_intents, checklist_progress } = env.payload;
-        console.log('[Talk] Fragment ACK:', fragment_text?.substring(0, 40), 'progress:', checklist_progress);
+        const { fragment_text, sub_intents, checklist_progress, status } = env.payload;
+        console.log('[Talk] Fragment ACK:', status, fragment_text?.substring(0, 40), 'progress:', checklist_progress);
         if (fragment_text) {
           setChatMessages(prev => [...prev, { role: 'user', text: fragment_text, ts: Date.now() }]);
+        }
+        // HOLD: backend detected "MyndLens hold/wait" — pause capture
+        if (status === 'held') {
+          console.log('[Talk] HOLD acknowledged — pausing capture');
+          stopRecording().catch(() => {});
+          if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
+          transition('HOLDING');
         }
       }),
       // Biometric gate — backend requests auth before execution
@@ -802,15 +823,12 @@ export default function TalkScreen() {
           // Auto-start recording after mandate summary ("Shall I proceed?")
           // Skip greeting — user is in context, they know to say Yes/No directly
           if (autoRecord) {
-            // 800ms delay — gives the TTS audio (including room reverb) time to fully
-            // decay before the mic opens. 400ms was too short: the recorder picked up
-            // TTS echo and sent empty/junk audio to STT → backend got "" → silent return
-            // → frontend stuck in THINKING forever.
             setTimeout(async () => {
               const sid = wsClient.currentSessionId;
               if (!sid) return;
               transition('LISTENING');
               transition('CAPTURING');
+              captureSessionStart.current = Date.now();
               recordingStartedAt.current = Date.now();
               await startRecording(
                 async () => {
@@ -930,6 +948,51 @@ export default function TalkScreen() {
     return () => unsubs.forEach((u) => u());
   }, []);
 
+  // ---- Reusable fragment capture — handles N fragments without recursion ----
+  const captureSessionStart = useRef<number>(0);  // 5-minute session timer anchor
+  const CAPTURE_SESSION_MAX_MS = 5 * 60 * 1000;   // 5 minutes
+
+  async function captureNextFragment() {
+    recordingStartedAt.current = Date.now();
+    await startRecording(
+      async () => {
+        // VAD auto-stop: sentence-level pause detected
+        const duration = Date.now() - recordingStartedAt.current;
+        if (duration < 1000) {
+          console.log('[Talk] VAD noise trigger ignored (< 1s), continuing');
+          return;
+        }
+        console.log('[Talk] VAD triggered fragment capture (duration=' + duration + 'ms)');
+        const audioBase64 = await stopAndGetAudio();
+        const sid = wsClient.currentSessionId;
+        if (audioBase64 && sid) {
+          wsClient.send('audio_chunk', {
+            session_id: sid, audio: audioBase64,
+            seq: 1, timestamp: Date.now(), duration_ms: duration,
+          });
+          wsClient.send('cancel', { session_id: sid, reason: 'fragment_captured' });
+          setFragmentCount(prev => prev + 1);
+
+          // Check 5-minute cap
+          const elapsed = Date.now() - captureSessionStart.current;
+          if (elapsed >= CAPTURE_SESSION_MAX_MS) {
+            console.log('[Talk] 5-minute capture cap reached — ending thought stream');
+            wsClient.send('thought_stream_end', { session_id: sid });
+            transition('THINKING');
+            return;
+          }
+
+          // Immediately restart for next fragment — no gap in capture
+          captureNextFragment().catch(() => {});
+        } else {
+          console.warn('[Talk] stopAndGetAudio null or no session — resetting to IDLE');
+          transition('IDLE');
+        }
+      },
+      (rms: number) => setLiveEnergy(rms),
+    );
+  }
+
   // ---- MIC: Start/Stop voice conversation ----
   async function handleMic() {
     // Guard: prevent double-tap from entering this function twice while
@@ -944,18 +1007,17 @@ export default function TalkScreen() {
       await TTS.stop();
       setIsSpeaking(false);
       transition('IDLE');
-      // Note: audioState is stale (still 'RESPONDING') — use isBargeIn flag below
     }
     if (audioState === 'IDLE' || isBargeIn) {
-      // Fresh session — clear pipeline state so it starts clean for the new command
+      // Fresh session — clear pipeline state
       setCompletedStages([]);
       setPipelineStageIndex(-1);
       setPipelineSubStatus('');
       setPipelineProgress(0);
-      setPendingAction(null);  // D6: clear stale approve/kill state from previous mandate
-      setFragmentCount(0);    // Reset fragment counter for new conversation
+      setPendingAction(null);
+      setFragmentCount(0);
       if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
-      // Gate: if DS setup was never completed, surface the setup modal every tap
+      // Gate: DS setup check
       try {
         const { getItem } = require('../src/utils/storage');
         const dsSetupDone = await getItem('myndlens_ds_setup_done');
@@ -963,91 +1025,23 @@ export default function TalkScreen() {
           setShowDsModal(true);
           return;
         }
-      } catch { /* non-critical — proceed anyway */ }
-      setPipelineStageIndex(-1);
-      setPipelineSubStatus('');
-      setPipelineProgress(0);
-      micBusy.current = true;  // lock: prevent double-tap during greeting
+      } catch { /* non-critical */ }
+      micBusy.current = true;
       transition('LISTENING');
       transition('CAPTURING');
 
-      // Greet the user before recording starts.
-      // await TTS.speak() now resolves AFTER speech finishes (not immediately).
-      // 400ms acoustic decay after greeting before mic opens — prevents the
-      // device speaker audio being captured as user speech by the microphone.
       const greeting = userNickname
         ? `Hi ${userNickname}, what's on your mind?`
         : "What's on your mind?";
       await TTS.speak(greeting);
       await new Promise(r => setTimeout(r, 400));
-      micBusy.current = false;  // unlock: greeting done, recording about to start
-      recordingStartedAt.current = Date.now();
+      micBusy.current = false;
 
-      await startRecording(
-        async () => {
-          // VAD auto-stop: sentence-level pause detected (1.5s silence)
-          const duration = Date.now() - recordingStartedAt.current;
-          if (duration < 1000) {
-            console.log('[Talk] VAD noise trigger ignored (< 1s), continuing to record');
-            return;
-          }
-          console.log('[Talk] VAD triggered fragment capture (duration=' + duration + 'ms)');
-          const audioBase64 = await stopAndGetAudio();
-          const sid = wsClient.currentSessionId;
-          if (audioBase64 && sid) {
-            // Send as fragment (Path A — Capture Cycle)
-            wsClient.send('audio_chunk', {
-              session_id: sid, audio: audioBase64,
-              seq: 1, timestamp: Date.now(), duration_ms: duration,
-            });
-            wsClient.send('cancel', { session_id: sid, reason: 'fragment_captured' });
-            setFragmentCount(prev => prev + 1);
-
-            // IMMEDIATELY restart recording — don't wait for FRAGMENT_ACK.
-            // Backend queues fragments and processes them sequentially.
-            // This ensures no audio is lost if user keeps speaking.
-            recordingStartedAt.current = Date.now();
-            // Stay in CAPTURING (not ACCUMULATING) — mic is active
-            await startRecording(
-              async () => {
-                // Recursive: same fragment capture logic
-                const dur2 = Date.now() - recordingStartedAt.current;
-                if (dur2 < 1000) { console.log('[Talk] VAD noise ignored, continuing'); return; }
-                const audio2 = await stopAndGetAudio();
-                const sid2 = wsClient.currentSessionId;
-                if (audio2 && sid2) {
-                  wsClient.send('audio_chunk', { session_id: sid2, audio: audio2, seq: 1, timestamp: Date.now(), duration_ms: dur2 });
-                  wsClient.send('cancel', { session_id: sid2, reason: 'fragment_captured' });
-                  setFragmentCount(prev => prev + 1);
-                  recordingStartedAt.current = Date.now();
-                  // Don't restart here — the fragment_ack handler or thought timer handles next step
-                  transition('ACCUMULATING');
-                } else { transition('IDLE'); }
-              },
-              (rms: number) => setLiveEnergy(rms),
-            ).catch(() => {});
-
-            // Reset thought-stream-end timer (6s from last speech)
-            if (thoughtStreamTimer.current) clearTimeout(thoughtStreamTimer.current);
-            thoughtStreamTimer.current = setTimeout(() => {
-              const currentState = audioStateRef.current;
-              if (currentState === 'ACCUMULATING' || currentState === 'CAPTURING') {
-                console.log('[Talk] Thought stream ended (6s silence)');
-                stopRecording().catch(() => {});
-                wsClient.send('thought_stream_end', { session_id: sid });
-                transition('THINKING');
-              }
-            }, 12000);
-          } else {
-            console.warn('[Talk] stopAndGetAudio null or no session — resetting to IDLE');
-            transition('IDLE');
-          }
-        },
-        (rms: number) => setLiveEnergy(rms),
-      );
+      // Start 5-minute capture session
+      captureSessionStart.current = Date.now();
+      await captureNextFragment();
     } else if (audioState === 'CAPTURING' || audioState === 'LISTENING') {
-      // Guard: if recording hasn't actually started yet (recordingStartedAt is 0 or very old),
-      // treat as cancel — don't try to submit non-existent audio.
+      // Guard: if recording hasn't actually started yet
       const recordingAge = Date.now() - recordingStartedAt.current;
       if (recordingStartedAt.current === 0 || recordingAge < 1500) {
         console.log('[Talk] Recording cancelled (not started or < 1.5s) — resetting to IDLE');
@@ -1057,7 +1051,7 @@ export default function TalkScreen() {
       }
       // Manual stop after 1.5s → user finished speaking, submit
       const audioBase64 = await stopAndGetAudio();
-      const sid = wsClient.currentSessionId;  // read live, not from stale closure
+      const sid = wsClient.currentSessionId;
       if (audioBase64 && sid) {
         wsClient.send('audio_chunk', {
           session_id: sid, audio: audioBase64,
@@ -1126,6 +1120,7 @@ export default function TalkScreen() {
   const micColor = audioState === 'CAPTURING' ? '#E74C3C'
     : audioState === 'RESPONDING' ? '#00D68F'
     : audioState === 'THINKING' ? '#FFAA00'
+    : audioState === 'HOLDING' ? '#FFD700'
     : '#6C5CE7';
 
   return (
@@ -1234,6 +1229,7 @@ export default function TalkScreen() {
             : PIPELINE_STAGES.findIndex((_, i) => getPipelineState(i, audioState, pendingAction, transcript) === 'active');
           const activeStage = activeIndex >= 0 ? PIPELINE_STAGES[activeIndex] : null;
           const isIdle = !activeStage && audioState === 'IDLE' && completedStages.length === 0;
+          const isHolding = audioState === 'HOLDING';
 
           const activeText = activeIndex === 0 && userNickname
             ? `Listening, ${userNickname}\u2026`
@@ -1241,7 +1237,17 @@ export default function TalkScreen() {
 
           return (
             <View style={styles.pipelineWrapper} data-testid="pipeline-progress">
-              {isIdle ? (
+              {isHolding ? (
+                <View style={[styles.pipelineCard, { borderColor: '#FFD700' }]}>
+                  <View style={styles.pipelineIdleInner}>
+                    <Text style={[styles.pipelineIdleTitle, { color: '#FFD700' }]}>On Hold</Text>
+                    <Text style={styles.pipelineIdleSubtext}>
+                      {fragmentCount > 0 ? `${fragmentCount} fragment${fragmentCount > 1 ? 's' : ''} captured` : 'Ready to resume'}
+                      {' \u2014 tap Continue when ready'}
+                    </Text>
+                  </View>
+                </View>
+              ) : isIdle ? (
                 <>
                   <View style={[styles.pipelineCard, styles.pipelineCardIdle]}>
                     <View style={styles.pipelineIdleInner}>
@@ -1318,7 +1324,7 @@ export default function TalkScreen() {
             <TouchableOpacity
               style={[styles.micButton, { backgroundColor: micColor }, audioState === 'THINKING' && styles.micThinking]}
               onPress={connectionStatus !== 'authenticated' ? () => router.replace('/loading') : handleMic}
-              disabled={audioState === 'THINKING'}
+              disabled={audioState === 'THINKING' || audioState === 'HOLDING'}
               activeOpacity={0.85}
             >
               {audioState === 'CAPTURING' ? (
@@ -1359,13 +1365,19 @@ export default function TalkScreen() {
 
             <TouchableOpacity
               style={[styles.approveButton,
-                awaitingCommand === 'none' && !pendingAction && fragmentCount === 0 && styles.approveDisabled]}
+                awaitingCommand === 'none' && !pendingAction && fragmentCount === 0 && audioState !== 'HOLDING' && styles.approveDisabled]}
               onPress={() => {
                 const sid = wsClient.currentSessionId;
-                console.log('[BTN:DONE/YES] tap — sid=%s fragmentCount=%d audioState=%s awaitingCommand=%s pendingAction=%s',
+                console.log('[BTN:DONE/YES/CONTINUE] tap — sid=%s fragmentCount=%d audioState=%s awaitingCommand=%s pendingAction=%s',
                   sid, fragmentCount, audioStateRef.current, awaitingCommand, pendingAction);
                 if (!sid) return;
-                if (fragmentCount > 0 && (audioStateRef.current === 'CAPTURING' || audioStateRef.current === 'ACCUMULATING')) {
+                if (audioStateRef.current === 'HOLDING') {
+                  // RESUME from hold — restart fragment capture
+                  console.log('[BTN:CONTINUE] sending RESUME');
+                  wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'RESUME', source: 'button' });
+                  transition('CAPTURING');
+                  captureNextFragment().catch(() => {});
+                } else if (fragmentCount > 0 && (audioStateRef.current === 'CAPTURING' || audioStateRef.current === 'ACCUMULATING')) {
                   // END_THOUGHT
                   console.log('[BTN:DONE] sending END_THOUGHT');
                   if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
@@ -1383,12 +1395,12 @@ export default function TalkScreen() {
                   console.log('[BTN:DONE/YES] no action — conditions not met');
                 }
               }}
-              disabled={awaitingCommand === 'none' && !pendingAction && fragmentCount === 0}
+              disabled={awaitingCommand === 'none' && !pendingAction && fragmentCount === 0 && audioState !== 'HOLDING'}
               activeOpacity={0.8}
               data-testid="approve-btn"
             >
-              <Text style={styles.smallBtnIcon}>{fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? '\u2713' : '\u2714'}</Text>
-              <Text style={styles.smallBtnText}>{fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? 'Done' : 'Yes'}</Text>
+              <Text style={styles.smallBtnIcon}>{audioState === 'HOLDING' ? '\u25B6' : fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? '\u2713' : '\u2714'}</Text>
+              <Text style={styles.smallBtnText}>{audioState === 'HOLDING' ? 'Continue' : fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? 'Done' : 'Yes'}</Text>
             </TouchableOpacity>
           </View>
         </View>

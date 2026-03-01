@@ -1226,6 +1226,19 @@ async def _process_fragment(ws: WebSocket, session_id: str, user_id: str = "") -
             "latency_ms": round(analysis.latency_ms),
         }))
 
+        # Proactive "intent ready" — if checklist is sufficiently filled, ask user
+        # whether to start processing. Only fires once per conversation.
+        if progress >= 85 and len(conv.fragments) >= 2 and not getattr(conv, '_intent_ready_sent', False):
+            conv._intent_ready_sent = True
+            session_ctx = _session_contexts.get(session_id)
+            name = session_ctx.user_name.split()[0] if session_ctx and session_ctx.user_name else ""
+            prompt = f"{'Got it ' + name + '. ' if name else ''}I think I have a clear picture. Tap Done when you're ready, or keep going."
+            await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                text=prompt, session_id=session_id,
+                format="text", is_mock=True,
+                skip_chat=True,
+            ))
+
         # Cleanup STT assembler for next fragment
         transcript_assembler.cleanup(session_id)
 

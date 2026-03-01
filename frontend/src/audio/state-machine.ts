@@ -20,6 +20,7 @@ export type AudioState =
   | 'CAPTURING'
   | 'COMMITTING'
   | 'ACCUMULATING'
+  | 'HOLDING'
   | 'THINKING'
   | 'RESPONDING';
 
@@ -27,9 +28,10 @@ export type AudioState =
 const VALID_TRANSITIONS: Record<AudioState, AudioState[]> = {
   IDLE:          ['LISTENING'],
   LISTENING:     ['CAPTURING', 'IDLE'],
-  CAPTURING:     ['COMMITTING', 'ACCUMULATING', 'IDLE'],
+  CAPTURING:     ['COMMITTING', 'ACCUMULATING', 'HOLDING', 'IDLE'],
   COMMITTING:    ['THINKING', 'IDLE'],
-  ACCUMULATING:  ['CAPTURING', 'THINKING', 'IDLE'],  // CAPTURING=next fragment, THINKING=stream end
+  ACCUMULATING:  ['CAPTURING', 'THINKING', 'HOLDING', 'IDLE'],  // CAPTURING=next fragment, THINKING=stream end
+  HOLDING:       ['CAPTURING', 'IDLE'],  // CAPTURING=resume, IDLE=kill
   THINKING:      ['RESPONDING', 'IDLE', 'LISTENING'],
   RESPONDING:    ['LISTENING', 'IDLE', 'CAPTURING'],
 };
