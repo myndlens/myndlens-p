@@ -641,8 +641,9 @@ export default function TalkScreen() {
         lastTtsTimeRef.current = Date.now();
         transition('RESPONDING');
         setIsSpeaking(true);
-        // Add MyndLens response to chat history
-        if (text) {
+        // Add MyndLens response to chat history (skip for delivery results — already in chat via pipeline_stage)
+        const skipChat: boolean = env.payload.skip_chat ?? false;
+        if (text && !skipChat) {
           setChatMessages(prev => [...prev, { role: 'assistant', text, ts: Date.now() }]);
           setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
         }
@@ -750,6 +751,11 @@ export default function TalkScreen() {
             // Replace all pipeline stages with a single "Results delivered to Chat"
             setCompletedStages(['Results delivered to Chat']);
             setPendingAction(null);  // D6: results delivered — no pending approval/kill
+            // Auto-clear pipeline after 8 seconds — return to idle
+            setTimeout(() => {
+              setCompletedStages([]);
+              setPipelineStageIndex(-1);
+            }, 8000);
             if (sub) {
               setChatMessages(prev => [...prev, {
                 role: 'result',

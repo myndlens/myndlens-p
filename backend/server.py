@@ -364,6 +364,7 @@ async def delivery_webhook(
                     "audio":            _b64.b64encode(result.audio_bytes).decode("ascii"),
                     "audio_size_bytes": len(result.audio_bytes),
                     "auto_record":      False,
+                    "skip_chat":        True,
                 }
             else:
                 tts_payload = {
@@ -372,6 +373,7 @@ async def delivery_webhook(
                     "format":    "text",
                     "is_mock":   True,
                     "auto_record": False,
+                    "skip_chat": True,
                 }
             await broadcast_to_session(
                 execution_id=payload.execution_id,
