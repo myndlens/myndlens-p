@@ -136,6 +136,8 @@ _INTENT_SCHEMAS: Dict[str, dict] = {
         "fields": '  "parties": [],\n  "resolution": "...",\n  "next_steps": []'},
     "Automation Setup":      {"result_type": "automation",
         "fields": '  "automation_name": "...",\n  "trigger": "...",\n  "actions": [],\n  "status": "created|updated"'},
+    "Music Generation":      {"result_type": "music_generation",
+        "fields": '  "title": "song/jingle title",\n  "style": "genre/style tags",\n  "duration": "mm:ss",\n  "lyrics": "lyrics if vocal",\n  "audio_url": "url to audio file",\n  "task_id": "suno task id",\n  "status": "completed|generating|failed"'},
 }
 _DEFAULT_SCHEMA = {"result_type": "generic",
     "fields": '  "summary": "concise summary of what was done",\n  "details": "full details or output"'}

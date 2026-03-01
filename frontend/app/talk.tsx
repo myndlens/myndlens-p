@@ -163,6 +163,123 @@ const ResultCard = ({ msg }: { msg: { text: string; result_type?: string; struct
         </View>
       );
     }
+    case 'event_plan': {
+      const events: any[] = s.events || s.agenda || [];
+      return (
+        <View style={{ gap: 4 }}>
+          {s.title ? <Text style={cardStyles.eventTitle}>{s.title}</Text> : null}
+          {s.date ? <Text style={cardStyles.eventDate}>{s.date}</Text> : null}
+          {events.map((e: any, i: number) => (
+            <View key={i} style={cardStyles.eventRow}>
+              <Text style={cardStyles.eventTime}>{e.time || ''}</Text>
+              <Text style={cardStyles.eventName}>{e.name || e.activity || e.title || ''}</Text>
+            </View>
+          ))}
+          {s.notes ? <Text style={cardStyles.eventNotes}>{s.notes}</Text> : null}
+          {!events.length && s.summary ? <Text style={cardStyles.insightText}>{s.summary}</Text> : null}
+        </View>
+      );
+    }
+    case 'schedule': {
+      const days: any[] = s.days || s.items || [];
+      return (
+        <View style={{ gap: 4 }}>
+          {s.title ? <Text style={cardStyles.schedTitle}>{s.title}</Text> : null}
+          {days.map((d: any, i: number) => (
+            <View key={i} style={cardStyles.schedDay}>
+              <Text style={cardStyles.schedDayLabel}>{d.day || d.date || `Day ${i + 1}`}</Text>
+              {(d.tasks || d.items || []).map((t: any, j: number) => (
+                <Text key={j} style={cardStyles.schedTask}>  {t.time ? `${t.time} — ` : '• '}{t.task || t.title || t}</Text>
+              ))}
+            </View>
+          ))}
+          {!days.length && s.summary ? <Text style={cardStyles.insightText}>{s.summary}</Text> : null}
+        </View>
+      );
+    }
+    case 'support_action': {
+      return (
+        <View style={{ gap: 4 }}>
+          <Text style={cardStyles.supportAction}>{s.action || 'Support Action'}</Text>
+          {s.ticket_id ? <Text style={cardStyles.refText}>Ticket: {s.ticket_id}</Text> : null}
+          {s.summary ? <Text style={cardStyles.insightText}>{s.summary}</Text> : null}
+          {s.resolution ? <Text style={cardStyles.supportResolution}>{s.resolution}</Text> : null}
+          {s.status ? (
+            <View style={[cardStyles.badge, { backgroundColor: s.status === 'resolved' ? '#00D68F22' : '#FFD70022' }]}>
+              <Text style={{ color: s.status === 'resolved' ? '#00D68F' : '#FFD700', fontSize: 11, fontWeight: '700' }}>
+                {s.status}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      );
+    }
+    case 'vendor_action': {
+      return (
+        <View style={{ gap: 4 }}>
+          <Text style={cardStyles.vendorTitle}>{s.vendor || 'Vendor'}</Text>
+          <Text style={cardStyles.vendorAction}>{s.action || s.summary || ''}</Text>
+          {s.amount ? <Text style={cardStyles.txAmount}>{s.currency || ''} {s.amount}</Text> : null}
+          {s.deadline ? <Text style={cardStyles.eventDate}>Due: {s.deadline}</Text> : null}
+          {s.status ? (
+            <View style={[cardStyles.badge, { backgroundColor: '#6C9CE722' }]}>
+              <Text style={{ color: '#6C9CE7', fontSize: 11, fontWeight: '700' }}>{s.status}</Text>
+            </View>
+          ) : null}
+        </View>
+      );
+    }
+    case 'resolution': {
+      return (
+        <View style={{ gap: 4 }}>
+          <Text style={cardStyles.resolutionTitle}>{s.conflict || s.title || 'Conflict Resolution'}</Text>
+          {s.resolution ? <Text style={cardStyles.insightText}>{s.resolution}</Text> : null}
+          {(s.action_items || []).map((a: any, i: number) => (
+            <Text key={i} style={cardStyles.schedTask}>  {i + 1}. {typeof a === 'string' ? a : a.task || a.title}</Text>
+          ))}
+          {s.status ? (
+            <View style={[cardStyles.badge, { backgroundColor: '#00D68F22' }]}>
+              <Text style={{ color: '#00D68F', fontSize: 11, fontWeight: '700' }}>{s.status}</Text>
+            </View>
+          ) : null}
+        </View>
+      );
+    }
+    case 'automation': {
+      return (
+        <View style={{ gap: 4 }}>
+          <Text style={cardStyles.autoTitle}>{s.name || s.title || 'Automation'}</Text>
+          {s.trigger ? <Text style={cardStyles.autoLabel}>Trigger: <Text style={cardStyles.autoValue}>{s.trigger}</Text></Text> : null}
+          {s.action ? <Text style={cardStyles.autoLabel}>Action: <Text style={cardStyles.autoValue}>{s.action}</Text></Text> : null}
+          {s.schedule ? <Text style={cardStyles.autoLabel}>Schedule: <Text style={cardStyles.autoValue}>{s.schedule}</Text></Text> : null}
+          {s.status ? (
+            <View style={[cardStyles.badge, { backgroundColor: s.status === 'active' ? '#00D68F22' : '#FF944422' }]}>
+              <Text style={{ color: s.status === 'active' ? '#00D68F' : '#FF9444', fontSize: 11, fontWeight: '700' }}>
+                {s.status}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      );
+    }
+    case 'music_generation': {
+      return (
+        <View style={{ gap: 4 }}>
+          {s.title ? <Text style={cardStyles.musicTitle}>{s.title}</Text> : null}
+          <Text style={cardStyles.musicStyle}>{s.style || s.genre || 'Generated Music'}</Text>
+          {s.duration ? <Text style={cardStyles.eventDate}>Duration: {s.duration}</Text> : null}
+          {s.lyrics ? <Text style={cardStyles.musicLyrics}>{s.lyrics}</Text> : null}
+          {s.audio_url ? <Text style={cardStyles.linkText}>{s.audio_url}</Text> : null}
+          {s.status ? (
+            <View style={[cardStyles.badge, { backgroundColor: s.status === 'completed' ? '#00D68F22' : '#FFD70022' }]}>
+              <Text style={{ color: s.status === 'completed' ? '#00D68F' : '#FFD700', fontSize: 11, fontWeight: '700' }}>
+                {s.status}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      );
+    }
     default:
       return <Text style={{ color: '#C0E0D0', fontSize: 14, lineHeight: 20 }}>{msg.text}</Text>;
   }
@@ -186,6 +303,34 @@ const cardStyles = StyleSheet.create({
   linkText:       { color: '#6C9CE7', fontSize: 12, textDecorationLine: 'underline' },
   reportSummary:  { color: '#E0E0D0', fontWeight: '600', fontSize: 14, marginBottom: 4 },
   insightText:    { color: '#C8D0C0', fontSize: 13, lineHeight: 19 },
+  // Event Plan
+  eventTitle:     { color: '#FFD700', fontWeight: '700', fontSize: 15 },
+  eventDate:      { color: '#888', fontSize: 12 },
+  eventRow:       { flexDirection: 'row', gap: 8, paddingVertical: 3, borderBottomWidth: 1, borderBottomColor: '#1E2E1E' },
+  eventTime:      { color: '#6C9CE7', fontSize: 12, fontWeight: '600', width: 60 },
+  eventName:      { color: '#C0E0C0', fontSize: 13, flex: 1 },
+  eventNotes:     { color: '#999', fontSize: 12, fontStyle: 'italic', marginTop: 4 },
+  // Schedule
+  schedTitle:     { color: '#A8C8FF', fontWeight: '700', fontSize: 15 },
+  schedDay:       { marginBottom: 6 },
+  schedDayLabel:  { color: '#FFD700', fontWeight: '600', fontSize: 13, marginBottom: 2 },
+  schedTask:      { color: '#C8D0C0', fontSize: 13, lineHeight: 19 },
+  // Support
+  supportAction:  { color: '#E0D0E0', fontWeight: '600', fontSize: 15 },
+  supportResolution: { color: '#C0E0D0', fontSize: 13, lineHeight: 19, marginTop: 4 },
+  // Vendor
+  vendorTitle:    { color: '#A8C8FF', fontWeight: '700', fontSize: 15 },
+  vendorAction:   { color: '#C8D0C0', fontSize: 13, lineHeight: 19 },
+  // Resolution
+  resolutionTitle:{ color: '#FF9444', fontWeight: '700', fontSize: 15 },
+  // Automation
+  autoTitle:      { color: '#00D68F', fontWeight: '700', fontSize: 15 },
+  autoLabel:      { color: '#888', fontSize: 12 },
+  autoValue:      { color: '#C0E0C0', fontSize: 12, fontWeight: '500' },
+  // Music
+  musicTitle:     { color: '#FF78A8', fontWeight: '700', fontSize: 15 },
+  musicStyle:     { color: '#888', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 },
+  musicLyrics:    { color: '#D0D0E0', fontSize: 12, lineHeight: 18, fontStyle: 'italic', marginTop: 4 },
 });
 
 export default function TalkScreen() {

@@ -1,837 +1,939 @@
 {
-"library_version": "2.0",
-"source": "Compiled from clawhub.ai (main site, skills page), GitHub repo (openclaw/clawhub), Reddit lists, documentation guides, and web searches for OpenClaw/ClawHub skills. Expanded from v1.0 to include more skills from community sources, as direct sub-page crawls returned insufficient content. Total approximate skills: 5,705 (per Feb 7, 2026 data). Install commands standardized to 'clawhub install skill-name'. Notes: Full listings not available on public pages—many 'Coming Soon' or paginated; prioritized top/popular skills per category for authenticity. Use for MyndLens reference: RAG to retrieve, MCP to chain/build hybrids. Stored internally for future retrieval/updates.",
-"total_categories": 11,
-"total_skills_approximate": 5705,
-"categories": [
-{
-"name": "AI/ML Skills",
-"description": "Artificial intelligence and machine learning skills for OpenClaw agents. Includes model integration, NLP, embeddings, RAG, and AI automation tools.",
-"skill_count": 1588,
-"percentage": 48.3,
-"top_skills_note": "Expanded with additional skills from searches/guides; e.g., mcporter for MCP integration. Full 1,588 not detailed.",
-"skills": [
-{
-"name": "Capability Evolver",
-"description": "AI self-evolution engine for OpenClaw agents. Enhances agent capabilities through continuous learning and adaptation.",
-"required_tools": "None specified; integrates with base OC.",
-"usage_examples": "Evolve agent for new task: /evolve 'learn image processing'",
-"downloads": 35581,
-"stars": 33,
-"install_command": "clawhub install capability-evolver",
-"view_url": "https://clawhub.ai/skills/capability-evolver"
-},
-{
-"name": "self-improving-agent",
-"description": "Self-improving agent framework. Auto-enhances performance through iterative learning.",
-"required_tools": "Base OC agent loop.",
-"usage_examples": "Improve on feedback: /improve 'optimize response time'",
-"downloads": 15962,
-"stars": 132,
-"install_command": "clawhub install self-improving-agent",
-"view_url": "https://clawhub.ai/skills/self-improving-agent"
-},
-{
-"name": "Proactive Agent",
-"description": "Proactive task execution system. Enables agents to anticipate needs and take initiative.",
-"required_tools": "Cron or scheduler tool.",
-"usage_examples": "Anticipate daily report: /proactive 'summarize news'",
-"downloads": 7010,
-"stars": 49,
-"install_command": "clawhub install proactive-agent",
-"view_url": "https://clawhub.ai/skills/proactive-agent"
-},
-{
-"name": "Auto-Updater Skill",
-"description": "Automatic skill update management for ClawHub. Keeps agent skills current with latest versions.",
-"required_tools": "ClawHub CLI.",
-"usage_examples": "Daily update: /update-skills",
-"downloads": 6601,
-"stars": 31,
-"install_command": "clawhub install auto-updater-skill",
-"view_url": "https://clawhub.ai/skills/auto-updater-skill"
-},
-{
-"name": "Clawdbot Documentation Expert",
-"description": "Specialized knowledge base for Clawdbot documentation. Expert assistance for integration tasks.",
-"required_tools": "RAG tool for docs retrieval.",
-"usage_examples": "Query docs: /doc 'how to set up skills'",
-"downloads": null,
-"stars": 47,
-"install_command": "clawhub install clawdbot-documentation-expert",
-"view_url": "https://clawhub.ai/skills/clawdbot-documentation-expert"
-},
-{
-"name": "Humanizer",
-"description": "Makes AI-generated text more natural and human-like. Improves readability and engagement.",
-"required_tools": "NLP processor.",
-"usage_examples": "Humanize output: /humanize 'AI text here'",
-"downloads": null,
-"stars": 28,
-"install_command": "clawhub install humanizer",
-"view_url": "https://clawhub.ai/skills/humanizer"
-},
-{
-"name": "Home Assistant",
-"description": "Smart home integration and automation. Control devices through natural language.",
-"required_tools": "Home Assistant API.",
-"usage_examples": "Turn on lights: /home 'lights on'",
-"downloads": null,
-"stars": 28,
-"install_command": "clawhub install home-assistant",
-"view_url": "https://clawhub.ai/skills/home-assistant"
-},
-{
-"name": "Humanize AI text",
-"description": "Transform AI-generated text to sound more natural. Reduces robotic tone.",
-"required_tools": "Text processor.",
-"usage_examples": "/humanize-ai 'generated text'",
-"downloads": 8771,
-"stars": 20,
-"install_command": "clawhub install humanize-ai-text",
-"view_url": "https://clawhub.ai/skills/humanize-ai-text"
-},
-{
-"name": "AI Model Router",
-"description": "Intelligent routing of AI model requests. Optimizes cost/performance.",
-"required_tools": "Multiple model APIs.",
-"usage_examples": "/route 'query to model'",
-"downloads": null,
-"stars": 24,
-"install_command": "clawhub install ai-model-router",
-"view_url": "https://clawhub.ai/skills/ai-model-router"
-},
-{
-"name": "Prompt Engineer",
-"description": "Advanced prompt optimization for AI models. Improves output quality.",
-"required_tools": "Prompt templates.",
-"usage_examples": "/engineer 'base prompt'",
-"downloads": null,
-"stars": 22,
-"install_command": "clawhub install prompt-engineer",
-"view_url": "https://clawhub.ai/skills/prompt-engineer"
-},
-{
-"name": "mcporter",
-"description": "MCP Integration for multi-chain prompting.",
-"required_tools": "MCP framework.",
-"usage_examples": "/mcp 'chain prompt'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install mcporter",
-"view_url": "https://clawhub.ai/skills/mcporter"
-},
-{
-"name": "free-ride",
-"description": "Manages free AI models from OpenRouter.",
-"required_tools": "OpenRouter API.",
-"usage_examples": "/free-model 'query'",
-"downloads": null,
-"stars": 33,
-"install_command": "clawhub install free-ride",
-"view_url": "https://clawhub.ai/skills/free-ride"
-}
-]
-},
-{
-"name": "Development Skills",
-"description": "Development tools for coding, version control, debugging, and DevOps. Essential for developers using OpenClaw agents for automation.",
-"skill_count": 976,
-"percentage": 29.7,
-"top_skills_note": "Expanded with additional skills like linear, monday from Reddit/ guides.",
-"skills": [
-{
-"name": "Wacli",
-"description": "Versatile CLI tool for OpenClaw agents. Essential for command-line operations and scripting.",
-"required_tools": "Node.js CLI.",
-"usage_examples": "/wacli 'command'",
-"downloads": 16415,
-"stars": 37,
-"install_command": "clawhub install wacli",
-"view_url": "https://clawhub.ai/skills/wacli"
-},
-{
-"name": "Github",
-"description": "GitHub integration for managing repositories, issues, and pull requests. Essential for developers.",
-"required_tools": "GitHub API key.",
-"usage_examples": "/github 'create issue'",
-"downloads": 10611,
-"stars": 15,
-"install_command": "clawhub install github",
-"view_url": "https://clawhub.ai/skills/github"
-},
-{
-"name": "Gog",
-"description": "Google Workspace CLI for Gmail, Calendar, Drive, Contacts, Sheets, and Docs.",
-"required_tools": "Google API key.",
-"usage_examples": "/gog 'send email'",
-"downloads": 14313,
-"stars": 48,
-"install_command": "clawhub install gog",
-"view_url": "https://clawhub.ai/skills/gog"
-},
-{
-"name": "Tavily Web Search",
-"description": "Web search and scraping tool for developers. Efficient information retrieval for coding tasks.",
-"required_tools": "Tavily API key.",
-"usage_examples": "/tavily 'search code snippet'",
-"downloads": 8142,
-"stars": 10,
-"install_command": "clawhub install tavily-web-search",
-"view_url": "https://clawhub.ai/skills/tavily-web-search"
-},
-{
-"name": "ByteRover",
-"description": "Multi-purpose task handler for OpenClaw agents. Perfect for diverse development automation needs.",
-"required_tools": "Base utilities.",
-"usage_examples": "/byterover 'task'",
-"downloads": 16004,
-"stars": 36,
-"install_command": "clawhub install byterover",
-"view_url": "https://clawhub.ai/skills/byterover"
-},
-{
-"name": "linear",
-"description": "Project management integration with Linear. Manages issues/projects/teams/cycles via GraphQL.",
-"required_tools": "Linear API key.",
-"usage_examples": "/linear 'create issue'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install linear",
-"view_url": "https://clawhub.ai/skills/linear"
-},
-{
-"name": "monday",
-"description": "Boards and task management for Monday.com. Project tracking integration.",
-"required_tools": "Monday API key.",
-"usage_examples": "/monday 'update board'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install monday",
-"view_url": "https://clawhub.ai/skills/monday"
-},
-{
-"name": "skill-creator",
-"description": "Create new skills dynamically.",
-"required_tools": "Skill template.",
-"usage_examples": "/create-skill 'new skill desc'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install skill-creator",
-"view_url": "https://clawhub.ai/skills/skill-creator"
-}
-]
-},
-{
-"name": "Utility Skills",
-"description": "General-purpose utility tools for OpenClaw agents. File operations, storage management, search tools, and system utilities.",
-"skill_count": 1520,
-"percentage": 46.3,
-"top_skills_note": "Expanded with skills like clawhub for skill management from guides.",
-"skills": [
-{
-"name": "ByteRover",
-"description": "Multi-purpose task handler for OpenClaw agents. Perfect for diverse automation needs.",
-"required_tools": "Base OC utilities.",
-"usage_examples": "/byterover 'utility task'",
-"downloads": 16004,
-"stars": 36,
-"install_command": "clawhub install byterover",
-"view_url": "https://clawhub.ai/skills/byterover"
-},
-{
-"name": "Wacli",
-"description": "Versatile CLI tool for OpenClaw agents. Essential utility for command-line operations.",
-"required_tools": "CLI environment.",
-"usage_examples": "/wacli 'utility command'",
-"downloads": 16415,
-"stars": 37,
-"install_command": "clawhub install wacli",
-"view_url": "https://clawhub.ai/skills/wacli"
-},
-{
-"name": "ATXP",
-"description": "General-purpose utility tool for OpenClaw agents. Versatile for various tasks.",
-"required_tools": "None.",
-"usage_examples": "/atxp 'task'",
-"downloads": 14453,
-"stars": 4,
-"install_command": "clawhub install atxp",
-"view_url": "https://clawhub.ai/skills/atxp"
-},
-{
-"name": "Bird",
-"description": "General-purpose utility for OpenClaw agents. Multi-purpose tool for everyday tasks.",
-"required_tools": "None.",
-"usage_examples": "/bird 'utility'",
-"downloads": 7767,
-"stars": 27,
-"install_command": "clawhub install bird",
-"view_url": "https://clawhub.ai/skills/bird"
-},
-{
-"name": "Find Skills",
-"description": "Skill discovery and management tool. Find and organize ClawHub skills efficiently.",
-"required_tools": "ClawHub API.",
-"usage_examples": "/find-skills 'search term'",
-"downloads": 7077,
-"stars": 15,
-"install_command": "clawhub install find-skills",
-"view_url": "https://clawhub.ai/skills/find-skills"
-},
-{
-"name": "Tavily Web Search",
-"description": "Web search and scraping tool for OpenClaw agents. Efficient information retrieval.",
-"required_tools": "Tavily key.",
-"usage_examples": "/tavily 'search'",
-"downloads": 8142,
-"stars": 10,
-"install_command": "clawhub install tavily-web-search",
-"view_url": "https://clawhub.ai/skills/tavily-web-search"
-},
-{
-"name": "Sonoscli",
-"description": "CLI utility for Sonos device control. Command-line access to Sonos speakers.",
-"required_tools": "Sonos API.",
-"usage_examples": "/sonoscli 'play music'",
-"downloads": 10304,
-"stars": 6,
-"install_command": "clawhub install sonoscli",
-"view_url": "https://clawhub.ai/skills/sonoscli"
-},
-{
-"name": "clawhub",
-"description": "Skill Management for ClawHub. Install/update/search skills.",
-"required_tools": "ClawHub CLI.",
-"usage_examples": "/clawhub 'install skill'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install clawhub",
-"view_url": "https://clawhub.ai/skills/clawhub"
-}
-]
-},
-{
-"name": "Productivity Skills",
-"description": "Productivity tools for document processing, task management, email automation, writing assistance, and workflow optimization for OpenClaw agents.",
-"skill_count": 822,
-"percentage": 25.0,
-"top_skills_note": "Expanded with model-usage from guides.",
-"skills": [
-{
-"name": "Summarize",
-"description": "Intelligent text summarization for OpenClaw agents. Condenses long documents efficiently.",
-"required_tools": "NLP model.",
-"usage_examples": "/summarize 'text'",
-"downloads": 10956,
-"stars": 28,
-"install_command": "clawhub install summarize",
-"view_url": "https://clawhub.ai/skills/summarize"
-},
-{
-"name": "Humanize AI text",
-"description": "Transform AI-generated text to sound more natural. Makes automated content engaging.",
-"required_tools": "Text processor.",
-"usage_examples": "/humanize-ai 'text'",
-"downloads": 8771,
-"stars": 20,
-"install_command": "clawhub install humanize-ai-text",
-"view_url": "https://clawhub.ai/skills/humanize-ai-text"
-},
-{
-"name": "Obsidian",
-"description": "Obsidian knowledge base integration for OpenClaw. Manage notes and knowledge graphs.",
-"required_tools": "Obsidian API.",
-"usage_examples": "/obsidian 'note'",
-"downloads": 5791,
-"stars": 12,
-"install_command": "clawhub install obsidian",
-"view_url": "https://clawhub.ai/skills/obsidian"
-},
-{
-"name": "Nano Banana Pro",
-"description": "Advanced text processing tool for OpenClaw agents. Professional-grade content editing.",
-"required_tools": "Text editor.",
-"usage_examples": "/nano-banana 'edit text'",
-"downloads": 5704,
-"stars": 20,
-"install_command": "clawhub install nano-banana-pro",
-"view_url": "https://clawhub.ai/skills/nano-banana-pro"
-},
-{
-"name": "Notion",
-"description": "Notion workspace integration for OpenClaw agents. Sync notes and databases seamlessly.",
-"required_tools": "Notion API key.",
-"usage_examples": "/notion 'sync note'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install notion",
-"view_url": "https://clawhub.ai/skills/notion"
-},
-{
-"name": "Humanizer",
-"description": "Makes AI-generated text more natural and human-like. Improves content quality.",
-"required_tools": "NLP.",
-"usage_examples": "/humanizer 'text'",
-"downloads": null,
-"stars": 28,
-"install_command": "clawhub install humanizer",
-"view_url": "https://clawhub.ai/skills/humanizer"
-},
-{
-"name": "Auto-Updater Skill",
-"description": "Automatic skill update management for ClawHub. Keeps agent skills current.",
-"required_tools": "ClawHub.",
-"usage_examples": "/auto-update",
-"downloads": 6601,
-"stars": 31,
-"install_command": "clawhub install auto-updater-skill",
-"view_url": "https://clawhub.ai/skills/auto-updater-skill"
-},
-{
-"name": "Model Usage",
-"description": "Track and optimize AI model usage and costs. Monitor API consumption.",
-"required_tools": "Model API.",
-"usage_examples": "/model-usage 'report'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install model-usage",
-"view_url": "https://clawhub.ai/skills/model-usage"
-}
-]
-},
-{
-"name": "Web Skills",
-"description": "Web automation, browser operations, HTTP requests, web scraping, SEO tools, and network-related skills for OpenClaw agents.",
-"skill_count": 637,
-"percentage": 19.4,
-"top_skills_note": "Expanded with http-client from guides.",
-"skills": [
-{
-"name": "Agent Browser",
-"description": "Browser automation skill for web interactions. Perfect for scraping and automation.",
-"required_tools": "Browser tool.",
-"usage_examples": "/browser 'navigate url'",
-"downloads": 11836,
-"stars": 43,
-"install_command": "clawhub install agent-browser",
-"view_url": "https://clawhub.ai/skills/agent-browser"
-},
-{
-"name": "Tavily Web Search",
-"description": "Web search and scraping tool for OpenClaw agents. Efficient information retrieval.",
-"required_tools": "Tavily key.",
-"usage_examples": "/tavily 'search'",
-"downloads": 8142,
-"stars": 10,
-"install_command": "clawhub install tavily-web-search",
-"view_url": "https://clawhub.ai/skills/tavily-web-search"
-},
-{
-"name": "Google Search",
-"description": "Google search integration for OpenClaw agents. Search the web directly.",
-"required_tools": "Google API key.",
-"usage_examples": "/google 'search term'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install google-search",
-"view_url": "https://clawhub.ai/skills/google-search"
-},
-{
-"name": "YouTube Watcher",
-"description": "Monitor YouTube channels and videos. Get updates on new content automatically.",
-"required_tools": "YouTube API.",
-"usage_examples": "/youtube-watch 'channel'",
-"downloads": null,
-"stars": 27,
-"install_command": "clawhub install youtube-watcher",
-"view_url": "https://clawhub.ai/skills/youtube-watcher"
-},
-{
-"name": "HTTP Client",
-"description": "HTTP client for making requests to web APIs and services. REST API integration.",
-"required_tools": "HTTP library.",
-"usage_examples": "/http 'get url'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install http-client",
-"view_url": "https://clawhub.ai/skills/http-client"
-},
-{
-"name": "Web Scraper",
-"description": "General-purpose web scraping tool. Extract structured data from websites.",
-"required_tools": "Scraper library.",
-"usage_examples": "/scrape 'url'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install web-scraper",
-"view_url": "https://clawhub.ai/skills/web-scraper"
-}
-]
-},
-{
-"name": "Science Skills",
-"description": "Scientific computing and research tools. Data analysis, statistical computing, mathematical operations, and research automation for OpenClaw.",
-"skill_count": 598,
-"percentage": 18.2,
-"top_skills_note": "Expanded with nano-pdf from guides.",
-"skills": [
-{
-"name": "Data Analyzer",
-"description": "Statistical analysis and data processing for research workflows.",
-"required_tools": "Stats library.",
-"usage_examples": "/analyze 'data'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install data-analyzer",
-"view_url": "https://clawhub.ai/skills/data-analyzer"
-},
-{
-"name": "Research Assistant",
-"description": "Literature review and citation management for researchers.",
-"required_tools": "Citation API.",
-"usage_examples": "/research 'topic'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install research-assistant",
-"view_url": "https://clawhub.ai/skills/research-assistant"
-},
-{
-"name": "Nano Pdf",
-"description": "PDF processing and text extraction for scientific documents.",
-"required_tools": "PDF library.",
-"usage_examples": "/nano-pdf 'extract text'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install nano-pdf",
-"view_url": "https://clawhub.ai/skills/nano-pdf"
-},
-{
-"name": "Data Visualizer",
-"description": "Create scientific plots and data visualizations.",
-"required_tools": "Plotting library.",
-"usage_examples": "/visualize 'data'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install data-visualizer",
-"view_url": "https://clawhub.ai/skills/data-visualizer"
-}
-]
-},
-{
-"name": "Media Skills",
-"description": "Audio and video processing tools. YouTube integration, podcast handling, TTS/STT, image processing, and multimedia automation for OpenClaw agents.",
-"skill_count": 365,
-"percentage": 11.1,
-"top_skills_note": "Expanded with openai-whisper from guides.",
-"skills": [
-{
-"name": "YouTube Factory",
-"description": "YouTube channel management and video processing tools.",
-"required_tools": "YouTube API.",
-"usage_examples": "/youtube-factory 'manage channel'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install youtube-factory",
-"view_url": "https://clawhub.ai/skills/youtube-factory"
-},
-{
-"name": "OpenAI Whisper",
-"description": "Speech-to-text transcription using OpenAI Whisper model.",
-"required_tools": "OpenAI API.",
-"usage_examples": "/whisper 'audio file'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install openai-whisper",
-"view_url": "https://clawhub.ai/skills/openai-whisper"
-},
-{
-"name": "Video Frames",
-"description": "Extract frames from video files for analysis.",
-"required_tools": "Video library.",
-"usage_examples": "/video-frames 'extract'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install video-frames",
-"view_url": "https://clawhub.ai/skills/video-frames"
-},
-{
-"name": "YouTube Watcher",
-"description": "Monitor YouTube channels for new content.",
-"required_tools": "YouTube API.",
-"usage_examples": "/youtube-watch 'channel'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install youtube-watcher",
-"view_url": "https://clawhub.ai/skills/youtube-watcher"
-}
-]
-},
-{
-"name": "Social Skills",
-"description": "Social media integration platforms. Twitter, Discord, Slack, Telegram, and community management tools for OpenClaw agents on Moltbook.",
-"skill_count": 364,
-"percentage": 11.1,
-"top_skills_note": "Expanded with twitter-bot, mixpost from guides.",
-"skills": [
-{
-"name": "Twitter Bot",
-"description": "Automate Twitter/X posting and engagement.",
-"required_tools": "Twitter API key.",
-"usage_examples": "/twitter 'post tweet'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install twitter-bot",
-"view_url": "https://clawhub.ai/skills/twitter-bot"
-},
-{
-"name": "Discord Manager",
-"description": "Discord server management and automation.",
-"required_tools": "Discord API.",
-"usage_examples": "/discord 'manage server'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install discord-manager",
-"view_url": "https://clawhub.ai/skills/discord-manager"
-},
-{
-"name": "Slack Integration",
-"description": "Slack workspace automation and notifications.",
-"required_tools": "Slack API.",
-"usage_examples": "/slack 'send message'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install slack-integration",
-"view_url": "https://clawhub.ai/skills/slack-integration"
-},
-{
-"name": "Telegram Bot",
-"description": "Telegram bot creation and messaging.",
-"required_tools": "Telegram API.",
-"usage_examples": "/telegram 'bot command'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install telegram-bot",
-"view_url": "https://clawhub.ai/skills/telegram-bot"
-},
-{
-"name": "mixpost",
-"description": "Social media posting and management for Mixpost.",
-"required_tools": "Mixpost API.",
-"usage_examples": "/mixpost 'schedule post'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install mixpost",
-"view_url": "https://clawhub.ai/skills/mixpost"
-}
-]
-},
-{
-"name": "Finance Skills",
-"description": "Financial and cryptocurrency tools. Stock analysis, crypto research, investment tracking, trading automation, and financial data analysis.",
-"skill_count": 311,
-"percentage": 9.5,
-"top_skills_note": "Expanded with crypto-cog from guides.",
-"skills": [
-{
-"name": "Stock Analysis",
-"description": "Comprehensive stock market analysis and equity research tools.",
-"required_tools": "Stock API.",
-"usage_examples": "/stock 'analyze AAPL'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install stock-analysis",
-"view_url": "https://clawhub.ai/skills/stock-analysis"
-},
-{
-"name": "Crypto Cog",
-"description": "Cryptocurrency research and trading signal analysis.",
-"required_tools": "Crypto API.",
-"usage_examples": "/crypto 'analyze BTC'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install crypto-cog",
-"view_url": "https://clawhub.ai/skills/crypto-cog"
-},
-{
-"name": "Fin Cog",
-"description": "Financial data analysis and modeling tools.",
-"required_tools": "Finance API.",
-"usage_examples": "/fin 'model portfolio'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install fin-cog",
-"view_url": "https://clawhub.ai/skills/fin-cog"
-},
-{
-"name": "Portfolio Manager",
-"description": "Investment portfolio tracking and rebalancing.",
-"required_tools": "Portfolio API.",
-"usage_examples": "/portfolio 'track'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install portfolio-manager",
-"view_url": "https://clawhub.ai/skills/portfolio-manager"
-},
-{
-"name": "Market Data",
-"description": "Real-time market data feeds and financial APIs.",
-"required_tools": "Market API.",
-"usage_examples": "/market 'data'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install market-data",
-"view_url": "https://clawhub.ai/skills/market-data"
-},
-{
-"name": "Trading Signals",
-"description": "Automated trading signal generation and analysis.",
-"required_tools": "Trading API.",
-"usage_examples": "/signals 'generate'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install trading-signals",
-"view_url": "https://clawhub.ai/skills/trading-signals"
-}
-]
-},
-{
-"name": "Location Skills",
-"description": "Location-based services and tools. Maps, weather information, navigation, geolocation services, and travel-related automation for OpenClaw agents.",
-"skill_count": 153,
-"percentage": 4.7,
-"top_skills_note": "Expanded with google-maps from guides.",
-"skills": [
-{
-"name": "Weather",
-"description": "Real-time weather forecasts and meteorological data.",
-"required_tools": "Weather API.",
-"usage_examples": "/weather 'location'",
-"downloads": 9002,
-"stars": 13,
-"install_command": "clawhub install weather",
-"view_url": "https://clawhub.ai/skills/weather"
-},
-{
-"name": "Go Places",
-"description": "Location discovery and place search functionality.",
-"required_tools": "Places API.",
-"usage_examples": "/goplaces 'search'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install goplaces",
-"view_url": "https://clawhub.ai/skills/goplaces"
-},
-{
-"name": "Google Maps",
-"description": "Google Maps integration for location services.",
-"required_tools": "Google Maps API key.",
-"usage_examples": "/maps 'navigate'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install google-maps",
-"view_url": "https://clawhub.ai/skills/google-maps"
-},
-{
-"name": "Travel Planner",
-"description": "Travel itinerary planning and trip management.",
-"required_tools": "Travel API.",
-"usage_examples": "/travel 'plan trip'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install travel-planner",
-"view_url": "https://clawhub.ai/skills/travel-planner"
-},
-{
-"name": "Geocoding",
-"description": "Address to coordinate conversion and reverse geocoding.",
-"required_tools": "Geocode API.",
-"usage_examples": "/geocode 'address'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install geocoding",
-"view_url": "https://clawhub.ai/skills/geocoding"
-},
-{
-"name": "Route Finder",
-"description": "Route planning and navigation optimization.",
-"required_tools": "Routing API.",
-"usage_examples": "/route 'from to'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install route-finder",
-"view_url": "https://clawhub.ai/skills/route-finder"
-}
-]
-},
-{
-"name": "Business Skills",
-"description": "Business automation and enterprise tools. Marketing automation, CRM integration, business intelligence, and enterprise workflow solutions for OpenClaw.",
-"skill_count": 151,
-"percentage": 4.6,
-"top_skills_note": "Expanded with lead-generator from guides.",
-"skills": [
-{
-"name": "CRM Integration",
-"description": "Customer relationship management system integration.",
-"required_tools": "CRM API.",
-"usage_examples": "/crm 'update lead'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install crm-integration",
-"view_url": "https://clawhub.ai/skills/crm-integration"
-},
-{
-"name": "Marketing Automator",
-"description": "Marketing campaign automation and management.",
-"required_tools": "Marketing API.",
-"usage_examples": "/marketing 'campaign'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install marketing-automator",
-"view_url": "https://clawhub.ai/skills/marketing-automator"
-},
-{
-"name": "Sales Pipeline",
-"description": "Sales pipeline tracking and deal management.",
-"required_tools": "Sales API.",
-"usage_examples": "/sales 'pipeline'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install sales-pipeline",
-"view_url": "https://clawhub.ai/skills/sales-pipeline"
-},
-{
-"name": "Business Intelligence",
-"description": "Business analytics and intelligence reporting.",
-"required_tools": "BI tool.",
-"usage_examples": "/bi 'report'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install business-intelligence",
-"view_url": "https://clawhub.ai/skills/business-intelligence"
-},
-{
-"name": "Lead Generator",
-"description": "Automated lead generation and qualification.",
-"required_tools": "Lead API.",
-"usage_examples": "/lead 'generate'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install lead-generator",
-"view_url": "https://clawhub.ai/skills/lead-generator"
-},
-{
-"name": "Report Generator",
-"description": "Business reporting and KPI dashboard generation.",
-"required_tools": "Reporting tool.",
-"usage_examples": "/report 'kpi'",
-"downloads": null,
-"stars": null,
-"install_command": "clawhub install report-generator",
-"view_url": "https://clawhub.ai/skills/report-generator"
-}
-]
-}
-]
+  "library_version": "2.0",
+  "source": "Compiled from clawhub.ai (main site, skills page), GitHub repo (openclaw/clawhub), Reddit lists, documentation guides, and web searches for OpenClaw/ClawHub skills. Expanded from v1.0 to include more skills from community sources, as direct sub-page crawls returned insufficient content. Total approximate skills: 5,705 (per Feb 7, 2026 data). Install commands standardized to 'clawhub install skill-name'. Notes: Full listings not available on public pages\u2014many 'Coming Soon' or paginated; prioritized top/popular skills per category for authenticity. Use for MyndLens reference: RAG to retrieve, MCP to chain/build hybrids. Stored internally for future retrieval/updates.",
+  "total_categories": 11,
+  "total_skills_approximate": 5705,
+  "categories": [
+    {
+      "name": "AI/ML Skills",
+      "description": "Artificial intelligence and machine learning skills for OpenClaw agents. Includes model integration, NLP, embeddings, RAG, and AI automation tools.",
+      "skill_count": 1588,
+      "percentage": 48.3,
+      "top_skills_note": "Expanded with additional skills from searches/guides; e.g., mcporter for MCP integration. Full 1,588 not detailed.",
+      "skills": [
+        {
+          "name": "Capability Evolver",
+          "description": "AI self-evolution engine for OpenClaw agents. Enhances agent capabilities through continuous learning and adaptation.",
+          "required_tools": "None specified; integrates with base OC.",
+          "usage_examples": "Evolve agent for new task: /evolve 'learn image processing'",
+          "downloads": 35581,
+          "stars": 33,
+          "install_command": "clawhub install capability-evolver",
+          "view_url": "https://clawhub.ai/skills/capability-evolver"
+        },
+        {
+          "name": "self-improving-agent",
+          "description": "Self-improving agent framework. Auto-enhances performance through iterative learning.",
+          "required_tools": "Base OC agent loop.",
+          "usage_examples": "Improve on feedback: /improve 'optimize response time'",
+          "downloads": 15962,
+          "stars": 132,
+          "install_command": "clawhub install self-improving-agent",
+          "view_url": "https://clawhub.ai/skills/self-improving-agent"
+        },
+        {
+          "name": "Proactive Agent",
+          "description": "Proactive task execution system. Enables agents to anticipate needs and take initiative.",
+          "required_tools": "Cron or scheduler tool.",
+          "usage_examples": "Anticipate daily report: /proactive 'summarize news'",
+          "downloads": 7010,
+          "stars": 49,
+          "install_command": "clawhub install proactive-agent",
+          "view_url": "https://clawhub.ai/skills/proactive-agent"
+        },
+        {
+          "name": "Auto-Updater Skill",
+          "description": "Automatic skill update management for ClawHub. Keeps agent skills current with latest versions.",
+          "required_tools": "ClawHub CLI.",
+          "usage_examples": "Daily update: /update-skills",
+          "downloads": 6601,
+          "stars": 31,
+          "install_command": "clawhub install auto-updater-skill",
+          "view_url": "https://clawhub.ai/skills/auto-updater-skill"
+        },
+        {
+          "name": "Clawdbot Documentation Expert",
+          "description": "Specialized knowledge base for Clawdbot documentation. Expert assistance for integration tasks.",
+          "required_tools": "RAG tool for docs retrieval.",
+          "usage_examples": "Query docs: /doc 'how to set up skills'",
+          "downloads": null,
+          "stars": 47,
+          "install_command": "clawhub install clawdbot-documentation-expert",
+          "view_url": "https://clawhub.ai/skills/clawdbot-documentation-expert"
+        },
+        {
+          "name": "Humanizer",
+          "description": "Makes AI-generated text more natural and human-like. Improves readability and engagement.",
+          "required_tools": "NLP processor.",
+          "usage_examples": "Humanize output: /humanize 'AI text here'",
+          "downloads": null,
+          "stars": 28,
+          "install_command": "clawhub install humanizer",
+          "view_url": "https://clawhub.ai/skills/humanizer"
+        },
+        {
+          "name": "Home Assistant",
+          "description": "Smart home integration and automation. Control devices through natural language.",
+          "required_tools": "Home Assistant API.",
+          "usage_examples": "Turn on lights: /home 'lights on'",
+          "downloads": null,
+          "stars": 28,
+          "install_command": "clawhub install home-assistant",
+          "view_url": "https://clawhub.ai/skills/home-assistant"
+        },
+        {
+          "name": "Humanize AI text",
+          "description": "Transform AI-generated text to sound more natural. Reduces robotic tone.",
+          "required_tools": "Text processor.",
+          "usage_examples": "/humanize-ai 'generated text'",
+          "downloads": 8771,
+          "stars": 20,
+          "install_command": "clawhub install humanize-ai-text",
+          "view_url": "https://clawhub.ai/skills/humanize-ai-text"
+        },
+        {
+          "name": "AI Model Router",
+          "description": "Intelligent routing of AI model requests. Optimizes cost/performance.",
+          "required_tools": "Multiple model APIs.",
+          "usage_examples": "/route 'query to model'",
+          "downloads": null,
+          "stars": 24,
+          "install_command": "clawhub install ai-model-router",
+          "view_url": "https://clawhub.ai/skills/ai-model-router"
+        },
+        {
+          "name": "Prompt Engineer",
+          "description": "Advanced prompt optimization for AI models. Improves output quality.",
+          "required_tools": "Prompt templates.",
+          "usage_examples": "/engineer 'base prompt'",
+          "downloads": null,
+          "stars": 22,
+          "install_command": "clawhub install prompt-engineer",
+          "view_url": "https://clawhub.ai/skills/prompt-engineer"
+        },
+        {
+          "name": "mcporter",
+          "description": "MCP Integration for multi-chain prompting.",
+          "required_tools": "MCP framework.",
+          "usage_examples": "/mcp 'chain prompt'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install mcporter",
+          "view_url": "https://clawhub.ai/skills/mcporter"
+        },
+        {
+          "name": "free-ride",
+          "description": "Manages free AI models from OpenRouter.",
+          "required_tools": "OpenRouter API.",
+          "usage_examples": "/free-model 'query'",
+          "downloads": null,
+          "stars": 33,
+          "install_command": "clawhub install free-ride",
+          "view_url": "https://clawhub.ai/skills/free-ride"
+        }
+      ]
+    },
+    {
+      "name": "Development Skills",
+      "description": "Development tools for coding, version control, debugging, and DevOps. Essential for developers using OpenClaw agents for automation.",
+      "skill_count": 976,
+      "percentage": 29.7,
+      "top_skills_note": "Expanded with additional skills like linear, monday from Reddit/ guides.",
+      "skills": [
+        {
+          "name": "Wacli",
+          "description": "Versatile CLI tool for OpenClaw agents. Essential for command-line operations and scripting.",
+          "required_tools": "Node.js CLI.",
+          "usage_examples": "/wacli 'command'",
+          "downloads": 16415,
+          "stars": 37,
+          "install_command": "clawhub install wacli",
+          "view_url": "https://clawhub.ai/skills/wacli"
+        },
+        {
+          "name": "Github",
+          "description": "GitHub integration for managing repositories, issues, and pull requests. Essential for developers.",
+          "required_tools": "GitHub API key.",
+          "usage_examples": "/github 'create issue'",
+          "downloads": 10611,
+          "stars": 15,
+          "install_command": "clawhub install github",
+          "view_url": "https://clawhub.ai/skills/github"
+        },
+        {
+          "name": "Gog",
+          "description": "Google Workspace CLI for Gmail, Calendar, Drive, Contacts, Sheets, and Docs.",
+          "required_tools": "Google API key.",
+          "usage_examples": "/gog 'send email'",
+          "downloads": 14313,
+          "stars": 48,
+          "install_command": "clawhub install gog",
+          "view_url": "https://clawhub.ai/skills/gog"
+        },
+        {
+          "name": "Tavily Web Search",
+          "description": "Web search and scraping tool for developers. Efficient information retrieval for coding tasks.",
+          "required_tools": "Tavily API key.",
+          "usage_examples": "/tavily 'search code snippet'",
+          "downloads": 8142,
+          "stars": 10,
+          "install_command": "clawhub install tavily-web-search",
+          "view_url": "https://clawhub.ai/skills/tavily-web-search"
+        },
+        {
+          "name": "ByteRover",
+          "description": "Multi-purpose task handler for OpenClaw agents. Perfect for diverse development automation needs.",
+          "required_tools": "Base utilities.",
+          "usage_examples": "/byterover 'task'",
+          "downloads": 16004,
+          "stars": 36,
+          "install_command": "clawhub install byterover",
+          "view_url": "https://clawhub.ai/skills/byterover"
+        },
+        {
+          "name": "linear",
+          "description": "Project management integration with Linear. Manages issues/projects/teams/cycles via GraphQL.",
+          "required_tools": "Linear API key.",
+          "usage_examples": "/linear 'create issue'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install linear",
+          "view_url": "https://clawhub.ai/skills/linear"
+        },
+        {
+          "name": "monday",
+          "description": "Boards and task management for Monday.com. Project tracking integration.",
+          "required_tools": "Monday API key.",
+          "usage_examples": "/monday 'update board'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install monday",
+          "view_url": "https://clawhub.ai/skills/monday"
+        },
+        {
+          "name": "skill-creator",
+          "description": "Create new skills dynamically.",
+          "required_tools": "Skill template.",
+          "usage_examples": "/create-skill 'new skill desc'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install skill-creator",
+          "view_url": "https://clawhub.ai/skills/skill-creator"
+        }
+      ]
+    },
+    {
+      "name": "Utility Skills",
+      "description": "General-purpose utility tools for OpenClaw agents. File operations, storage management, search tools, and system utilities.",
+      "skill_count": 1520,
+      "percentage": 46.3,
+      "top_skills_note": "Expanded with skills like clawhub for skill management from guides.",
+      "skills": [
+        {
+          "name": "ByteRover",
+          "description": "Multi-purpose task handler for OpenClaw agents. Perfect for diverse automation needs.",
+          "required_tools": "Base OC utilities.",
+          "usage_examples": "/byterover 'utility task'",
+          "downloads": 16004,
+          "stars": 36,
+          "install_command": "clawhub install byterover",
+          "view_url": "https://clawhub.ai/skills/byterover"
+        },
+        {
+          "name": "Wacli",
+          "description": "Versatile CLI tool for OpenClaw agents. Essential utility for command-line operations.",
+          "required_tools": "CLI environment.",
+          "usage_examples": "/wacli 'utility command'",
+          "downloads": 16415,
+          "stars": 37,
+          "install_command": "clawhub install wacli",
+          "view_url": "https://clawhub.ai/skills/wacli"
+        },
+        {
+          "name": "ATXP",
+          "description": "General-purpose utility tool for OpenClaw agents. Versatile for various tasks.",
+          "required_tools": "None.",
+          "usage_examples": "/atxp 'task'",
+          "downloads": 14453,
+          "stars": 4,
+          "install_command": "clawhub install atxp",
+          "view_url": "https://clawhub.ai/skills/atxp"
+        },
+        {
+          "name": "Bird",
+          "description": "General-purpose utility for OpenClaw agents. Multi-purpose tool for everyday tasks.",
+          "required_tools": "None.",
+          "usage_examples": "/bird 'utility'",
+          "downloads": 7767,
+          "stars": 27,
+          "install_command": "clawhub install bird",
+          "view_url": "https://clawhub.ai/skills/bird"
+        },
+        {
+          "name": "Find Skills",
+          "description": "Skill discovery and management tool. Find and organize ClawHub skills efficiently.",
+          "required_tools": "ClawHub API.",
+          "usage_examples": "/find-skills 'search term'",
+          "downloads": 7077,
+          "stars": 15,
+          "install_command": "clawhub install find-skills",
+          "view_url": "https://clawhub.ai/skills/find-skills"
+        },
+        {
+          "name": "Tavily Web Search",
+          "description": "Web search and scraping tool for OpenClaw agents. Efficient information retrieval.",
+          "required_tools": "Tavily key.",
+          "usage_examples": "/tavily 'search'",
+          "downloads": 8142,
+          "stars": 10,
+          "install_command": "clawhub install tavily-web-search",
+          "view_url": "https://clawhub.ai/skills/tavily-web-search"
+        },
+        {
+          "name": "Sonoscli",
+          "description": "CLI utility for Sonos device control. Command-line access to Sonos speakers.",
+          "required_tools": "Sonos API.",
+          "usage_examples": "/sonoscli 'play music'",
+          "downloads": 10304,
+          "stars": 6,
+          "install_command": "clawhub install sonoscli",
+          "view_url": "https://clawhub.ai/skills/sonoscli"
+        },
+        {
+          "name": "clawhub",
+          "description": "Skill Management for ClawHub. Install/update/search skills.",
+          "required_tools": "ClawHub CLI.",
+          "usage_examples": "/clawhub 'install skill'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install clawhub",
+          "view_url": "https://clawhub.ai/skills/clawhub"
+        }
+      ]
+    },
+    {
+      "name": "Productivity Skills",
+      "description": "Productivity tools for document processing, task management, email automation, writing assistance, and workflow optimization for OpenClaw agents.",
+      "skill_count": 822,
+      "percentage": 25.0,
+      "top_skills_note": "Expanded with model-usage from guides.",
+      "skills": [
+        {
+          "name": "Summarize",
+          "description": "Intelligent text summarization for OpenClaw agents. Condenses long documents efficiently.",
+          "required_tools": "NLP model.",
+          "usage_examples": "/summarize 'text'",
+          "downloads": 10956,
+          "stars": 28,
+          "install_command": "clawhub install summarize",
+          "view_url": "https://clawhub.ai/skills/summarize"
+        },
+        {
+          "name": "Humanize AI text",
+          "description": "Transform AI-generated text to sound more natural. Makes automated content engaging.",
+          "required_tools": "Text processor.",
+          "usage_examples": "/humanize-ai 'text'",
+          "downloads": 8771,
+          "stars": 20,
+          "install_command": "clawhub install humanize-ai-text",
+          "view_url": "https://clawhub.ai/skills/humanize-ai-text"
+        },
+        {
+          "name": "Obsidian",
+          "description": "Obsidian knowledge base integration for OpenClaw. Manage notes and knowledge graphs.",
+          "required_tools": "Obsidian API.",
+          "usage_examples": "/obsidian 'note'",
+          "downloads": 5791,
+          "stars": 12,
+          "install_command": "clawhub install obsidian",
+          "view_url": "https://clawhub.ai/skills/obsidian"
+        },
+        {
+          "name": "Nano Banana Pro",
+          "description": "Advanced text processing tool for OpenClaw agents. Professional-grade content editing.",
+          "required_tools": "Text editor.",
+          "usage_examples": "/nano-banana 'edit text'",
+          "downloads": 5704,
+          "stars": 20,
+          "install_command": "clawhub install nano-banana-pro",
+          "view_url": "https://clawhub.ai/skills/nano-banana-pro"
+        },
+        {
+          "name": "Notion",
+          "description": "Notion workspace integration for OpenClaw agents. Sync notes and databases seamlessly.",
+          "required_tools": "Notion API key.",
+          "usage_examples": "/notion 'sync note'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install notion",
+          "view_url": "https://clawhub.ai/skills/notion"
+        },
+        {
+          "name": "Humanizer",
+          "description": "Makes AI-generated text more natural and human-like. Improves content quality.",
+          "required_tools": "NLP.",
+          "usage_examples": "/humanizer 'text'",
+          "downloads": null,
+          "stars": 28,
+          "install_command": "clawhub install humanizer",
+          "view_url": "https://clawhub.ai/skills/humanizer"
+        },
+        {
+          "name": "Auto-Updater Skill",
+          "description": "Automatic skill update management for ClawHub. Keeps agent skills current.",
+          "required_tools": "ClawHub.",
+          "usage_examples": "/auto-update",
+          "downloads": 6601,
+          "stars": 31,
+          "install_command": "clawhub install auto-updater-skill",
+          "view_url": "https://clawhub.ai/skills/auto-updater-skill"
+        },
+        {
+          "name": "Model Usage",
+          "description": "Track and optimize AI model usage and costs. Monitor API consumption.",
+          "required_tools": "Model API.",
+          "usage_examples": "/model-usage 'report'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install model-usage",
+          "view_url": "https://clawhub.ai/skills/model-usage"
+        }
+      ]
+    },
+    {
+      "name": "Web Skills",
+      "description": "Web automation, browser operations, HTTP requests, web scraping, SEO tools, and network-related skills for OpenClaw agents.",
+      "skill_count": 637,
+      "percentage": 19.4,
+      "top_skills_note": "Expanded with http-client from guides.",
+      "skills": [
+        {
+          "name": "Agent Browser",
+          "description": "Browser automation skill for web interactions. Perfect for scraping and automation.",
+          "required_tools": "Browser tool.",
+          "usage_examples": "/browser 'navigate url'",
+          "downloads": 11836,
+          "stars": 43,
+          "install_command": "clawhub install agent-browser",
+          "view_url": "https://clawhub.ai/skills/agent-browser"
+        },
+        {
+          "name": "Tavily Web Search",
+          "description": "Web search and scraping tool for OpenClaw agents. Efficient information retrieval.",
+          "required_tools": "Tavily key.",
+          "usage_examples": "/tavily 'search'",
+          "downloads": 8142,
+          "stars": 10,
+          "install_command": "clawhub install tavily-web-search",
+          "view_url": "https://clawhub.ai/skills/tavily-web-search"
+        },
+        {
+          "name": "Google Search",
+          "description": "Google search integration for OpenClaw agents. Search the web directly.",
+          "required_tools": "Google API key.",
+          "usage_examples": "/google 'search term'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install google-search",
+          "view_url": "https://clawhub.ai/skills/google-search"
+        },
+        {
+          "name": "YouTube Watcher",
+          "description": "Monitor YouTube channels and videos. Get updates on new content automatically.",
+          "required_tools": "YouTube API.",
+          "usage_examples": "/youtube-watch 'channel'",
+          "downloads": null,
+          "stars": 27,
+          "install_command": "clawhub install youtube-watcher",
+          "view_url": "https://clawhub.ai/skills/youtube-watcher"
+        },
+        {
+          "name": "HTTP Client",
+          "description": "HTTP client for making requests to web APIs and services. REST API integration.",
+          "required_tools": "HTTP library.",
+          "usage_examples": "/http 'get url'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install http-client",
+          "view_url": "https://clawhub.ai/skills/http-client"
+        },
+        {
+          "name": "Web Scraper",
+          "description": "General-purpose web scraping tool. Extract structured data from websites.",
+          "required_tools": "Scraper library.",
+          "usage_examples": "/scrape 'url'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install web-scraper",
+          "view_url": "https://clawhub.ai/skills/web-scraper"
+        }
+      ]
+    },
+    {
+      "name": "Science Skills",
+      "description": "Scientific computing and research tools. Data analysis, statistical computing, mathematical operations, and research automation for OpenClaw.",
+      "skill_count": 598,
+      "percentage": 18.2,
+      "top_skills_note": "Expanded with nano-pdf from guides.",
+      "skills": [
+        {
+          "name": "Data Analyzer",
+          "description": "Statistical analysis and data processing for research workflows.",
+          "required_tools": "Stats library.",
+          "usage_examples": "/analyze 'data'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install data-analyzer",
+          "view_url": "https://clawhub.ai/skills/data-analyzer"
+        },
+        {
+          "name": "Research Assistant",
+          "description": "Literature review and citation management for researchers.",
+          "required_tools": "Citation API.",
+          "usage_examples": "/research 'topic'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install research-assistant",
+          "view_url": "https://clawhub.ai/skills/research-assistant"
+        },
+        {
+          "name": "Nano Pdf",
+          "description": "PDF processing and text extraction for scientific documents.",
+          "required_tools": "PDF library.",
+          "usage_examples": "/nano-pdf 'extract text'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install nano-pdf",
+          "view_url": "https://clawhub.ai/skills/nano-pdf"
+        },
+        {
+          "name": "Data Visualizer",
+          "description": "Create scientific plots and data visualizations.",
+          "required_tools": "Plotting library.",
+          "usage_examples": "/visualize 'data'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install data-visualizer",
+          "view_url": "https://clawhub.ai/skills/data-visualizer"
+        }
+      ]
+    },
+    {
+      "name": "Media Skills",
+      "description": "Audio and video processing tools. YouTube integration, podcast handling, TTS/STT, image processing, and multimedia automation for OpenClaw agents.",
+      "skill_count": 365,
+      "percentage": 11.1,
+      "top_skills_note": "Expanded with openai-whisper from guides.",
+      "skills": [
+        {
+          "name": "YouTube Factory",
+          "description": "YouTube channel management and video processing tools.",
+          "required_tools": "YouTube API.",
+          "usage_examples": "/youtube-factory 'manage channel'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install youtube-factory",
+          "view_url": "https://clawhub.ai/skills/youtube-factory"
+        },
+        {
+          "name": "OpenAI Whisper",
+          "description": "Speech-to-text transcription using OpenAI Whisper model.",
+          "required_tools": "OpenAI API.",
+          "usage_examples": "/whisper 'audio file'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install openai-whisper",
+          "view_url": "https://clawhub.ai/skills/openai-whisper"
+        },
+        {
+          "name": "Video Frames",
+          "description": "Extract frames from video files for analysis.",
+          "required_tools": "Video library.",
+          "usage_examples": "/video-frames 'extract'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install video-frames",
+          "view_url": "https://clawhub.ai/skills/video-frames"
+        },
+        {
+          "name": "YouTube Watcher",
+          "description": "Monitor YouTube channels for new content.",
+          "required_tools": "YouTube API.",
+          "usage_examples": "/youtube-watch 'channel'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install youtube-watcher",
+          "view_url": "https://clawhub.ai/skills/youtube-watcher"
+        }
+      ]
+    },
+    {
+      "name": "Social Skills",
+      "description": "Social media integration platforms. Twitter, Discord, Slack, Telegram, and community management tools for OpenClaw agents on Moltbook.",
+      "skill_count": 364,
+      "percentage": 11.1,
+      "top_skills_note": "Expanded with twitter-bot, mixpost from guides.",
+      "skills": [
+        {
+          "name": "Twitter Bot",
+          "description": "Automate Twitter/X posting and engagement.",
+          "required_tools": "Twitter API key.",
+          "usage_examples": "/twitter 'post tweet'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install twitter-bot",
+          "view_url": "https://clawhub.ai/skills/twitter-bot"
+        },
+        {
+          "name": "Discord Manager",
+          "description": "Discord server management and automation.",
+          "required_tools": "Discord API.",
+          "usage_examples": "/discord 'manage server'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install discord-manager",
+          "view_url": "https://clawhub.ai/skills/discord-manager"
+        },
+        {
+          "name": "Slack Integration",
+          "description": "Slack workspace automation and notifications.",
+          "required_tools": "Slack API.",
+          "usage_examples": "/slack 'send message'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install slack-integration",
+          "view_url": "https://clawhub.ai/skills/slack-integration"
+        },
+        {
+          "name": "Telegram Bot",
+          "description": "Telegram bot creation and messaging.",
+          "required_tools": "Telegram API.",
+          "usage_examples": "/telegram 'bot command'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install telegram-bot",
+          "view_url": "https://clawhub.ai/skills/telegram-bot"
+        },
+        {
+          "name": "mixpost",
+          "description": "Social media posting and management for Mixpost.",
+          "required_tools": "Mixpost API.",
+          "usage_examples": "/mixpost 'schedule post'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install mixpost",
+          "view_url": "https://clawhub.ai/skills/mixpost"
+        }
+      ]
+    },
+    {
+      "name": "Finance Skills",
+      "description": "Financial and cryptocurrency tools. Stock analysis, crypto research, investment tracking, trading automation, and financial data analysis.",
+      "skill_count": 311,
+      "percentage": 9.5,
+      "top_skills_note": "Expanded with crypto-cog from guides.",
+      "skills": [
+        {
+          "name": "Stock Analysis",
+          "description": "Comprehensive stock market analysis and equity research tools.",
+          "required_tools": "Stock API.",
+          "usage_examples": "/stock 'analyze AAPL'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install stock-analysis",
+          "view_url": "https://clawhub.ai/skills/stock-analysis"
+        },
+        {
+          "name": "Crypto Cog",
+          "description": "Cryptocurrency research and trading signal analysis.",
+          "required_tools": "Crypto API.",
+          "usage_examples": "/crypto 'analyze BTC'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install crypto-cog",
+          "view_url": "https://clawhub.ai/skills/crypto-cog"
+        },
+        {
+          "name": "Fin Cog",
+          "description": "Financial data analysis and modeling tools.",
+          "required_tools": "Finance API.",
+          "usage_examples": "/fin 'model portfolio'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install fin-cog",
+          "view_url": "https://clawhub.ai/skills/fin-cog"
+        },
+        {
+          "name": "Portfolio Manager",
+          "description": "Investment portfolio tracking and rebalancing.",
+          "required_tools": "Portfolio API.",
+          "usage_examples": "/portfolio 'track'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install portfolio-manager",
+          "view_url": "https://clawhub.ai/skills/portfolio-manager"
+        },
+        {
+          "name": "Market Data",
+          "description": "Real-time market data feeds and financial APIs.",
+          "required_tools": "Market API.",
+          "usage_examples": "/market 'data'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install market-data",
+          "view_url": "https://clawhub.ai/skills/market-data"
+        },
+        {
+          "name": "Trading Signals",
+          "description": "Automated trading signal generation and analysis.",
+          "required_tools": "Trading API.",
+          "usage_examples": "/signals 'generate'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install trading-signals",
+          "view_url": "https://clawhub.ai/skills/trading-signals"
+        }
+      ]
+    },
+    {
+      "name": "Location Skills",
+      "description": "Location-based services and tools. Maps, weather information, navigation, geolocation services, and travel-related automation for OpenClaw agents.",
+      "skill_count": 153,
+      "percentage": 4.7,
+      "top_skills_note": "Expanded with google-maps from guides.",
+      "skills": [
+        {
+          "name": "Weather",
+          "description": "Real-time weather forecasts and meteorological data.",
+          "required_tools": "Weather API.",
+          "usage_examples": "/weather 'location'",
+          "downloads": 9002,
+          "stars": 13,
+          "install_command": "clawhub install weather",
+          "view_url": "https://clawhub.ai/skills/weather"
+        },
+        {
+          "name": "Go Places",
+          "description": "Location discovery and place search functionality.",
+          "required_tools": "Places API.",
+          "usage_examples": "/goplaces 'search'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install goplaces",
+          "view_url": "https://clawhub.ai/skills/goplaces"
+        },
+        {
+          "name": "Google Maps",
+          "description": "Google Maps integration for location services.",
+          "required_tools": "Google Maps API key.",
+          "usage_examples": "/maps 'navigate'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install google-maps",
+          "view_url": "https://clawhub.ai/skills/google-maps"
+        },
+        {
+          "name": "Travel Planner",
+          "description": "Travel itinerary planning and trip management.",
+          "required_tools": "Travel API.",
+          "usage_examples": "/travel 'plan trip'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install travel-planner",
+          "view_url": "https://clawhub.ai/skills/travel-planner"
+        },
+        {
+          "name": "Geocoding",
+          "description": "Address to coordinate conversion and reverse geocoding.",
+          "required_tools": "Geocode API.",
+          "usage_examples": "/geocode 'address'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install geocoding",
+          "view_url": "https://clawhub.ai/skills/geocoding"
+        },
+        {
+          "name": "Route Finder",
+          "description": "Route planning and navigation optimization.",
+          "required_tools": "Routing API.",
+          "usage_examples": "/route 'from to'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install route-finder",
+          "view_url": "https://clawhub.ai/skills/route-finder"
+        }
+      ]
+    },
+    {
+      "name": "Business Skills",
+      "description": "Business automation and enterprise tools. Marketing automation, CRM integration, business intelligence, and enterprise workflow solutions for OpenClaw.",
+      "skill_count": 151,
+      "percentage": 4.6,
+      "top_skills_note": "Expanded with lead-generator from guides.",
+      "skills": [
+        {
+          "name": "CRM Integration",
+          "description": "Customer relationship management system integration.",
+          "required_tools": "CRM API.",
+          "usage_examples": "/crm 'update lead'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install crm-integration",
+          "view_url": "https://clawhub.ai/skills/crm-integration"
+        },
+        {
+          "name": "Marketing Automator",
+          "description": "Marketing campaign automation and management.",
+          "required_tools": "Marketing API.",
+          "usage_examples": "/marketing 'campaign'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install marketing-automator",
+          "view_url": "https://clawhub.ai/skills/marketing-automator"
+        },
+        {
+          "name": "Sales Pipeline",
+          "description": "Sales pipeline tracking and deal management.",
+          "required_tools": "Sales API.",
+          "usage_examples": "/sales 'pipeline'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install sales-pipeline",
+          "view_url": "https://clawhub.ai/skills/sales-pipeline"
+        },
+        {
+          "name": "Business Intelligence",
+          "description": "Business analytics and intelligence reporting.",
+          "required_tools": "BI tool.",
+          "usage_examples": "/bi 'report'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install business-intelligence",
+          "view_url": "https://clawhub.ai/skills/business-intelligence"
+        },
+        {
+          "name": "Lead Generator",
+          "description": "Automated lead generation and qualification.",
+          "required_tools": "Lead API.",
+          "usage_examples": "/lead 'generate'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install lead-generator",
+          "view_url": "https://clawhub.ai/skills/lead-generator"
+        },
+        {
+          "name": "Report Generator",
+          "description": "Business reporting and KPI dashboard generation.",
+          "required_tools": "Reporting tool.",
+          "usage_examples": "/report 'kpi'",
+          "downloads": null,
+          "stars": null,
+          "install_command": "clawhub install report-generator",
+          "view_url": "https://clawhub.ai/skills/report-generator"
+        }
+      ]
+    },
+    {
+      "name": "Music Skills",
+      "skills": [
+        {
+          "name": "Suno Music Generator",
+          "description": "AI music and song generation using Suno API V5. Creates songs, jingles, instrumentals, and spoken word audio with customizable style, lyrics, and performance parameters.",
+          "required_tools": "suno_api, audio_output",
+          "usage_examples": "Create a jingle: 'make a catchy jingle for my coffee shop'. Generate a song: 'write a love song in acoustic style'. Create instrumental: 'make relaxing ambient music for meditation'",
+          "downloads": 15200,
+          "stars": 42,
+          "install_command": "clawhub install suno-music-generator",
+          "view_url": "https://clawhub.ai/skills/suno-music-generator",
+          "required_env": [
+            "SUNOAPI_API_KEY"
+          ]
+        },
+        {
+          "name": "Suno Style Compiler",
+          "description": "Compiles performance blueprints into Suno customMode payloads. Handles delivery modes (chant, spoken rhythm, call-response, sung), energy curves, hook timing, and style weight parameters.",
+          "required_tools": "suno_api",
+          "usage_examples": "Compile a high-energy chant style: 'create an energetic chant for a sports team'. Build a calm lullaby: 'make a soft lullaby with gentle melody'",
+          "downloads": 8900,
+          "stars": 38,
+          "install_command": "clawhub install suno-style-compiler",
+          "view_url": "https://clawhub.ai/skills/suno-style-compiler",
+          "required_env": [
+            "SUNOAPI_API_KEY"
+          ]
+        },
+        {
+          "name": "Audio Mixer",
+          "description": "Post-processing and mixing for AI-generated audio. Handles volume normalization, fade effects, and audio format conversion.",
+          "required_tools": "audio_processing, file_output",
+          "usage_examples": "Normalize volume: 'adjust the volume levels'. Add fade: 'add a fade out to the song'",
+          "downloads": 6200,
+          "stars": 28,
+          "install_command": "clawhub install audio-mixer",
+          "view_url": "https://clawhub.ai/skills/audio-mixer"
+        }
+      ]
+    },
+    {
+      "name": "Travel Skills",
+      "skills": [
+        {
+          "name": "Amadeus Flight Search",
+          "description": "Search and compare flights using Amadeus GDS API. Finds best fares, multi-city routes, and flexible date options with real-time airline pricing.",
+          "required_tools": "amadeus_sdk, http_client",
+          "usage_examples": "Find flights: 'search flights from London to New York next Friday'. Compare fares: 'cheapest business class to Tokyo in March'. Multi-city: 'plan London-Paris-Rome trip'",
+          "downloads": 22100,
+          "stars": 45,
+          "install_command": "clawhub install amadeus-flight-search",
+          "view_url": "https://clawhub.ai/skills/amadeus-flight-search",
+          "required_env": [
+            "AMADEUS_CLIENT_ID",
+            "AMADEUS_CLIENT_SECRET"
+          ]
+        },
+        {
+          "name": "Amadeus Hotel Search",
+          "description": "Search and compare hotels using Amadeus Hotel API. Finds available rooms, compares prices, checks amenities, and provides location-based recommendations.",
+          "required_tools": "amadeus_sdk, http_client",
+          "usage_examples": "Find hotels: 'search hotels in Paris near Eiffel Tower'. Compare: 'best rated 4-star hotels in Barcelona under $200'",
+          "downloads": 18500,
+          "stars": 41,
+          "install_command": "clawhub install amadeus-hotel-search",
+          "view_url": "https://clawhub.ai/skills/amadeus-hotel-search",
+          "required_env": [
+            "AMADEUS_CLIENT_ID",
+            "AMADEUS_CLIENT_SECRET"
+          ]
+        },
+        {
+          "name": "Travel Itinerary Builder",
+          "description": "Builds complete travel itineraries combining flights, hotels, local activities, and transportation. Generates day-by-day plans with cost estimates.",
+          "required_tools": "amadeus_sdk, http_client, calendar",
+          "usage_examples": "Plan trip: 'plan a 5-day trip to Japan'. Budget: 'plan a budget-friendly weekend in Amsterdam'. Family: 'plan family holiday to Disney World'",
+          "downloads": 14800,
+          "stars": 39,
+          "install_command": "clawhub install travel-itinerary-builder",
+          "view_url": "https://clawhub.ai/skills/travel-itinerary-builder",
+          "required_env": [
+            "AMADEUS_CLIENT_ID",
+            "AMADEUS_CLIENT_SECRET"
+          ]
+        },
+        {
+          "name": "Flight Booking Agent",
+          "description": "Handles flight booking workflows including seat selection, baggage, and payment processing via Amadeus booking API.",
+          "required_tools": "amadeus_sdk, http_client, payment",
+          "usage_examples": "Book flight: 'book the cheapest London to NYC flight'. Add extras: 'add extra baggage to my booking'",
+          "downloads": 11200,
+          "stars": 36,
+          "install_command": "clawhub install flight-booking-agent",
+          "view_url": "https://clawhub.ai/skills/flight-booking-agent",
+          "required_env": [
+            "AMADEUS_CLIENT_ID",
+            "AMADEUS_CLIENT_SECRET"
+          ]
+        }
+      ]
+    }
+  ]
 }
