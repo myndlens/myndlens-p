@@ -57,9 +57,9 @@ class ElevenLabsTTSProvider(TTSProvider):
                         model_id="eleven_turbo_v2_5",
                         output_format="mp3_22050_32",
                         voice_settings={
-                            "stability": 0.75,
-                            "similarity_boost": 0.90,
-                            "style": 0.15,
+                            "stability": 0.07,
+                            "similarity_boost": 0.85,
+                            "style": 0.10,
                             "use_speaker_boost": True,
                         },
                     ),
