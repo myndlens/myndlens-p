@@ -4,7 +4,7 @@
     "slug": "myndlens",
     "owner": "myndlens",
     "scheme": "myndlens",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "icon": "./assets/images/icon.png",
     "splash": {
       "image": "./assets/images/splash-image.png",
@@ -58,7 +58,7 @@
     ],
     "android": {
       "package": "com.myndlens.app",
-      "versionCode": 17,
+      "versionCode": 14,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#a8e1ff"
@@ -84,16 +84,25 @@
           "action": "VIEW",
           "autoVerify": true,
           "data": [
-            { "scheme": "myndlens" },
-            { "scheme": "https", "host": "obegee.co.uk", "pathPrefix": "/app/pair" }
+            {
+              "scheme": "myndlens"
+            },
+            {
+              "scheme": "https",
+              "host": "obegee.co.uk",
+              "pathPrefix": "/app/pair"
+            }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
     "ios": {
       "bundleIdentifier": "com.myndlens.app",
-      "buildNumber": "13",
+      "buildNumber": "14",
       "icon": "./assets/images/icon.png",
       "infoPlist": {
         "NSContactsUsageDescription": "MyndLens uses your contacts to personalise your Digital Self and reduce how many questions it needs to ask you.",
