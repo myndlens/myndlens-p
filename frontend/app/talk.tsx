@@ -747,6 +747,8 @@ export default function TalkScreen() {
           setPipelineSubStatus('');
           setPipelineStageIndex(-1); // No active stage — completed list shows checkmarks
           if (idx >= 9) {
+            // Replace all pipeline stages with a single "Results delivered to Chat"
+            setCompletedStages(['Results delivered to Chat']);
             setPendingAction(null);  // D6: results delivered — no pending approval/kill
             if (sub) {
               setChatMessages(prev => [...prev, {
