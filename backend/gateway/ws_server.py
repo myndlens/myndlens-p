@@ -172,11 +172,24 @@ def _build_agents_md(intent: str, task: str, skill_name: str, dimensions: dict) 
 
     skill_section = f"\n## Skill to invoke\nUse the `{skill_name}` skill." if skill_name else ""
 
+    # For skills that call ObeGee tool endpoints, inject the auth token
+    api_auth_section = ""
+    if intent in ("Music Generation", "Travel Concierge"):
+        s2s_token = os.environ.get("OBEGEE_S2S_TOKEN", "")
+        if s2s_token:
+            api_auth_section = (
+                "\n## API Authentication\n"
+                f"When calling `https://obegee.co.uk/api/skill-tools/*` endpoints, "
+                f"use this header:\n"
+                f"```\nAuthorization: Bearer {s2s_token}\n```"
+            )
+
     return f"""# Mandate Operating Instructions
 
 ## Task
 {task}
 {skill_section}
+{api_auth_section}
 
 ## Output Contract
 You MUST return ONLY a JSON object as your final response. No prose, no explanation before or after the JSON.

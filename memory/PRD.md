@@ -16,7 +16,7 @@ When uncertain, the system engages in conversational clarification.
 
 ## Production URLs
 - Frontend (EAS production): `EXPO_PUBLIC_BACKEND_URL=https://app.myndlens.com` (stale — needs redeploy)
-- Emergent preview backend: `https://obegee-runtime.preview.emergentagent.com`
+- Emergent preview backend: `https://myndlens-workspace.preview.emergentagent.com`
 - GitHub: `git@github.com:myndlens/myndlens-p.git`
 
 ## Deployment — Golden Rules
