@@ -817,6 +817,12 @@ export default function TalkScreen() {
         }
       }),
       wsClient.on('tts_audio', (env: WSEnvelope) => {
+        // Guard: ignore stale TTS from a previous mandate if user already started a new capture
+        const curState = audioStateRef.current;
+        if (curState === 'CAPTURING' || curState === 'ACCUMULATING') {
+          console.log('[Talk] Ignoring tts_audio — user is already capturing new mandate');
+          return;
+        }
         const text = env.payload.text || '';
         const audioBase64: string = env.payload.audio || '';
         const isMock: boolean = env.payload.is_mock ?? true;
@@ -1079,6 +1085,7 @@ export default function TalkScreen() {
       setPendingAction(null);
       setFragmentCount(0);
       doneRequested.current = false;  // Reset done flag for new session
+      lastTtsRef.current = '';  // Clear stale TTS dedup — prevents mixing with previous mandate
       setChatMessages([]);  // Clear chat for fresh session
       setExecutionLogs([]);  // Clear execution logs for fresh session
       if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }

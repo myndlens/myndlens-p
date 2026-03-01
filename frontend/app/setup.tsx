@@ -61,7 +61,18 @@ export default function SetupWizardScreen() {
         // The slug state is only set when the user types it in step 2 — on this
         // fast-path it was never typed, so we read it back from storage.
         const storedSlug = await getItem('myndlens_workspace_slug');
-        if (storedSlug) setWorkspaceSlug(storedSlug);
+        if (storedSlug) {
+          setWorkspaceSlug(storedSlug);
+        } else {
+          // Fallback: fetch from ObeGee API if storage is empty
+          try {
+            const tenantRes = await obegee('/tenants/my-tenant', { method: 'GET' }, token);
+            if (tenantRes?.workspace_slug) {
+              setWorkspaceSlug(tenantRes.workspace_slug);
+              await setItem('myndlens_workspace_slug', tenantRes.workspace_slug);
+            }
+          } catch { /* non-critical — slug display only */ }
+        }
         setStep(9);  // Jump straight to Digital Self — account, workspace, pairing already complete
       }
     })();
