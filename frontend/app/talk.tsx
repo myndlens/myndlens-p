@@ -374,6 +374,7 @@ export default function TalkScreen() {
   const [pipelineSubStatus, setPipelineSubStatus] = React.useState<string>('');
   const [pipelineProgress, setPipelineProgress] = React.useState<number>(0);
   const [completedStages, setCompletedStages] = React.useState<string[]>([]);
+  const [executionLogs, setExecutionLogs] = React.useState<string[]>([]);  // OpenClaw step-by-step log
   const completedStagesRef = useRef<string[]>([]);
   const pipelineStageIndexRef = useRef<number>(-1);
   const pendingDraftIdRef = useRef<string | null>(null);
@@ -968,6 +969,13 @@ export default function TalkScreen() {
           const isSafe = sub && sub.length < 120 && !sub.startsWith('{') && !sub.startsWith('```');
           setPipelineSubStatus(isSafe ? sub : '');
           setPipelineProgress(prog);
+          // Accumulate execution logs for stage 8 (OpenClaw executing)
+          if (idx === 8 && isSafe && sub) {
+            setExecutionLogs(prev => {
+              if (prev.length > 0 && prev[prev.length - 1] === sub) return prev; // dedup consecutive
+              return [...prev, sub];
+            });
+          }
         }
       }),
     ];
@@ -1050,6 +1058,7 @@ export default function TalkScreen() {
       setPendingAction(null);
       setFragmentCount(0);
       setChatMessages([]);  // Clear chat for fresh session
+      setExecutionLogs([]);  // Clear execution logs for fresh session
       if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
       // Gate: DS setup check
       try {
@@ -1292,20 +1301,27 @@ export default function TalkScreen() {
                 </>
               ) : (
                 <View style={styles.activityFeed}>
-                  {/* Completed stages — scrollable, no scrollbar, auto-scrolls to latest */}
+                  {/* All progress items — scrollable, no scrollbar, auto-scrolls to latest */}
                   <ScrollView
                     style={styles.activityScrollBox}
                     showsVerticalScrollIndicator={false}
                     ref={(ref) => { if (ref) setTimeout(() => ref.scrollToEnd({ animated: true }), 50); }}
                   >
                     {completedStages.map((label, i) => (
-                      <View key={i} style={styles.activityDone}>
+                      <View key={`s${i}`} style={styles.activityDone}>
                         <Text style={styles.activityDoneTick}>{'\u2713'}</Text>
                         <Text style={styles.activityDoneLabel}>{label}</Text>
                       </View>
                     ))}
+                    {/* OpenClaw execution log entries — step-by-step progress */}
+                    {executionLogs.map((log, i) => (
+                      <View key={`e${i}`} style={styles.activityLogRow}>
+                        <Text style={styles.activityLogArrow}>{'\u203A'}</Text>
+                        <Text style={styles.activityLogText}>{log}</Text>
+                      </View>
+                    ))}
                   </ScrollView>
-                  {/* Current active stage */}
+                  {/* Current active stage with spinner */}
                   {activeStage && (
                     <View style={styles.activityActive}>
                       <ActivityIndicator size={16} color="#6C63FF" style={styles.activitySpinner} />
@@ -1652,6 +1668,9 @@ const styles = StyleSheet.create({
   activityDone: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5 },
   activityDoneTick: { color: '#4CAF50', fontSize: 13, marginRight: 10, fontWeight: '700' },
   activityDoneLabel: { color: '#555568', fontSize: 13, fontWeight: '500' },
+  activityLogRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 2, paddingLeft: 6 },
+  activityLogArrow: { color: '#6C63FF', fontSize: 12, marginRight: 8, fontWeight: '700', opacity: 0.7 },
+  activityLogText: { color: '#8888AA', fontSize: 12, fontWeight: '400', flex: 1 },
   activityActive: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 6, marginTop: 2 },
   activitySpinner: { marginRight: 10, marginTop: 3 },
   activityActiveText: { flex: 1 },
