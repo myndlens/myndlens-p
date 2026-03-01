@@ -896,6 +896,7 @@ export default function TalkScreen() {
             // Replace all pipeline stages with a single "Results delivered to Chat"
             setCompletedStages(['Results delivered to Chat']);
             setPendingAction(null);  // D6: results delivered — no pending approval/kill
+            setTranscript(null);     // Clear stale transcript — prevents getPipelineState from re-activating digital_self
             // Auto-clear pipeline after 8 seconds — return to idle
             setTimeout(() => {
               setCompletedStages([]);
