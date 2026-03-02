@@ -154,6 +154,8 @@ class TTSAudioPayload(BaseModel):
     is_clarification: bool = False  # True = this is a clarification question
     ui_mode: Optional[str] = None  # "change_capture" | "approval" | None
     skip_chat: bool = False      # True = don't add this TTS text to chat history
+    awaiting_command: Optional[str] = None  # "approve_or_change" | None — drives frontend button state
+    draft_id: Optional[str] = None  # For mandate resume — lets frontend track which draft to approve
 
 
 class ExecuteBlockedPayload(BaseModel):

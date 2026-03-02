@@ -479,6 +479,8 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                 auto_record=True,
                 is_clarification=True,
                 ui_mode="approval",
+                awaiting_command="approve_or_change",
+                draft_id=draft_id,
             ))
             logger.info(
                 "[MANDATE_RESUME] session=%s draft=%s state=%s — approval flow restored",

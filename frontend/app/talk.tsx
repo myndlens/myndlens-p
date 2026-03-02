@@ -617,10 +617,8 @@ export default function TalkScreen() {
           await TTS.stop().catch(() => {});
           resetAudio();
 
-          // Clear ALL stale mandate/pipeline state — fresh start after reconnect
-          setPendingAction(null);
-          setAwaitingCommand('none');
-          setPendingDraftId(null);
+          // Clear capture/recording state only — keep pending mandate actions intact
+          // (pendingAction, awaitingCommand, pendingDraftId survive reconnect)
           setCompletedStages([]);
           setPipelineStageIndex(-1);
           setPipelineSubStatus('');
