@@ -183,6 +183,7 @@ async def _poll_execution(
 
         status = data.get("status", "")
         sub_status = data.get("sub_status", "")
+        logger.info("[POLL] exec=%s status=%s sub='%s' progress=%d", execution_id, status, sub_status[:60] if sub_status else "", data.get("progress", 0))
 
         # Update progress based on status
         if status == "EXECUTING":
