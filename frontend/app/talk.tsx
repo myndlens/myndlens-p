@@ -886,9 +886,9 @@ export default function TalkScreen() {
       wsClient.on('tts_audio', (env: WSEnvelope) => {
         const curState = audioStateRef.current;
         const uiMode = env.payload.ui_mode || '';
-        // During CAPTURING: allow system barge-in (gap_question, approval) but block stale mandate TTS
+        // During CAPTURING: allow system barge-in (gap_question, approval, mandate_resume) but block stale mandate TTS
         if (curState === 'CAPTURING' || curState === 'ACCUMULATING') {
-          if (uiMode === 'gap_question' || uiMode === 'approval') {
+          if (uiMode === 'gap_question' || uiMode === 'approval' || uiMode === 'mandate_resume') {
             // System barge-in — pause capture, play TTS, then auto-record resumes
             console.log('[Talk] System barge-in during capture — ui_mode:', uiMode);
             stopRecording().catch(() => {});
@@ -908,7 +908,10 @@ export default function TalkScreen() {
         if (awCmd !== 'none') {
           setAwaitingCommand(awCmd);
           if (draftId) setPendingDraftId(draftId);
-          setPendingAction('approve');
+          // Only set pendingAction for approval states, not for resume_or_kill
+          if (awCmd !== 'resume_or_kill') {
+            setPendingAction('approve');
+          }
         }
         setTtsText(text);
         // Dedup: skip if this exact text was just played (prevents double TTS)
@@ -1535,7 +1538,7 @@ export default function TalkScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* Secondary: Kill/Change + Done/Yes — server-driven via command_input */}
+          {/* Secondary: Kill/Change + Done/Yes/Resume — server-driven via command_input */}
           <View style={styles.secondaryRow}>
             <TouchableOpacity style={[styles.killButton,
                 audioState === 'IDLE' && !pendingAction && awaitingCommand === 'none' && fragmentCount === 0 && styles.approveDisabled]}
@@ -1544,7 +1547,14 @@ export default function TalkScreen() {
                 const sid = wsClient.currentSessionId;
                 console.log('[BTN:KILL/CHANGE] tap — sid=%s awaitingCommand=%s pendingAction=%s', sid, awaitingCommand, pendingAction);
                 if (!sid) return;
-                if (awaitingCommand === 'approve_or_change' || pendingAction) {
+                if (awaitingCommand === 'resume_or_kill') {
+                  // Mandate resume: user tapped "Kill" — abort pending mandates
+                  console.log('[BTN:KILL:MANDATE_RESUME] sending DECLINE_CHANGE');
+                  wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'DECLINE_CHANGE', source: 'button' });
+                  setAwaitingCommand('none');
+                  setPendingDraftId(null);
+                  transition('IDLE');
+                } else if (awaitingCommand === 'approve_or_change' || pendingAction) {
                   console.log('[BTN:CHANGE] sending DECLINE_CHANGE');
                   wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'DECLINE_CHANGE', source: 'button' });
                   setAwaitingCommand('none');
@@ -1581,6 +1591,12 @@ export default function TalkScreen() {
                   transition('THINKING');  // Transition FIRST — before stopRecording triggers VAD callback
                   stopRecording().catch(() => {});
                   wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'END_THOUGHT', source: 'button' });
+                } else if (awaitingCommand === 'resume_or_kill') {
+                  // RESUME mandate — user tapped "Resume"
+                  console.log('[BTN:RESUME] sending APPROVE for mandate resume, draft=%s', pendingDraftId);
+                  wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'APPROVE', source: 'button', draft_id: pendingDraftId || '' });
+                  setAwaitingCommand('none');
+                  transition('THINKING');
                 } else if (awaitingCommand === 'approve_or_change' || pendingAction) {
                   // APPROVE
                   console.log('[BTN:YES] sending APPROVE draft=%s', pendingDraftId);
@@ -1596,8 +1612,8 @@ export default function TalkScreen() {
               activeOpacity={0.8}
               data-testid="approve-btn"
             >
-              <Text style={styles.smallBtnIcon}>{audioState === 'HOLDING' ? '\u25B6' : fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? '\u2713' : '\u2714'}</Text>
-              <Text style={styles.smallBtnText}>{audioState === 'HOLDING' ? 'Continue' : fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? 'Done' : 'Approve'}</Text>
+              <Text style={styles.smallBtnIcon}>{audioState === 'HOLDING' ? '\u25B6' : fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? '\u2713' : awaitingCommand === 'resume_or_kill' ? '\u25B6' : '\u2714'}</Text>
+              <Text style={styles.smallBtnText}>{audioState === 'HOLDING' ? 'Continue' : fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? 'Done' : awaitingCommand === 'resume_or_kill' ? 'Resume' : 'Approve'}</Text>
             </TouchableOpacity>
           </View>
         </View>
