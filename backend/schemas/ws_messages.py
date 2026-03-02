@@ -122,6 +122,10 @@ class AuthOkPayload(BaseModel):
     user_id: str
     heartbeat_interval_ms: int
     has_pending_mandate: bool = False
+    has_migrated_fragments: bool = False   # True if fragments survived a reconnect
+    migrated_fragment_count: int = 0       # Number of fragments carried over
+    migrated_phase: str = ""               # Conversation phase from old session (e.g. "HELD", "ACTIVE_CAPTURE")
+    capture_started_at_ms: int = 0         # Epoch ms when capture session started (for 5-min cap timer restore)
     server_ts: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

@@ -123,6 +123,9 @@ class ConversationState:
 # Per-session conversation states
 _conversation_states: Dict[str, ConversationState] = {}
 
+# User → session mapping for state migration on reconnect
+_user_session_map: Dict[str, str] = {}
+
 
 def get_or_create_conversation(session_id: str, user_id: str = "", user_first_name: str = "") -> ConversationState:
     if session_id not in _conversation_states:
@@ -131,7 +134,46 @@ def get_or_create_conversation(session_id: str, user_id: str = "", user_first_na
             user_id=user_id,
             user_first_name=user_first_name,
         )
+    # Track user → session for reconnect migration
+    if user_id:
+        _user_session_map[user_id] = session_id
     return _conversation_states[session_id]
+
+
+def migrate_conversation_for_user(user_id: str, new_session_id: str) -> bool:
+    """Migrate active conversation state from old session to new session on reconnect.
+    Returns True if fragments were migrated."""
+    old_session_id = _user_session_map.get(user_id)
+    if not old_session_id or old_session_id == new_session_id:
+        return False
+    old_state = _conversation_states.get(old_session_id)
+    if not old_state or not old_state.fragments:
+        return False
+
+    logger.info("[CONV:MIGRATE] user=%s old_session=%s → new_session=%s fragments=%d",
+                user_id, old_session_id, new_session_id, len(old_state.fragments))
+
+    # Create new state with old fragments
+    new_state = ConversationState(
+        session_id=new_session_id,
+        user_id=user_id,
+        user_first_name=old_state.user_first_name,
+    )
+    new_state.fragments = old_state.fragments
+    new_state.combined_transcript = old_state.combined_transcript
+    new_state.checklist = old_state.checklist
+    new_state.questions_remaining = old_state.questions_remaining
+    new_state.questions_asked = old_state.questions_asked
+    new_state.phase = old_state.phase
+    new_state.last_fragment_at = old_state.last_fragment_at
+    new_state.created_at = old_state.created_at  # Preserve capture start time for 5-min cap
+
+    _conversation_states[new_session_id] = new_state
+    _user_session_map[user_id] = new_session_id
+
+    # Cleanup old session
+    _conversation_states.pop(old_session_id, None)
+    return True
 
 
 def reset_conversation(session_id: str) -> None:

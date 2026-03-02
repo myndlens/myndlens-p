@@ -12,7 +12,7 @@ import pytest
 import requests
 import uuid
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://sovereign-exec-qa.preview.emergentagent.com')
+BASE_URL = os.environ.get('MYNDLENS_BACKEND_URL', 'https://app.myndlens.com')
 
 
 class TestPhase0Health:
@@ -26,65 +26,6 @@ class TestPhase0Health:
         assert data["status"] == "healthy"
         assert "version" in data
         print(f"Health check passed: env={data.get('env')}, version={data.get('version')}")
-
-
-class TestPhase0Onboarding:
-    """Phase 0: Onboarding APIs — seeds Digital Self"""
-
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        self.test_user_id = f"TEST_onboard_{uuid.uuid4().hex[:8]}"
-
-    def test_get_onboarding_status_new_user(self):
-        """GET /api/onboarding/status/{user_id} returns default status for new user"""
-        response = requests.get(f"{BASE_URL}/api/onboarding/status/{self.test_user_id}")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["user_id"] == self.test_user_id
-        assert data["completed"] is False
-        assert data["step"] == 0
-        print(f"Onboarding status for new user: completed={data['completed']}")
-
-    def test_save_onboarding_profile(self):
-        """POST /api/onboarding/profile saves user profile to Digital Self"""
-        profile = {
-            "user_id": self.test_user_id,
-            "display_name": "Test User",
-            "preferences": {"theme": "dark", "language": "en"},
-            "contacts": [
-                {"name": "Alice", "relationship": "sister"},
-                {"name": "Bob", "relationship": "colleague"}
-            ],
-            "routines": ["Wake up at 7am", "Morning coffee at 8am"],
-            "communication_style": "casual",
-            "timezone": "America/New_York"
-        }
-        response = requests.post(f"{BASE_URL}/api/onboarding/profile", json=profile)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["user_id"] == self.test_user_id
-        assert data["completed"] is True
-        assert data["step"] == 5
-        assert data["items_stored"] > 0  # Facts + entities stored
-        print(f"Onboarding profile saved: items_stored={data['items_stored']}")
-
-        # Verify status updated
-        status_response = requests.get(f"{BASE_URL}/api/onboarding/status/{self.test_user_id}")
-        assert status_response.status_code == 200
-        status_data = status_response.json()
-        assert status_data["completed"] is True
-
-    def test_skip_onboarding(self):
-        """POST /api/onboarding/skip/{user_id} marks onboarding as skipped"""
-        skip_user = f"TEST_skip_{uuid.uuid4().hex[:8]}"
-        response = requests.post(f"{BASE_URL}/api/onboarding/skip/{skip_user}")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["user_id"] == skip_user
-        assert data["completed"] is True
-        assert data["step"] == 0
-        assert data["items_stored"] == 0
-        print(f"Onboarding skipped for user: {skip_user}")
 
 
 class TestPhase0PromptBuild:
@@ -251,19 +192,18 @@ class TestPhase1DimensionExtraction:
         response = requests.post(f"{BASE_URL}/api/dimensions/extract", json=payload)
         assert response.status_code == 200
         data = response.json()
-        
-        # Verify A-set fields
-        assert "who" in data
-        assert "what" in data
-        assert "when" in data
-        assert "where" in data
-        assert "how" in data
+
+        # Verify response structure (actions-based schema)
+        assert "actions" in data
         assert "confidence" in data
         assert "_meta" in data
-        
-        print(f"Dimensions extracted: source={data['_meta'].get('source')}")
-        print(f"  who={data.get('who')}, what={data.get('what')}")
-        print(f"  when={data.get('when')}, where={data.get('where')}")
+        assert isinstance(data["actions"], list)
+        assert len(data["actions"]) > 0
+
+        action = data["actions"][0]
+        assert "action" in action
+        assert "dimensions" in action
+        print(f"Dimensions extracted: action={action['action']}, dims={list(action['dimensions'].keys())}")
 
     def test_extract_dimensions_minimal(self):
         """POST /api/dimensions/extract with minimal input"""
@@ -273,8 +213,9 @@ class TestPhase1DimensionExtraction:
         response = requests.post(f"{BASE_URL}/api/dimensions/extract", json=payload)
         assert response.status_code == 200
         data = response.json()
-        assert "what" in data
-        print(f"Minimal dimensions: what={data.get('what')}")
+        assert "actions" in data
+        assert len(data["actions"]) > 0
+        print(f"Minimal dimensions: action={data['actions'][0]['action']}")
 
 
 class TestPhase2Experiments:

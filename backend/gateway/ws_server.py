@@ -54,7 +54,7 @@ from transcript.storage import save_transcript
 
 from intent.gap_filler import SessionContext, parse_capsule_summary, enrich_transcript
 from gateway.conversation_state import (
-    get_or_create_conversation, cleanup_conversation,
+    get_or_create_conversation,
 )
 from mandate.store import (
     save_mandate, get_mandate, transition_state,
@@ -103,6 +103,17 @@ async def _session_cleanup_loop():
                 for k in stale:
                     map_dict.pop(k, None)
                 total_stale += len(stale)
+            # Clean orphaned conversation states (sessions that disconnected >5 min ago
+            # and never reconnected). We import here to avoid circular dependency.
+            from gateway.conversation_state import _conversation_states, _user_session_map
+            stale_convs = [k for k in _conversation_states if k not in active_ids]
+            for k in stale_convs:
+                _conversation_states.pop(k, None)
+            # Also clean user→session mappings for cleaned-up sessions
+            stale_users = [u for u, s in _user_session_map.items() if s not in active_ids and s not in _conversation_states]
+            for u in stale_users:
+                _user_session_map.pop(u, None)
+            total_stale += len(stale_convs)
             if total_stale:
                 logger.info("[CLEANUP] Removed %d stale session entries", total_stale)
         except Exception as e:
@@ -396,16 +407,27 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             "data_residency":      auth_payload.data_residency,
         }
 
+        # Migrate conversation state from old session (if user was capturing fragments)
+        from gateway.conversation_state import migrate_conversation_for_user
+        has_migrated_fragments = False
+        if user_id_resolved:
+            has_migrated_fragments = migrate_conversation_for_user(user_id_resolved, session_id)
+
         # Check for resumable mandates before sending AUTH_OK
         from mandate.store import get_pending_for_user
         _pending_for_resume = await get_pending_for_user(user_id_resolved) if user_id_resolved else None
 
         # Send AUTH_OK
+        _migrated_conv = get_or_create_conversation(session_id, user_id=user_id_resolved or "") if has_migrated_fragments else None
         await _send(websocket, WSMessageType.AUTH_OK, AuthOkPayload(
             session_id=session_id,
             user_id=user_id_resolved,
             heartbeat_interval_ms=get_heartbeat_interval_ms(),
             has_pending_mandate=_pending_for_resume is not None,
+            has_migrated_fragments=has_migrated_fragments,
+            migrated_fragment_count=len(_migrated_conv.fragments) if _migrated_conv else 0,
+            migrated_phase=_migrated_conv.phase if _migrated_conv else "",
+            capture_started_at_ms=int(_migrated_conv.created_at * 1000) if _migrated_conv else 0,
         ))
 
         # Pre-load Digital Self into session memory — zero-latency for first mandate
@@ -582,7 +604,10 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             _clarification_state.pop(session_id, None)
             _session_question_count.pop(session_id, None)
             _fragment_locks.pop(session_id, None)
-            cleanup_conversation(session_id)
+            # NOTE: Do NOT call cleanup_conversation(session_id) here.
+            # The conversation state (fragments) must survive disconnect so that
+            # migrate_conversation_for_user() can recover them on reconnect.
+            # Migration handles cleanup of the old session's state.
             # Unregister from proactive scheduler
             from proactive.scheduler import unregister_session
             if user_id_resolved:
@@ -1481,6 +1506,104 @@ async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, u
         conv.phase = "ACTIVE_CAPTURE"
         logger.info("[COMMAND] session=%s RESUMED", session_id)
 
+    elif command == "FIVE_MIN_CAP":
+        # 5-minute capture window reached — ask user before processing
+        logger.info("[COMMAND:FIVE_MIN_CAP] session=%s — sending confirmation TTS", session_id)
+        _user_first_name = ""
+        session_ctx_name = _session_contexts.get(session_id)
+        if session_ctx_name and session_ctx_name.user_name:
+            _user_first_name = session_ctx_name.user_name.split()[0]
+        name = _user_first_name or "there"
+        confirm_text = f"{name}, you've been going for 5 minutes. Shall I start processing your intent?"
+        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+            text=confirm_text,
+            session_id=session_id,
+            format="text",
+            is_mock=True,
+            auto_record=True,
+            is_clarification=True,
+            ui_mode="approval",
+            awaiting_command="approve_or_change",
+        ))
+        # If user says "yes" or taps Approve → triggers END_THOUGHT via clarification flow
+        _clarification_state[session_id] = {
+            "pending": True,
+            "type": "five_min_cap",
+            "original_transcript": conv.get_combined_transcript() or "",
+            "_cycle_id": conv.cycle_id if hasattr(conv, 'cycle_id') else "",
+        }
+
+    elif command == "SILENCE_DETECTED":
+        # Frontend detected 5s of silence during capture — evaluate checklist gaps
+        logger.info("[COMMAND:SILENCE_DETECTED] session=%s fragments=%d questions_remaining=%d",
+                     session_id, len(conv.fragments), conv.questions_remaining)
+        if not conv.fragments or conv.questions_remaining <= 0:
+            return
+        # Check checklist for unfilled dimensions
+        gaps = [item.dimension for item in conv.get_unfilled()]
+        if not gaps:
+            # Checklist complete — check if deterministic intent can be formed (Type B barge-in)
+            combined = conv.get_combined_transcript()
+            if combined and len(conv.fragments) >= 2:
+                logger.info("[SILENCE:DETERMINISTIC] session=%s — intent may be complete", session_id)
+                from intent.fragment_analyzer import analyze_fragment
+                try:
+                    analysis = await analyze_fragment(
+                        session_id=session_id, user_id=user_id,
+                        fragment_text=combined, accumulated_context="", ds_summary="",
+                    )
+                    if analysis and analysis.confidence >= 0.85:
+                        intent_summary = combined[:200]
+                        _user_fn = ""
+                        sc = _session_contexts.get(session_id)
+                        if sc and sc.user_name:
+                            _user_fn = sc.user_name.split()[0]
+                        barge_text = f"{_user_fn or 'Hey'}, I think I have your intent: {intent_summary}. Shall I proceed?"
+                        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                            text=barge_text,
+                            session_id=session_id,
+                            format="text",
+                            is_mock=True,
+                            auto_record=True,
+                            is_clarification=True,
+                            ui_mode="approval",
+                            awaiting_command="approve_or_change",
+                        ))
+                        _clarification_state[session_id] = {
+                            "pending": True,
+                            "type": "five_min_cap",
+                            "original_transcript": combined,
+                        }
+                        conv.questions_remaining -= 1
+                        return
+                except Exception as e:
+                    logger.warning("[SILENCE:DETERMINISTIC] analysis failed: %s", e)
+            return
+        # System barge-in Type A: ask about checklist gaps (up to 3 items per question)
+        gap_list = ", ".join(gaps[:3])
+        _user_fn = ""
+        sc = _session_contexts.get(session_id)
+        if sc and sc.user_name:
+            _user_fn = sc.user_name.split()[0]
+        question = f"Just to clarify, could you tell me about the {gap_list}?"
+        logger.info("[SILENCE:GAP_Q] session=%s asking about gaps: %s", session_id, gap_list)
+        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+            text=question,
+            session_id=session_id,
+            format="text",
+            is_mock=True,
+            auto_record=True,
+            is_clarification=False,
+            ui_mode="gap_question",
+        ))
+        conv.questions_remaining -= 1
+        conv.questions_asked.append(question)
+        # Set clarification state so the answer is treated as a fragment, not a full mandate
+        _clarification_state[session_id] = {
+            "pending": True,
+            "type": "gap_answer",
+        }
+
     elif command == "CANCEL":
         conv.reset()
         _clarification_state.pop(session_id, None)
@@ -1601,6 +1724,51 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
                 logger.info("[CLARIFICATION:PERMISSION] session=%s DECLINED", session_id)
             return
 
+        # ── Gap question answer — analyze, fill checklist, resume capture ────
+        if clarify_type == "gap_answer":
+            logger.info("[CLARIFICATION:GAP_ANSWER] session=%s answer='%s'", session_id, text[:80])
+            _clarification_state.pop(session_id, None)
+            conv_gap = get_or_create_conversation(session_id, user_id=user_id)
+
+            # Run fragment analysis on the answer to extract dimensions
+            from intent.fragment_analyzer import analyze_fragment as _analyze_gap
+            try:
+                gap_analysis = await _analyze_gap(
+                    session_id=session_id, user_id=user_id,
+                    fragment_text=text,
+                    accumulated_context=conv_gap.combined_transcript,
+                    ds_summary="",
+                )
+                sub_intents = gap_analysis.sub_intents if gap_analysis else []
+                confidence = gap_analysis.confidence if gap_analysis else 0.7
+                # Fill checklist with extracted dimensions
+                if gap_analysis and gap_analysis.dimensions_found:
+                    for dim, val in gap_analysis.dimensions_found.items():
+                        conv_gap.fill_checklist(dim, val, source="gap_answer")
+                    logger.info("[GAP_ANSWER:DIMS] session=%s filled %d dimensions: %s",
+                                session_id, len(gap_analysis.dimensions_found),
+                                list(gap_analysis.dimensions_found.keys()))
+            except Exception as e:
+                logger.warning("[GAP_ANSWER:ANALYZE] session=%s failed: %s", session_id, e)
+                sub_intents = []
+                confidence = 0.7
+
+            conv_gap.add_fragment(text, sub_intents, confidence)
+            conv_gap.phase = "ACTIVE_CAPTURE"
+
+            # Calculate accurate checklist progress
+            total_items = len(conv_gap.checklist)
+            filled_items = len([c for c in conv_gap.checklist if c.filled])
+            progress = round(filled_items / max(total_items, 1) * 100)
+
+            # Send fragment_ack with 'resumed' to tell frontend to restart capture
+            await ws.send_text(_make_envelope(WSMessageType.FRAGMENT_ACK, {
+                "session_id": session_id, "status": "resumed",
+                "fragment_text": text,
+                "sub_intents": sub_intents, "checklist_progress": progress,
+            }))
+            return
+
         # ── Dimension clarification response ──────────────────────────────────
         if clarify_type == "dimension":
             combined = f"{clarify['original_transcript']}. Answer: {text}"
@@ -1620,6 +1788,34 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
             }
             await _send_mock_tts_response(ws, session_id, combined, user_id=user_id,
                                           context_capsule=clarify.get("context_capsule"))
+            return
+
+        # ── Five-minute cap response ──────────────────────────────────────────
+        if clarify_type == "five_min_cap":
+            affirmatives = {"yes","sure","ok","okay","proceed","go","do it",
+                            "correct","absolutely","yep","yup","go ahead",
+                            "please","please do","right","alright","start"}
+            norm = text.lower().strip().rstrip(".,!")
+            is_affirmative = any(a in norm for a in affirmatives) or norm in affirmatives
+            if is_affirmative:
+                logger.info("[FIVE_MIN_CAP] session=%s APPROVED — processing intent", session_id)
+                _clarification_state.pop(session_id, None)
+                combined = clarify.get("original_transcript", "")
+                if combined:
+                    transcript_assembler.cleanup(session_id)
+                    await _handle_text_input(ws, session_id, {"text": combined}, user_id=user_id)
+                else:
+                    logger.warning("[FIVE_MIN_CAP] session=%s — empty transcript", session_id)
+            else:
+                # User wants to continue — resume capture
+                logger.info("[FIVE_MIN_CAP] session=%s DECLINED — resuming capture", session_id)
+                _clarification_state.pop(session_id, None)
+                _conv = get_or_create_conversation(session_id, user_id=user_id)
+                _conv.phase = "ACTIVE_CAPTURE"
+                await ws.send_text(_make_envelope(WSMessageType.FRAGMENT_ACK, {
+                    "session_id": session_id, "status": "resumed",
+                    "sub_intents": [], "checklist_progress": 0,
+                }))
             return
 
         # ── Change intent response ─────────────────────────────────────────────
@@ -2006,24 +2202,24 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             if sub_intents and len(sub_intents) > 0:
                 sub_list = ". ".join(str(s) for s in sub_intents[:3] if s)
                 response_text = (
-                    f"{name_prefix}got it. {summary}. "
+                    f"Hi {name_prefix.rstrip(', ')}, {summary}. "
                     f"This covers: {sub_list}. "
-                    f"Shall I proceed?"
+                    f"All set. Ready for OpenClaw action. Please Approve."
                 )
             else:
-                response_text = f"{name_prefix}got it. {summary}. Shall I proceed?"
+                response_text = f"Hi {name_prefix.rstrip(', ')}, {summary}. All set. Ready for OpenClaw action. Please Approve."
         else:
             name_prefix = f"{_user_first_name}, " if _user_first_name else ""
             sub_intents = top.sub_intents if top.sub_intents else []
             if sub_intents and len(sub_intents) > 0:
                 sub_list = ". ".join(str(s) for s in sub_intents[:3] if s)
                 response_text = (
-                    f"{name_prefix}got it. {summary}. "
+                    f"Hi {name_prefix.rstrip(', ')}, {summary}. "
                     f"This covers: {sub_list}. "
-                    f"Shall I proceed?"
+                    f"All set. Ready for OpenClaw action. Please Approve."
                 )
             else:
-                response_text = f"{name_prefix}got it. {summary}. Shall I proceed?"
+                response_text = f"Hi {name_prefix.rstrip(', ')}, {summary}. All set. Ready for OpenClaw action. Please Approve."
     else:
         top_h = l1_draft.hypotheses[0].hypothesis if l1_draft.hypotheses else transcript[:50]
         response_text = f"Understood: {top_h}. Tap Approve."
@@ -2113,7 +2309,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             "format": "mp3", "is_mock": False,
             "audio": audio_b64,
             "audio_size_bytes": len(result.audio_bytes),
-            "auto_record": needs_approval,
+            "auto_record": False,  # Execution approval = physical tap only, no voice
             "is_clarification": needs_approval,
             "ui_mode": "approval" if needs_approval else "executing" if delegation_mode == "delegated" else "idle",
             "awaiting_command": "approve_or_change" if needs_approval else "none",
@@ -2126,7 +2322,7 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         payload_dict = {
             "text": response_text, "session_id": session_id,
             "format": "text", "is_mock": True,
-            "auto_record": needs_approval,
+            "auto_record": False,  # Execution approval = physical tap only, no voice
             "is_clarification": needs_approval,
             "ui_mode": "approval" if needs_approval else "executing" if delegation_mode == "delegated" else "idle",
             "awaiting_command": "approve_or_change" if needs_approval else "none",

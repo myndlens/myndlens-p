@@ -390,6 +390,8 @@ export default function TalkScreen() {
   const [waNotPaired, setWaNotPaired]   = useState(false);
   const [dsSyncStatus, setDsSyncStatus] = useState<string | null>(null); // 'syncing' | 'done' | null
   const [fragmentCount, setFragmentCount] = useState(0);  // pulsing dot counter
+  const [fragmentFeedback, setFragmentFeedback] = useState('');  // "Continue Speaking..." text
+  const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thoughtStreamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);  // legacy ref — kept for cleanup in hold/done paths
   const lastTtsRef = useRef('');
   const lastTtsTimeRef = useRef(0);
@@ -752,9 +754,41 @@ export default function TalkScreen() {
           // user was already using the app, "Good morning" is disruptive
           if (isReconnecting.current) {
             isReconnecting.current = false;  // Reset flag — auth_ok has fired
-            console.log('[Talk] Silent reconnect — suppressing greeting, going to IDLE');
-            setConnectionStatus('authenticated');
-            transition('IDLE');
+            const migratedCount = env.payload.migrated_fragment_count || 0;
+            const hasMigrated = env.payload.has_migrated_fragments || false;
+
+            if (hasMigrated && migratedCount > 0) {
+              const migratedPhase: string = env.payload.migrated_phase || '';
+              const captureStartMs: number = env.payload.capture_started_at_ms || 0;
+              // Fragments survived the reconnect — resume based on migrated phase
+              console.log(`[Talk] Silent reconnect — ${migratedCount} fragments migrated, phase=${migratedPhase}, captureStart=${captureStartMs}`);
+              setConnectionStatus('authenticated');
+              setFragmentCount(migratedCount);
+
+              // Restore 5-minute capture timer from server
+              if (captureStartMs > 0) {
+                captureSessionStart.current = captureStartMs;
+              } else {
+                captureSessionStart.current = Date.now();
+              }
+
+              if (migratedPhase === 'HELD') {
+                // User was on hold when app backgrounded — restore HOLDING state
+                setFragmentFeedback(`Resumed with ${migratedCount} fragment${migratedCount > 1 ? 's' : ''} — still on hold`);
+                setTimeout(() => setFragmentFeedback(''), 5000);
+                transition('HOLDING');
+              } else {
+                // Normal capture resume
+                setFragmentFeedback(`Resumed with ${migratedCount} thought fragment${migratedCount > 1 ? 's' : ''}. Continue speaking...`);
+                setTimeout(() => setFragmentFeedback(''), 5000);
+                transition('CAPTURING');
+                captureNextFragment().catch((e: unknown) => console.warn('[Talk] resume capture error:', e));
+              }
+            } else {
+              console.log('[Talk] Silent reconnect — no fragments, going to IDLE');
+              setConnectionStatus('authenticated');
+              transition('IDLE');
+            }
             return;
           }
 
@@ -788,12 +822,23 @@ export default function TalkScreen() {
         if (fragment_text) {
           setChatMessages(prev => [...prev, { role: 'user', text: fragment_text, ts: Date.now() }]);
         }
+        // Show feedback during capture
+        if (status === 'ok' || status === 'accepted' || status === 'captured') {
+          setFragmentFeedback('Continue Speaking... Processing thought fragments');
+          setTimeout(() => setFragmentFeedback(''), 4000);
+        }
         // HOLD: backend detected "MyndLens hold/wait" — pause capture
         if (status === 'held') {
           console.log('[Talk] HOLD acknowledged — pausing capture');
           stopRecording().catch(() => {});
           if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
           transition('HOLDING');
+        }
+        // RESUME: backend detected "MyndLens resume/continue" — restart capture
+        if (status === 'resumed') {
+          console.log('[Talk] RESUME acknowledged — restarting capture');
+          transition('CAPTURING');
+          captureNextFragment().catch((e: unknown) => console.warn('[Talk] resume capture error:', e));
         }
       }),
       // Biometric gate — backend requests auth before execution
@@ -839,17 +884,24 @@ export default function TalkScreen() {
         }
       }),
       wsClient.on('tts_audio', (env: WSEnvelope) => {
-        // Guard: ignore stale TTS from a previous mandate if user already started a new capture
         const curState = audioStateRef.current;
+        const uiMode = env.payload.ui_mode || '';
+        // During CAPTURING: allow system barge-in (gap_question, approval) but block stale mandate TTS
         if (curState === 'CAPTURING' || curState === 'ACCUMULATING') {
-          console.log('[Talk] Ignoring tts_audio — user is already capturing new mandate');
-          return;
+          if (uiMode === 'gap_question' || uiMode === 'approval') {
+            // System barge-in — pause capture, play TTS, then auto-record resumes
+            console.log('[Talk] System barge-in during capture — ui_mode:', uiMode);
+            stopRecording().catch(() => {});
+            if (silenceTimer.current) { clearTimeout(silenceTimer.current); silenceTimer.current = null; }
+          } else {
+            console.log('[Talk] Ignoring stale tts_audio during capture — ui_mode:', uiMode);
+            return;
+          }
         }
         const text = env.payload.text || '';
         const audioBase64: string = env.payload.audio || '';
         const isMock: boolean = env.payload.is_mock ?? true;
         const autoRecord: boolean = env.payload.auto_record ?? false;
-        const uiMode: string = env.payload.ui_mode ?? '';
         const awCmd: string = env.payload.awaiting_command ?? 'none';
         const draftId: string = env.payload.draft_id ?? '';
         // Update server-driven command context
@@ -1023,6 +1075,7 @@ export default function TalkScreen() {
 
   async function captureNextFragment() {
     recordingStartedAt.current = Date.now();
+    if (silenceTimer.current) { clearTimeout(silenceTimer.current); silenceTimer.current = null; }
     await startRecording(
       async () => {
         // VAD auto-stop: sentence-level pause detected
@@ -1042,12 +1095,26 @@ export default function TalkScreen() {
           wsClient.send('cancel', { session_id: sid, reason: 'fragment_captured' });
           setFragmentCount(prev => prev + 1);
 
+          // Start silence timer — if no new VAD trigger in 5 seconds,
+          // notify backend to evaluate checklist gaps and potentially ask questions
+          if (silenceTimer.current) clearTimeout(silenceTimer.current);
+          silenceTimer.current = setTimeout(() => {
+            const curSid = wsClient.currentSessionId;
+            if (curSid && (audioStateRef.current === 'CAPTURING' || audioStateRef.current === 'ACCUMULATING')) {
+              console.log('[Talk] 5s silence detected — notifying backend');
+              wsClient.send('command_input' as WSMessageType, { session_id: curSid, command: 'SILENCE_DETECTED', source: 'timer' });
+            }
+          }, 5000);
+
           // Check 5-minute cap
           const elapsed = Date.now() - captureSessionStart.current;
           if (elapsed >= CAPTURE_SESSION_MAX_MS) {
-            console.log('[Talk] 5-minute capture cap reached — ending thought stream');
-            wsClient.send('thought_stream_end', { session_id: sid });
-            transition('THINKING');
+            console.log('[Talk] 5-minute capture cap reached — asking user');
+            // Stop recording, ask user before processing
+            stopRecording().catch(() => {});
+            wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'FIVE_MIN_CAP', source: 'timer' });
+            // Backend will send a TTS asking "Shall I start processing?"
+            // Stay in CAPTURING state until backend responds
             return;
           }
 
@@ -1143,7 +1210,22 @@ export default function TalkScreen() {
         transition('IDLE');
         return;
       }
-      // Manual stop after 1.5s → user finished speaking, submit
+
+      // If fragments have been accumulated, mic tap = Done (END_THOUGHT)
+      // Prevents data loss — manual stop path would bypass accumulated fragments
+      if (fragmentCount > 0) {
+        console.log('[BTN:MIC→DONE] fragmentCount=%d — treating mic tap as Done', fragmentCount);
+        if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
+        if (silenceTimer.current) { clearTimeout(silenceTimer.current); silenceTimer.current = null; }
+        doneRequested.current = true;
+        transition('THINKING');
+        stopRecording().catch(() => {});
+        const sid = wsClient.currentSessionId;
+        if (sid) wsClient.send('command_input' as WSMessageType, { session_id: sid, command: 'END_THOUGHT', source: 'button' });
+        return;
+      }
+
+      // No fragments yet — single-shot manual stop (first utterance)
       const audioBase64 = await stopAndGetAudio();
       const sid = wsClient.currentSessionId;
       if (audioBase64 && sid) {
@@ -1427,6 +1509,9 @@ export default function TalkScreen() {
               {liveEnergy >= 0.015 ? 'listening...' : 'waiting...'}
             </Text>
           )}
+          {audioState === 'CAPTURING' && fragmentFeedback !== '' && (
+            <Text style={styles.fragmentFeedbackLabel}>{fragmentFeedback}</Text>
+          )}
           <Animated.View style={{ transform: [{ scale: micAnim }] }}>
             <TouchableOpacity
               style={[styles.micButton, { backgroundColor: micColor }, audioState === 'THINKING' && styles.micThinking]}
@@ -1452,7 +1537,10 @@ export default function TalkScreen() {
 
           {/* Secondary: Kill/Change + Done/Yes — server-driven via command_input */}
           <View style={styles.secondaryRow}>
-            <TouchableOpacity style={styles.killButton} onPress={() => {
+            <TouchableOpacity style={[styles.killButton,
+                audioState === 'IDLE' && !pendingAction && awaitingCommand === 'none' && fragmentCount === 0 && styles.approveDisabled]}
+              disabled={audioState === 'IDLE' && !pendingAction && awaitingCommand === 'none' && fragmentCount === 0}
+              onPress={() => {
                 const sid = wsClient.currentSessionId;
                 console.log('[BTN:KILL/CHANGE] tap — sid=%s awaitingCommand=%s pendingAction=%s', sid, awaitingCommand, pendingAction);
                 if (!sid) return;
@@ -1488,6 +1576,7 @@ export default function TalkScreen() {
                   // END_THOUGHT
                   console.log('[BTN:DONE] sending END_THOUGHT');
                   if (thoughtStreamTimer.current) { clearTimeout(thoughtStreamTimer.current); thoughtStreamTimer.current = null; }
+                  if (silenceTimer.current) { clearTimeout(silenceTimer.current); silenceTimer.current = null; }
                   doneRequested.current = true;  // Prevent captureNextFragment from overriding THINKING
                   transition('THINKING');  // Transition FIRST — before stopRecording triggers VAD callback
                   stopRecording().catch(() => {});
@@ -1818,6 +1907,10 @@ const styles = StyleSheet.create({
   vadListeningLabel: {
     color: '#6C5CE7', fontSize: 11, letterSpacing: 0.8,
     marginBottom: 10, textTransform: 'lowercase',
+  },
+  fragmentFeedbackLabel: {
+    color: '#888', fontSize: 11, fontStyle: 'italic',
+    marginBottom: 6, textAlign: 'center',
   },
 
   micButton: {
