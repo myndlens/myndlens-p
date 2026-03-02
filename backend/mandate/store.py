@@ -22,12 +22,13 @@ class MandateState(str, Enum):
     DISPATCHED = "DISPATCHED"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    ABORTED = "ABORTED"
 
 
 _VALID_TRANSITIONS = {
-    MandateState.DIMENSIONS_EXTRACTED: {MandateState.GUARDRAILS_PASSED, MandateState.APPROVAL_PENDING, MandateState.FAILED},
-    MandateState.GUARDRAILS_PASSED: {MandateState.APPROVAL_PENDING, MandateState.FAILED},
-    MandateState.APPROVAL_PENDING: {MandateState.APPROVED, MandateState.FAILED},
+    MandateState.DIMENSIONS_EXTRACTED: {MandateState.GUARDRAILS_PASSED, MandateState.APPROVAL_PENDING, MandateState.FAILED, MandateState.ABORTED},
+    MandateState.GUARDRAILS_PASSED: {MandateState.APPROVAL_PENDING, MandateState.FAILED, MandateState.ABORTED},
+    MandateState.APPROVAL_PENDING: {MandateState.APPROVED, MandateState.FAILED, MandateState.ABORTED},
     MandateState.APPROVED: {MandateState.PROVISIONING, MandateState.FAILED},
     MandateState.PROVISIONING: {MandateState.DISPATCHED, MandateState.FAILED},
     MandateState.DISPATCHED: {MandateState.COMPLETED, MandateState.FAILED},
@@ -149,3 +150,29 @@ async def get_pending_for_user(user_id: str) -> Optional[dict]:
         sort=[("updated_at", -1)],
     )
     return doc
+
+
+async def abort_all_pending_for_user(user_id: str, except_draft_id: str = "") -> int:
+    """Abort ALL pending mandates for a user (transition to ABORTED).
+
+    Used when:
+    - User chooses 'start fresh' on reconnect
+    - A new mandate is created (old ones should be aborted)
+    Optionally excludes a specific draft_id (the one being kept).
+    """
+    db = get_db()
+    resumable_states = [
+        MandateState.APPROVAL_PENDING.value,
+        MandateState.DIMENSIONS_EXTRACTED.value,
+        MandateState.GUARDRAILS_PASSED.value,
+    ]
+    query = {"user_id": user_id, "state": {"$in": resumable_states}}
+    if except_draft_id:
+        query["draft_id"] = {"$ne": except_draft_id}
+    result = await db.pending_mandates.update_many(
+        query,
+        {"$set": {"state": MandateState.ABORTED.value, "updated_at": datetime.now(timezone.utc)}},
+    )
+    if result.modified_count:
+        logger.info("[MANDATE_STORE] aborted %d stale mandates for user=%s", result.modified_count, user_id[:16])
+    return result.modified_count

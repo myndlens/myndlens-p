@@ -460,8 +460,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
 
         # ── MANDATE RESUME — check for pending mandates from a prior session ──
         # When the app backgrounds and the WS drops, the mandate persists in DB
-        # (H1). On reconnect, restore the approval flow so the user can continue.
-        # _pending_for_resume was already fetched before AUTH_OK to set the flag.
+        # (H1). On reconnect, ask the user to resume or kill.
         if _pending_for_resume and _pending_for_resume.get("state") == "APPROVAL_PENDING":
             pending = _pending_for_resume
             draft_id = pending["draft_id"]
@@ -479,20 +478,20 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                 cycle_id=cycle_id,
             )
 
-            # Restore clarification state so Yes/Change commands work
+            # Set clarification state for mandate_resume choice
             summary = mandate_data.get("mandate_summary", "")
             original_transcript = mandate_data.get("original_transcript", "")
             _clarification_state[session_id] = {
                 "pending": True,
-                "type": "execution_approval",
+                "type": "mandate_resume",
                 "original_transcript": original_transcript or summary,
                 "question_asked": summary,
                 "draft_id": draft_id,
                 "_cycle_id": cycle_id,
             }
 
-            # Send the mandate summary as TTS so the user can approve/change
-            resume_text = f"Welcome back. You had a pending action: {summary}. Shall I proceed?" if summary else "Welcome back. You have a pending action. Shall I proceed?"
+            # Ask user: resume or start fresh?
+            resume_text = f"Welcome back. You had a pending action: {summary}. Tap Approve to continue, or say start fresh to cancel." if summary else "Welcome back. You have a pending action. Tap Approve to continue, or say start fresh to cancel."
             await _send(websocket, WSMessageType.TTS_AUDIO, TTSAudioPayload(
                 text=resume_text,
                 session_id=session_id,
@@ -505,7 +504,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
                 draft_id=draft_id,
             ))
             logger.info(
-                "[MANDATE_RESUME] session=%s draft=%s state=%s — approval flow restored",
+                "[MANDATE_RESUME] session=%s draft=%s state=%s — asking resume or start fresh",
                 session_id, draft_id, pending["state"],
             )
 
@@ -654,6 +653,29 @@ async def _handle_execute_request(
     auth_token: str = "",
 ) -> None:
     """Execute an approved mandate: L2 → QC → Skills → Dispatch."""
+    # Check if we're in mandate_resume state — user chose "continue"
+    clarify_check = _clarification_state.get(session_id, {})
+    if clarify_check.get("type") == "mandate_resume":
+        # Transition to execution_approval (tap only Phase 3)
+        draft_id = clarify_check.get("draft_id", payload.get("draft_id", ""))
+        _clarification_state[session_id] = {
+            "pending": True,
+            "type": "execution_approval",
+            "original_transcript": clarify_check.get("original_transcript", ""),
+            "question_asked": clarify_check.get("question_asked", ""),
+            "draft_id": draft_id,
+            "_cycle_id": clarify_check.get("_cycle_id", ""),
+        }
+        exec_text = "All Set. Ready for OpenClaw action. Please Approve."
+        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+            text=exec_text, session_id=session_id, format="text", is_mock=True,
+            auto_record=False, is_clarification=True,
+            ui_mode="approval", awaiting_command="approve_or_change",
+            draft_id=draft_id,
+        ))
+        logger.info("[EXECUTE:MANDATE_RESUME] session=%s — transitioned to execution_approval", session_id)
+        return
+
     # Clear execution approval state — execution is starting
     _clarification_state.pop(session_id, None)
     logger.info("[EXECUTE:START] session=%s draft=%s tenant=%s user=%s",
@@ -1487,14 +1509,18 @@ async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, u
     elif command == "END_THOUGHT":
         # If execution_approval is pending, Done button should not trigger pipeline
         clarify_et = _clarification_state.get(session_id, {})
-        if clarify_et.get("pending") and clarify_et.get("type") == "execution_approval":
-            logger.info("[COMMAND:END_THOUGHT] session=%s — execution_approval pending, tap Approve instead", session_id)
+        if clarify_et.get("pending") and clarify_et.get("type") in ("execution_approval", "mandate_resume"):
+            logger.info("[COMMAND:END_THOUGHT] session=%s — %s pending, tap Approve instead", session_id, clarify_et.get("type"))
             _ctx_et = _session_contexts.get(session_id)
             _fn_et = (_ctx_et.user_name.split()[0] if _ctx_et and _ctx_et.user_name else "")
-            tap_msg = f"{_fn_et + ', p' if _fn_et else 'P'}lease tap the Approve button to proceed."
+            if clarify_et.get("type") == "mandate_resume":
+                tap_msg = f"{_fn_et + ', t' if _fn_et else 'T'}ap Approve to continue, or say start fresh to cancel."
+            else:
+                tap_msg = f"{_fn_et + ', p' if _fn_et else 'P'}lease tap the Approve button to proceed."
             await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
                 text=tap_msg, session_id=session_id, format="text", is_mock=True,
-                auto_record=False, is_clarification=True, ui_mode="approval",
+                auto_record=clarify_et.get("type") == "mandate_resume",
+                is_clarification=True, ui_mode="approval",
                 awaiting_command="approve_or_change",
                 draft_id=clarify_et.get("draft_id", ""),
             ))
@@ -1690,6 +1716,61 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
                 auto_record=False, is_clarification=True,
                 ui_mode="approval",
             ))
+            return
+
+        # ── Mandate resume choice: resume or start fresh ─────────────────────
+        if clarify_type == "mandate_resume":
+            kill_phrases = {"start fresh","kill","cancel","no","nope","forget it",
+                            "discard","new","fresh","clear","reset","stop","never mind"}
+            resume_phrases = {"yes","sure","ok","okay","proceed","continue","resume",
+                              "go ahead","yep","yup","right","alright"}
+            norm = text.lower().strip().rstrip(".,!")
+            is_kill = any(k in norm for k in kill_phrases) or norm in kill_phrases
+            is_resume = any(r in norm for r in resume_phrases) or norm in resume_phrases
+
+            if is_kill:
+                logger.info("[MANDATE_RESUME:KILL] session=%s — user chose start fresh", session_id)
+                draft_id = clarify.get("draft_id", "")
+                _clarification_state.pop(session_id, None)
+                # Abort all pending mandates for this user
+                from mandate.store import abort_all_pending_for_user
+                auth_ctx = _session_auth.get(session_id, {})
+                uid = auth_ctx.get("user_id", user_id)
+                if uid:
+                    await abort_all_pending_for_user(uid)
+                _ctx_k = _session_contexts.get(session_id)
+                _fn_k = (_ctx_k.user_name.split()[0] if _ctx_k and _ctx_k.user_name else "")
+                fresh_text = f"Done{' ' + _fn_k if _fn_k else ''}. Cleared. What would you like to do?"
+                await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                    text=fresh_text, session_id=session_id, format="text", is_mock=True,
+                    auto_record=True,
+                ))
+            elif is_resume:
+                logger.info("[MANDATE_RESUME:CONTINUE] session=%s — user chose to continue", session_id)
+                # Transition to execution_approval (tap only)
+                draft_id = clarify.get("draft_id", "")
+                _clarification_state[session_id] = {
+                    "pending": True,
+                    "type": "execution_approval",
+                    "original_transcript": clarify.get("original_transcript", ""),
+                    "question_asked": clarify.get("question_asked", ""),
+                    "draft_id": draft_id,
+                    "_cycle_id": clarify.get("_cycle_id", ""),
+                }
+                exec_text = "All Set. Ready for OpenClaw action. Please Approve."
+                await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                    text=exec_text, session_id=session_id, format="text", is_mock=True,
+                    auto_record=False, is_clarification=True,
+                    ui_mode="approval", awaiting_command="approve_or_change",
+                    draft_id=draft_id,
+                ))
+            else:
+                # Unrecognized — re-ask
+                await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                    text="Say continue to resume, or start fresh to cancel.",
+                    session_id=session_id, format="text", is_mock=True,
+                    auto_record=True, is_clarification=True,
+                ))
             return
 
         # ── Deterministic intent barge-in response (Phase 1 Type B) ──────────
@@ -2263,6 +2344,10 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
         needs_approval = True
 
     # Persist mandate as APPROVAL_PENDING in DB (H1 — replaces in-memory dict)
+    # First, abort any stale pending mandates for this user to prevent accumulation
+    from mandate.store import abort_all_pending_for_user
+    await abort_all_pending_for_user(user_id, except_draft_id=l1_draft.draft_id)
+
     mandate_data = mandate if isinstance(mandate, dict) else {"mandate": mandate}
     mandate_data["original_transcript"] = transcript
     mandate_data["tts_text"] = response_text
