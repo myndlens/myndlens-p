@@ -617,6 +617,18 @@ export default function TalkScreen() {
           await TTS.stop().catch(() => {});
           resetAudio();
 
+          // Clear ALL stale mandate/pipeline state — fresh start after reconnect
+          setPendingAction(null);
+          setAwaitingCommand('none');
+          setPendingDraftId(null);
+          setCompletedStages([]);
+          setPipelineStageIndex(-1);
+          setPipelineSubStatus('');
+          setPipelineProgress(0);
+          setFragmentCount(0);
+          doneRequested.current = false;
+          lastTtsRef.current = '';
+
           // Silent reconnect — do NOT show loading screen
           // The WS dropped during background (normal after 5+ min).
           // Just reconnect quietly. The user stays on the Talk screen.
@@ -629,15 +641,17 @@ export default function TalkScreen() {
             if (token) {
               await wsClient.connect();
               console.log('[Talk] Silent reconnect successful');
+              // Safety: if auth_ok doesn't fire within 10s, reset the flag
+              setTimeout(() => { isReconnecting.current = false; }, 10000);
             } else {
               router.replace('/loading');
             }
           } catch (e) {
             console.log('[Talk] Silent reconnect failed, going to loading:', e);
             router.replace('/loading');
-          } finally {
-            isReconnecting.current = false;
           }
+          // NOTE: Do NOT reset isReconnecting here — auth_ok fires AFTER connect() resolves.
+          // isReconnecting is reset inside the auth_ok handler after it uses the flag.
         }
       }
     });
@@ -733,6 +747,16 @@ export default function TalkScreen() {
           // Playing both causes conflicting audio (P1 fix).
           if (hasPendingMandate) {
             console.log('[Talk] Pending mandate — suppressing local greeting');
+            return;
+          }
+
+          // Skip greeting on silent reconnect (background → foreground) —
+          // user was already using the app, "Good morning" is disruptive
+          if (isReconnecting.current) {
+            isReconnecting.current = false;  // Reset flag — auth_ok has fired
+            console.log('[Talk] Silent reconnect — suppressing greeting, going to IDLE');
+            setConnectionStatus('authenticated');
+            transition('IDLE');
             return;
           }
 
@@ -1486,7 +1510,7 @@ export default function TalkScreen() {
               data-testid="approve-btn"
             >
               <Text style={styles.smallBtnIcon}>{audioState === 'HOLDING' ? '\u25B6' : fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? '\u2713' : '\u2714'}</Text>
-              <Text style={styles.smallBtnText}>{audioState === 'HOLDING' ? 'Continue' : fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? 'Done' : 'Yes'}</Text>
+              <Text style={styles.smallBtnText}>{audioState === 'HOLDING' ? 'Continue' : fragmentCount > 0 && (audioState === 'CAPTURING' || audioState === 'ACCUMULATING') ? 'Done' : 'Approve'}</Text>
             </TouchableOpacity>
           </View>
         </View>
