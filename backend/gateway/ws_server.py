@@ -484,7 +484,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             original_transcript = mandate_data.get("original_transcript", "")
             _clarification_state[session_id] = {
                 "pending": True,
-                "type": "permission",
+                "type": "deterministic_intent",
                 "original_transcript": original_transcript or summary,
                 "question_asked": summary,
                 "draft_id": draft_id,
@@ -1427,8 +1427,8 @@ async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, u
     clarify_type = clarify.get("type", "")
 
     if command == "APPROVE":
-        if has_pending and clarify_type == "permission":
-            # Execute the approved mandate
+        if has_pending and clarify_type == "execution_approval":
+            # SECOND approval (tap-only) — execute the mandate
             stored_draft_id = clarify.get("draft_id", "") or draft_id
             if stored_draft_id:
                 auth_ctx = _session_auth.get(session_id, {})
@@ -1445,6 +1445,51 @@ async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, u
                     text="I don't have a pending action to approve.", session_id=session_id,
                     format="text", is_mock=True,
                 ))
+        elif has_pending and clarify_type in ("deterministic_intent", "permission"):
+            # FIRST approval — transition to execution approval (second stage)
+            stored_draft_id = clarify.get("draft_id", "") or draft_id
+            session_ctx = _session_contexts.get(session_id)
+            name = session_ctx.user_name.split()[0] if session_ctx and session_ctx.user_name else ""
+            exec_text = f"Hi {name}, All Set. Ready for OpenClaw action. Please Approve." if name else "All Set. Ready for OpenClaw action. Please Approve."
+            logger.info("[APPROVE:STAGE2] session=%s → sending execution approval TTS", session_id)
+
+            tts = get_tts_provider()
+            tts_result = await tts.synthesize(exec_text)
+
+            _clarification_state[session_id] = {
+                "pending": True,
+                "type": "execution_approval",
+                "draft_id": stored_draft_id,
+                "_cycle_id": clarify.get("_cycle_id", ""),
+                "original_transcript": clarify.get("original_transcript", ""),
+                "context_capsule": clarify.get("context_capsule"),
+            }
+
+            if tts_result.audio_bytes and not tts_result.is_mock:
+                audio_b64 = base64.b64encode(tts_result.audio_bytes).decode("ascii")
+                await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, {
+                    "text": exec_text, "session_id": session_id,
+                    "format": "mp3", "is_mock": False,
+                    "audio": audio_b64,
+                    "audio_size_bytes": len(tts_result.audio_bytes),
+                    "auto_record": False,
+                    "is_clarification": True,
+                    "ui_mode": "approval",
+                    "awaiting_command": "approve_or_change",
+                    "draft_id": stored_draft_id,
+                    "requires_approval": True,
+                }))
+            else:
+                await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, {
+                    "text": exec_text, "session_id": session_id,
+                    "format": "text", "is_mock": True,
+                    "auto_record": False,
+                    "is_clarification": True,
+                    "ui_mode": "approval",
+                    "awaiting_command": "approve_or_change",
+                    "draft_id": stored_draft_id,
+                    "requires_approval": True,
+                }))
         elif has_pending:
             # Treat as affirmative answer to clarification
             await _handle_text_input(ws, session_id, {"text": "Yes"}, user_id=user_id)
@@ -1660,8 +1705,8 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
         logger.info("[CLARIFICATION] session=%s type=%s response='%s' to='%s'",
                     session_id, clarify_type, text[:50], clarify.get("question_asked","")[:40])
 
-        # ── Permission gate response ──────────────────────────────────────────
-        if clarify_type == "permission":
+        # ── Permission / deterministic_intent gate response ─────────────────────
+        if clarify_type in ("permission", "deterministic_intent"):
             affirmatives = {"yes","sure","ok","okay","proceed","go","do it",
                             "correct","absolutely","yep","yup","go ahead",
                             "please","please do","right","alright"}
@@ -1669,31 +1714,51 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
             is_affirmative = any(a in norm for a in affirmatives) or norm in affirmatives
 
             if is_affirmative:
-                logger.info("[CLARIFICATION:PERMISSION] session=%s GRANTED → executing draft",
+                logger.info("[CLARIFICATION:DET_INTENT] session=%s GRANTED → transitioning to execution approval",
                             session_id)
-                _clarification_state.pop(session_id, None)
 
-                # Execute the draft directly — do NOT re-run the pipeline.
-                # Re-running _send_mock_tts_response would re-process the original
-                # transcript, rebuild the mandate, and ask for approval again → infinite loop.
-                draft_id = clarify.get("draft_id")
-                auth_ctx = _session_auth.get(session_id, {})
-                if draft_id:
-                    await _handle_execute_request(
-                        ws, session_id,
-                        {"session_id": session_id, "draft_id": draft_id},
-                        subscription_status=auth_ctx.get("subscription_status", "ACTIVE"),
-                        user_id=auth_ctx.get("user_id", user_id),
-                        tenant_id=auth_ctx.get("tenant_id", ""),
-                        auth_token=auth_ctx.get("auth_token", ""),
-                    )
+                # Transition to execution approval (second stage — tap only)
+                draft_id = clarify.get("draft_id", "")
+                session_ctx_name = _session_contexts.get(session_id)
+                name = session_ctx_name.user_name.split()[0] if session_ctx_name and session_ctx_name.user_name else ""
+                exec_text = f"Hi {name}, All Set. Ready for OpenClaw action. Please Approve." if name else "All Set. Ready for OpenClaw action. Please Approve."
+
+                tts_exec = get_tts_provider()
+                tts_exec_r = await tts_exec.synthesize(exec_text)
+
+                _clarification_state[session_id] = {
+                    "pending": True,
+                    "type": "execution_approval",
+                    "draft_id": draft_id,
+                    "_cycle_id": clarify.get("_cycle_id", ""),
+                    "original_transcript": clarify.get("original_transcript", ""),
+                    "context_capsule": clarify.get("context_capsule"),
+                }
+
+                if tts_exec_r.audio_bytes and not tts_exec_r.is_mock:
+                    await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, {
+                        "text": exec_text, "session_id": session_id,
+                        "format": "mp3", "is_mock": False,
+                        "audio": base64.b64encode(tts_exec_r.audio_bytes).decode("ascii"),
+                        "audio_size_bytes": len(tts_exec_r.audio_bytes),
+                        "auto_record": False,
+                        "is_clarification": True,
+                        "ui_mode": "approval",
+                        "awaiting_command": "approve_or_change",
+                        "draft_id": draft_id,
+                        "requires_approval": True,
+                    }))
                 else:
-                    # Fallback: no draft_id stored — re-run pipeline (old path)
-                    logger.warning("[CLARIFICATION:PERMISSION] session=%s no draft_id stored — fallback re-run",
-                                   session_id)
-                    _clarification_state[session_id] = {"permission_granted": True, "dim_attempts": 0}
-                    await _send_mock_tts_response(ws, session_id, clarify["original_transcript"],
-                                                  user_id=user_id, context_capsule=clarify.get("context_capsule"))
+                    await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, {
+                        "text": exec_text, "session_id": session_id,
+                        "format": "text", "is_mock": True,
+                        "auto_record": False,
+                        "is_clarification": True,
+                        "ui_mode": "approval",
+                        "awaiting_command": "approve_or_change",
+                        "draft_id": draft_id,
+                        "requires_approval": True,
+                    }))
             else:
                 _ctx_neg = _session_contexts.get(session_id)
                 _fn = (_ctx_neg.user_name.split()[0] if _ctx_neg and _ctx_neg.user_name else "")
@@ -1721,7 +1786,55 @@ async def _handle_text_input(ws: WebSocket, session_id: str, payload: dict, user
                         text=neg_prompt, session_id=session_id, format="text", is_mock=True,
                         is_clarification=True, auto_record=True,
                     ))
-                logger.info("[CLARIFICATION:PERMISSION] session=%s DECLINED", session_id)
+                logger.info("[CLARIFICATION:DET_INTENT] session=%s DECLINED", session_id)
+            return
+
+        # ── Execution approval voice response ─────────────────────────────────
+        if clarify_type == "execution_approval":
+            affirmatives = {"yes","sure","ok","okay","proceed","go","do it",
+                            "correct","absolutely","yep","yup","go ahead",
+                            "please","please do","right","alright","approve"}
+            norm = text.lower().strip().rstrip(".,!")
+            is_affirmative = any(a in norm for a in affirmatives) or norm in affirmatives
+
+            if is_affirmative:
+                logger.info("[CLARIFICATION:EXEC_APPROVAL] session=%s GRANTED → executing",
+                            session_id)
+                _clarification_state.pop(session_id, None)
+                draft_id = clarify.get("draft_id", "")
+                auth_ctx = _session_auth.get(session_id, {})
+                if draft_id:
+                    await _handle_execute_request(
+                        ws, session_id,
+                        {"session_id": session_id, "draft_id": draft_id},
+                        subscription_status=auth_ctx.get("subscription_status", "ACTIVE"),
+                        user_id=auth_ctx.get("user_id", user_id),
+                        tenant_id=auth_ctx.get("tenant_id", ""),
+                        auth_token=auth_ctx.get("auth_token", ""),
+                    )
+                else:
+                    await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                        text="I don't have a pending action to approve.", session_id=session_id,
+                        format="text", is_mock=True,
+                    ))
+            else:
+                # Decline at execution stage — go back to change
+                _ctx_neg2 = _session_contexts.get(session_id)
+                _fn2 = (_ctx_neg2.user_name.split()[0] if _ctx_neg2 and _ctx_neg2.user_name else "")
+                neg_prompt2 = f"Sure{' ' + _fn2 if _fn2 else ''}. What would you like to change?"
+                _clarification_state[session_id] = {
+                    "pending": True, "type": "change",
+                    "original_transcript": clarify.get("original_transcript", ""),
+                    "draft_id": clarify.get("draft_id", ""),
+                    "question_asked": neg_prompt2,
+                    "context_capsule": clarify.get("context_capsule"),
+                    "_cycle_id": clarify.get("_cycle_id", ""),
+                }
+                await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                    text=neg_prompt2, session_id=session_id, format="text", is_mock=True,
+                    is_clarification=True, auto_record=True,
+                ))
+                logger.info("[CLARIFICATION:EXEC_APPROVAL] session=%s DECLINED", session_id)
             return
 
         # ── Gap question answer — analyze, fill checklist, resume capture ────
@@ -2196,7 +2309,8 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
             # Log the missing dimensions for debugging but proceed with defaults.
             logger.info("[MANDATE:2:DIMS] session=%s %d missing dimensions — proceeding with defaults (no questions during mandate)",
                         session_id, missing_count)
-            # Build TTS response: friendly, concise mandate summary with user name
+            # Build TTS response: friendly mandate summary (first approval stage)
+            # "Ready for OpenClaw" text is sent in the SECOND approval stage
             name_prefix = f"{_user_first_name}, " if _user_first_name else ""
             sub_intents = top.sub_intents if top.sub_intents else []
             if sub_intents and len(sub_intents) > 0:
@@ -2204,10 +2318,10 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
                 response_text = (
                     f"Hi {name_prefix.rstrip(', ')}, {summary}. "
                     f"This covers: {sub_list}. "
-                    f"All set. Ready for OpenClaw action. Please Approve."
+                    f"Shall I proceed?"
                 )
             else:
-                response_text = f"Hi {name_prefix.rstrip(', ')}, {summary}. All set. Ready for OpenClaw action. Please Approve."
+                response_text = f"Hi {name_prefix.rstrip(', ')}, {summary}. Shall I proceed?"
         else:
             name_prefix = f"{_user_first_name}, " if _user_first_name else ""
             sub_intents = top.sub_intents if top.sub_intents else []
@@ -2216,10 +2330,10 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
                 response_text = (
                     f"Hi {name_prefix.rstrip(', ')}, {summary}. "
                     f"This covers: {sub_list}. "
-                    f"All set. Ready for OpenClaw action. Please Approve."
+                    f"Shall I proceed?"
                 )
             else:
-                response_text = f"Hi {name_prefix.rstrip(', ')}, {summary}. All set. Ready for OpenClaw action. Please Approve."
+                response_text = f"Hi {name_prefix.rstrip(', ')}, {summary}. Shall I proceed?"
     else:
         top_h = l1_draft.hypotheses[0].hypothesis if l1_draft.hypotheses else transcript[:50]
         response_text = f"Understood: {top_h}. Tap Approve."
@@ -2280,14 +2394,14 @@ async def _send_mock_tts_response(ws: WebSocket, session_id: str, transcript: st
     if needs_approval:
         _clarification_state[session_id] = {
             "pending":             True,
-            "type":                "permission",
+            "type":                "deterministic_intent",
             "original_transcript": transcript,
             "question_asked":      response_text,
             "context_capsule":     context_capsule,
             "draft_id":            l1_draft.draft_id,
             "_cycle_id":           cycle_id,
         }
-        logger.info("[MANDATE:5:APPROVAL_GATE] session=%s draft_id=%s — awaiting Yes/No",
+        logger.info("[MANDATE:5:APPROVAL_GATE] session=%s draft_id=%s — awaiting first approval (deterministic_intent)",
                     session_id, l1_draft.draft_id)
     else:
         # Delegated mode: auto-execute immediately

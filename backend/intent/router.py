@@ -33,7 +33,11 @@ _COMMANDS = {
     "mind lens hold": "HOLD", "mind lens wait": "HOLD", "mind lens pause": "HOLD",
     "mindlens hold": "HOLD", "mindlens wait": "HOLD", "mindlens pause": "HOLD",
     "mynd lens hold": "HOLD", "mynd lens wait": "HOLD", "mynd lens pause": "HOLD",
-    # RESUME is button-only (no voice trigger) — removed from commands
+    # RESUME: also requires "myndlens" prefix to avoid false positives
+    "myndlens resume": "RESUME", "myndlens continue": "RESUME",
+    "mind lens resume": "RESUME", "mind lens continue": "RESUME",
+    "mindlens resume": "RESUME", "mindlens continue": "RESUME",
+    "mynd lens resume": "RESUME", "mynd lens continue": "RESUME",
     "cancel": "CANCEL", "stop": "CANCEL", "forget it": "CANCEL", "never mind": "CANCEL",
     "kill": "KILL", "abort": "KILL",
     "done": "END_THOUGHT", "i am done": "END_THOUGHT", "i'm done": "END_THOUGHT",

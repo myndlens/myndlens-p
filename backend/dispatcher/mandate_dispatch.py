@@ -194,7 +194,33 @@ async def _poll_execution(
         elif status in ("COMPLETED", "FAILED"):
             # Webhook should handle stage 9 done, but update here as backup
             final_status = "done" if status == "COMPLETED" else "failed"
-            await broadcast_stage(session_id, 9, final_status, data.get("summary", ""), 100, execution_id)
+            summary = data.get("oc_reply", data.get("summary", ""))[:300]
+            await broadcast_stage(session_id, 9, final_status, summary, 100, execution_id)
+            # Also broadcast structured result data if available
+            structured = data.get("structured_result")
+            result_type = data.get("result_type", "generic")
+            if structured and status == "COMPLETED":
+                from gateway.ws_server import active_connections, _make_envelope, execution_sessions
+                from schemas.ws_messages import WSMessageType as _WST
+                ws = active_connections.get(session_id)
+                if ws:
+                    try:
+                        payload = {
+                            "stage_id": "delivered",
+                            "stage_index": 9,
+                            "total_stages": 10,
+                            "status": "done",
+                            "summary": summary,
+                            "sub_status": summary[:120],
+                            "result_type": result_type,
+                            "structured_result": structured,
+                            "delivered_to": ["in_app"],
+                            "progress": 100,
+                            "execution_id": execution_id,
+                        }
+                        await ws.send_text(_make_envelope(_WST.PIPELINE_STAGE, payload))
+                    except Exception:
+                        pass
             logger.info("Execution %s: exec=%s", status, execution_id)
             return
 

@@ -4,7 +4,7 @@ import requests
 import json
 from datetime import datetime, timezone, timedelta
 
-BASE_URL = "https://sovereign-exec-qa.preview.emergentagent.com/api"
+BASE_URL = "https://myndlens-uat-bugs.preview.emergentagent.com/api"
 
 def detailed_test():
     print("🔍 DETAILED MIO VERIFICATION PIPELINE TESTING")

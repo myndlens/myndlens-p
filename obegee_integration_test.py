@@ -26,7 +26,7 @@ import sys
 import os
 
 # Backend URL from environment - use the same as frontend
-BACKEND_URL = os.getenv('EXPO_PUBLIC_BACKEND_URL', 'https://sovereign-exec-qa.preview.emergentagent.com')
+BACKEND_URL = os.getenv('EXPO_PUBLIC_BACKEND_URL', 'https://myndlens-uat-bugs.preview.emergentagent.com')
 API_BASE = f"{BACKEND_URL}/api"
 
 class TestResults:
