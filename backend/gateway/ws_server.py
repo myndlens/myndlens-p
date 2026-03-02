@@ -73,6 +73,8 @@ _session_contexts: Dict[str, SessionContext] = {}
 _clarification_state: Dict[str, dict] = {}
 # Per-session question counter — hard cap at 3 questions per mandate
 _session_question_count: Dict[str, int] = {}
+# Per-session dispatch-ready payloads (built by _handle_execute_request, consumed by Stage 2 APPROVE)
+_execution_payloads: Dict[str, dict] = {}
 
 # Max concurrent sessions — prevent unbounded memory growth
 MAX_CONCURRENT_SESSIONS = 500
@@ -609,6 +611,7 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             # Clean up pending mandates for this session (DB-backed — H1)
             await cleanup_session_mandates(session_id)
             _clarification_state.pop(session_id, None)
+            _execution_payloads.pop(session_id, None)
             _session_question_count.pop(session_id, None)
             _fragment_locks.pop(session_id, None)
             # NOTE: Do NOT call cleanup_conversation(session_id) here.
@@ -973,59 +976,50 @@ async def _handle_execute_request(
             "approved_by": user_id,
             "delivery_channels": delivery_channels,
         }
-        logger.info("[EXECUTE:DISPATCH] session=%s draft=%s tenant=%s cycle=%s",
-                    session_id, req.draft_id, tenant_id, mandate_cycle_id)
-        result = await dispatch_mandate(session_id, mandate, api_token=auth_token)
-        logger.info("[EXECUTE:DISPATCH_OK] session=%s result=%s", session_id, result)
-
-        # Record skill usage for reinforcement learning — updated on webhook callback
-        # (actual outcome recorded in delivery webhook when ObeGee confirms result)
-        logger.info("[SkillRL] Skills dispatched: session=%s skills=%s", session_id, skill_names)
-
-        # Send execute_ok with topology summary
-        await _send(ws, WSMessageType.EXECUTE_OK, ExecuteOkPayload(
-            draft_id=req.draft_id,
-            dispatch_status=result.get("status", "QUEUED"),
-        ))
-
-        # Clean up mandate only AFTER successful dispatch (H1 — durable lifecycle)
-        if full_mandate:
-            await transition_state(req.draft_id, MandateState.DISPATCHED)
-        await delete_mandate(req.draft_id)
-
-        # Acknowledge execution with TTS — male voice confirms dispatch
-        ack_text = "OpenClaw executing User Mandate Now"
-        _tts_ack_provider = get_tts_provider()
-        tts_ack = await _tts_ack_provider.synthesize(ack_text)
-        if tts_ack.audio_bytes and not tts_ack.is_mock:
-            await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                text=ack_text,
-                session_id=session_id,
-                format="mp3",
-                is_mock=False,
-                audio=base64.b64encode(tts_ack.audio_bytes).decode("ascii"),
-                audio_size_bytes=len(tts_ack.audio_bytes),
-            ))
+        # ── STAGE 2 GATE: Execution Approval (after artefact creation, before dispatch) ─
+        # Store the dispatch-ready payload for Stage 2 APPROVE to pick up
+        _execution_payloads[session_id] = {
+            "mandate": mandate,
+            "draft_id": req.draft_id,
+            "auth_token": auth_token,
+            "skill_names": skill_names,
+            "full_mandate": full_mandate,
+            "intent": top.intent,
+            "l2_intent": l2.intent if l2 else top.intent,
+        }
+        _clarification_state[session_id] = {
+            "pending": True,
+            "type": "execution_approval",
+            "draft_id": req.draft_id,
+            "original_transcript": draft.transcript,
+            "_cycle_id": mandate_cycle_id,
+        }
+        session_ctx = _session_contexts.get(session_id)
+        _fn_stage2 = session_ctx.user_name.split()[0] if session_ctx and session_ctx.user_name else ""
+        stage2_text = f"{'All set ' + _fn_stage2 + '. ' if _fn_stage2 else 'All set. '}Agent created. Ready for OpenClaw action. Please Approve."
+        logger.info("[EXECUTE:STAGE2_GATE] session=%s draft=%s — artefact ready, awaiting Stage 2 approval",
+                    session_id, req.draft_id)
+        _tts_s2 = get_tts_provider()
+        tts_s2 = await _tts_s2.synthesize(stage2_text)
+        if tts_s2.audio_bytes and not tts_s2.is_mock:
+            audio_b64_s2 = base64.b64encode(tts_s2.audio_bytes).decode("ascii")
+            await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, {
+                "text": stage2_text, "session_id": session_id,
+                "format": "mp3", "is_mock": False,
+                "audio": audio_b64_s2,
+                "audio_size_bytes": len(tts_s2.audio_bytes),
+                "auto_record": False, "is_clarification": True,
+                "ui_mode": "approval", "awaiting_command": "approve_or_change",
+                "draft_id": req.draft_id,
+            }))
         else:
             await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                text=ack_text, session_id=session_id, format="text", is_mock=True,
+                text=stage2_text, session_id=session_id, format="text", is_mock=True,
+                auto_record=False, is_clarification=True,
+                ui_mode="approval", awaiting_command="approve_or_change",
+                draft_id=req.draft_id,
             ))
-
-        await log_audit_event(
-            AuditEventType.EXECUTE_REQUESTED,
-            session_id=session_id,
-            details={
-                "draft_id": req.draft_id,
-                "cycle_id": mandate_cycle_id,
-                "execution_id": result.get("execution_id"),
-                "intent": top.intent,
-                "skills": skill_names,
-            },
-        )
-        logger.info(
-            "Execute pipeline complete: session=%s draft=%s intent=%s exec=%s",
-            session_id, req.draft_id, l2.intent, result.get("execution_id"),
-        )
+        return  # Pause here — Stage 2 APPROVE will resume dispatch
 
     except DispatchBlockedError as e:
         logger.error("Execute blocked: session=%s reason=%s", session_id, str(e))
@@ -1460,75 +1454,91 @@ async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, u
 
     if command == "APPROVE":
         if has_pending and clarify_type == "mandate_resume":
-            # User tapped "Resume" — transition to execution_approval (tap only Phase 3)
-            logger.info("[COMMAND:APPROVE:MANDATE_RESUME] session=%s — user tapped Resume", session_id)
+            # User tapped "Resume" — run pipeline build and pause at Stage 2
+            logger.info("[COMMAND:APPROVE:MANDATE_RESUME] session=%s — user tapped Resume, rebuilding artefact", session_id)
             resume_draft_id = clarify.get("draft_id", "") or draft_id
-            _clarification_state[session_id] = {
-                "pending": True,
-                "type": "execution_approval",
-                "original_transcript": clarify.get("original_transcript", ""),
-                "question_asked": clarify.get("question_asked", ""),
-                "draft_id": resume_draft_id,
-                "_cycle_id": clarify.get("_cycle_id", ""),
-            }
-            exec_text = "All Set. Ready for OpenClaw action. Please Approve."
-            await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                text=exec_text, session_id=session_id, format="text", is_mock=True,
-                auto_record=False, is_clarification=True,
-                ui_mode="approval", awaiting_command="approve_or_change",
-                draft_id=resume_draft_id,
-            ))
+            _clarification_state.pop(session_id, None)  # clear mandate_resume state
+            auth_ctx = _session_auth.get(session_id, {})
+            await _handle_execute_request(ws, session_id,
+                {"session_id": session_id, "draft_id": resume_draft_id},
+                subscription_status=auth_ctx.get("subscription_status", "ACTIVE"),
+                user_id=user_id,
+                tenant_id=auth_ctx.get("tenant_id", ""),
+                auth_token=auth_ctx.get("auth_token", ""),
+            )
         elif has_pending and clarify_type == "intent_confirmation":
-            # Stage 1 approved — transition to Stage 2: execution_approval
-            logger.info("[COMMAND:APPROVE:INTENT_CONFIRMED] session=%s — Stage 1 approved, transitioning to Stage 2", session_id)
+            # Stage 1 approved — run L2/QC/Skills pipeline, then pause for Stage 2
+            logger.info("[COMMAND:APPROVE:INTENT_CONFIRMED] session=%s — Stage 1 approved, building execution artefact", session_id)
             confirmed_draft_id = clarify.get("draft_id", "") or draft_id
-            _clarification_state[session_id] = {
-                "pending": True,
-                "type": "execution_approval",
-                "original_transcript": clarify.get("original_transcript", ""),
-                "question_asked": clarify.get("question_asked", ""),
-                "draft_id": confirmed_draft_id,
-                "_cycle_id": clarify.get("_cycle_id", ""),
-            }
-            session_ctx = _session_contexts.get(session_id)
-            name = session_ctx.user_name.split()[0] if session_ctx and session_ctx.user_name else ""
-            exec_text = f"{'All set ' + name + '. ' if name else 'All set. '}Ready for OpenClaw action. Please Approve."
-            tts = get_tts_provider()
-            tts_result = await tts.synthesize(exec_text)
-            if tts_result.audio_bytes and not tts_result.is_mock:
-                audio_b64 = base64.b64encode(tts_result.audio_bytes).decode("ascii")
-                await ws.send_text(_make_envelope(WSMessageType.TTS_AUDIO, {
-                    "text": exec_text, "session_id": session_id,
-                    "format": "mp3", "is_mock": False,
-                    "audio": audio_b64,
-                    "audio_size_bytes": len(tts_result.audio_bytes),
-                    "auto_record": False, "is_clarification": True,
-                    "ui_mode": "approval", "awaiting_command": "approve_or_change",
-                    "draft_id": confirmed_draft_id,
-                }))
-            else:
-                await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                    text=exec_text, session_id=session_id, format="text", is_mock=True,
-                    auto_record=False, is_clarification=True,
-                    ui_mode="approval", awaiting_command="approve_or_change",
-                    draft_id=confirmed_draft_id,
-                ))
+            _clarification_state.pop(session_id, None)  # clear Stage 1 state
+            auth_ctx = _session_auth.get(session_id, {})
+            # _handle_execute_request will pause at Stage 2 before dispatch
+            await _handle_execute_request(ws, session_id,
+                {"session_id": session_id, "draft_id": confirmed_draft_id},
+                subscription_status=auth_ctx.get("subscription_status", "ACTIVE"),
+                user_id=user_id,
+                tenant_id=auth_ctx.get("tenant_id", ""),
+                auth_token=auth_ctx.get("auth_token", ""),
+            )
         elif has_pending and clarify_type == "execution_approval":
-            # Phase 3: Execution approval (tap only) — execute the mandate
-            stored_draft_id = clarify.get("draft_id", "") or draft_id
-            if stored_draft_id:
-                auth_ctx = _session_auth.get(session_id, {})
-                await _handle_execute_request(ws, session_id,
-                    {"session_id": session_id, "draft_id": stored_draft_id},
-                    subscription_status=auth_ctx.get("subscription_status", "ACTIVE"),
-                    user_id=user_id,
-                    tenant_id=auth_ctx.get("tenant_id", ""),
-                    auth_token=auth_ctx.get("auth_token", ""),
-                )
+            # Stage 2: User approved dispatch — send stored payload to OpenClaw
+            logger.info("[COMMAND:APPROVE:EXEC_APPROVAL] session=%s — Stage 2 approved, dispatching", session_id)
+            stored = _execution_payloads.pop(session_id, None)
+            if stored:
+                stored_draft_id = stored["draft_id"]
+                stored_mandate = stored["mandate"]
+                stored_auth_token = stored["auth_token"]
+                stored_skill_names = stored.get("skill_names", [])
+                stored_full_mandate = stored.get("full_mandate")
+                stored_intent = stored.get("intent", "")
+                stored_l2_intent = stored.get("l2_intent", "")
                 _clarification_state.pop(session_id, None)
+                try:
+                    from dispatcher.mandate_dispatch import dispatch_mandate
+                    mandate_cycle_id = stored_mandate.get("cycle_id", "")
+                    logger.info("[EXECUTE:DISPATCH] session=%s draft=%s tenant=%s",
+                                session_id, stored_draft_id, stored_mandate.get("tenant_id", ""))
+                    result = await dispatch_mandate(session_id, stored_mandate, api_token=stored_auth_token)
+                    logger.info("[EXECUTE:DISPATCH_OK] session=%s result=%s", session_id, result)
+
+                    await _send(ws, WSMessageType.EXECUTE_OK, ExecuteOkPayload(
+                        draft_id=stored_draft_id,
+                        dispatch_status=result.get("status", "QUEUED"),
+                    ))
+                    if stored_full_mandate:
+                        await transition_state(stored_draft_id, MandateState.DISPATCHED)
+                    await delete_mandate(stored_draft_id)
+
+                    ack_text = "OpenClaw executing User Mandate Now"
+                    _tts_ack_provider = get_tts_provider()
+                    tts_ack = await _tts_ack_provider.synthesize(ack_text)
+                    if tts_ack.audio_bytes and not tts_ack.is_mock:
+                        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                            text=ack_text, session_id=session_id, format="mp3", is_mock=False,
+                            audio=base64.b64encode(tts_ack.audio_bytes).decode("ascii"),
+                            audio_size_bytes=len(tts_ack.audio_bytes),
+                        ))
+                    else:
+                        await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                            text=ack_text, session_id=session_id, format="text", is_mock=True,
+                        ))
+                    await log_audit_event(
+                        AuditEventType.EXECUTE_REQUESTED, session_id=session_id,
+                        details={"draft_id": stored_draft_id, "cycle_id": mandate_cycle_id,
+                                 "execution_id": result.get("execution_id"),
+                                 "intent": stored_intent, "skills": stored_skill_names},
+                    )
+                    logger.info("Execute pipeline complete: session=%s draft=%s intent=%s exec=%s",
+                                session_id, stored_draft_id, stored_l2_intent, result.get("execution_id"))
+                except Exception as e:
+                    logger.error("[EXECUTE:DISPATCH_FAIL] session=%s error=%s", session_id, str(e))
+                    await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                        text=f"Dispatch failed: {str(e)[:100]}", session_id=session_id,
+                        format="text", is_mock=True,
+                    ))
             else:
                 await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                    text="I don't have a pending action to approve.", session_id=session_id,
+                    text="I don't have a pending execution to dispatch.", session_id=session_id,
                     format="text", is_mock=True,
                 ))
         elif has_pending:
