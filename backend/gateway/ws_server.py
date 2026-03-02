@@ -1157,10 +1157,10 @@ async def _process_fragment(ws: WebSocket, session_id: str, user_id: str = "") -
             )
             transcript_assembler.cleanup(session_id)
             # Signal frontend to stop recording and show processing state
-            await _send(ws, WSMessageType.PIPELINE_STAGE, {
+            await ws.send_text(_make_envelope(WSMessageType.PIPELINE_STAGE, {
                 "session_id": session_id, "stage_index": 2,
                 "status": "active", "sub_status": "Processing your response...",
-            })
+            }))
             await _handle_text_input(ws, session_id, {"text": fragment_text}, user_id=user_id)
             return
 
@@ -1485,6 +1485,20 @@ async def _handle_command_input(ws: WebSocket, session_id: str, payload: dict, u
             ))
 
     elif command == "END_THOUGHT":
+        # If execution_approval is pending, Done button should not trigger pipeline
+        clarify_et = _clarification_state.get(session_id, {})
+        if clarify_et.get("pending") and clarify_et.get("type") == "execution_approval":
+            logger.info("[COMMAND:END_THOUGHT] session=%s — execution_approval pending, tap Approve instead", session_id)
+            _ctx_et = _session_contexts.get(session_id)
+            _fn_et = (_ctx_et.user_name.split()[0] if _ctx_et and _ctx_et.user_name else "")
+            tap_msg = f"{_fn_et + ', p' if _fn_et else 'P'}lease tap the Approve button to proceed."
+            await _send(ws, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                text=tap_msg, session_id=session_id, format="text", is_mock=True,
+                auto_record=False, is_clarification=True, ui_mode="approval",
+                awaiting_command="approve_or_change",
+                draft_id=clarify_et.get("draft_id", ""),
+            ))
+            return
         logger.info("[COMMAND:END_THOUGHT] session=%s phase=%s fragments=%d",
                      session_id, conv.phase, len(conv.fragments))
         if conv.phase in ("ACTIVE_CAPTURE", "LISTENING", "ACCUMULATING"):
