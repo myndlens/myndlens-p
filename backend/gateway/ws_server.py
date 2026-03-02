@@ -491,22 +491,30 @@ async def handle_ws_connection(websocket: WebSocket) -> None:
             }
 
             # Ask user: resume or start fresh?
+            # Guard against WS dying during background→foreground race condition
             resume_text = f"Welcome back. You had a pending action: {summary}. Tap Approve to continue, or say start fresh to cancel." if summary else "Welcome back. You have a pending action. Tap Approve to continue, or say start fresh to cancel."
-            await _send(websocket, WSMessageType.TTS_AUDIO, TTSAudioPayload(
-                text=resume_text,
-                session_id=session_id,
-                format="text",
-                is_mock=True,
-                auto_record=True,
-                is_clarification=True,
-                ui_mode="approval",
-                awaiting_command="approve_or_change",
-                draft_id=draft_id,
-            ))
-            logger.info(
-                "[MANDATE_RESUME] session=%s draft=%s state=%s — asking resume or start fresh",
-                session_id, draft_id, pending["state"],
-            )
+            try:
+                await _send(websocket, WSMessageType.TTS_AUDIO, TTSAudioPayload(
+                    text=resume_text,
+                    session_id=session_id,
+                    format="text",
+                    is_mock=True,
+                    auto_record=True,
+                    is_clarification=True,
+                    ui_mode="approval",
+                    awaiting_command="approve_or_change",
+                    draft_id=draft_id,
+                ))
+                logger.info(
+                    "[MANDATE_RESUME] session=%s draft=%s state=%s — asking resume or start fresh",
+                    session_id, draft_id, pending["state"],
+                )
+            except Exception:
+                # WS closed during auth (background→foreground race).
+                # Mandate is safely persisted in DB — next reconnect will pick it up.
+                logger.warning("[MANDATE_RESUME] session=%s — WS closed before resume TTS sent, mandate persisted for next reconnect",
+                               session_id)
+                return
 
         # ---- Phase 2: Message Loop ----
         while True:
